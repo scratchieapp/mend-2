@@ -14,6 +14,7 @@ const Login = () => {
   // Function to fetch user profile
   const fetchUserProfile = async (userId: string) => {
     try {
+      console.log("Fetching profile for user:", userId);
       const { data: profile, error: profileError } = await supabase
         .from('users')
         .select('*')
@@ -30,6 +31,7 @@ const Login = () => {
         return null;
       }
 
+      console.log("Fetched profile:", profile);
       return profile;
     } catch (err) {
       console.error('Error:', err);
@@ -49,6 +51,7 @@ const Login = () => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth state changed:", event, session);
       if (event === "SIGNED_IN" && session) {
         // Fetch user profile after successful sign in
         const profile = await fetchUserProfile(session.user.id);
