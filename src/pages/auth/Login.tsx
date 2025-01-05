@@ -10,14 +10,15 @@ const Login = () => {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const [roleId, setRoleId] = useState<number | null>(null);
 
-  // Function to fetch user profile
+  // Function to fetch user profile and role
   const fetchUserProfile = async (userId: string) => {
     try {
       console.log("Fetching profile for user:", userId);
       const { data: profile, error: profileError } = await supabase
         .from('users')
-        .select('*')
+        .select('*, user_roles!inner(*)')
         .eq('user_id', userId)
         .single();
 
@@ -32,6 +33,9 @@ const Login = () => {
       }
 
       console.log("Fetched profile:", profile);
+      if (profile?.role_id) {
+        setRoleId(profile.role_id);
+      }
       return profile;
     } catch (err) {
       console.error('Error:', err);
@@ -43,7 +47,7 @@ const Login = () => {
     // Check current session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        navigate('/');
+        fetchUserProfile(session.user.id);
       }
     });
 
@@ -62,8 +66,6 @@ const Login = () => {
             description: `Logged in as ${profile.display_name || session.user.email}`,
           });
         }
-        
-        navigate('/');
       }
     });
 
@@ -79,6 +81,11 @@ const Login = () => {
             <CardTitle className="text-2xl text-center">Welcome back</CardTitle>
             <CardDescription className="text-center">
               Sign in to your account
+              {roleId && (
+                <div className="mt-2 text-sm font-medium text-blue-600">
+                  Your role ID: {roleId}
+                </div>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
