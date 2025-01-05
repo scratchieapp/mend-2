@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Login from "./pages/auth/Login";
+import ConfirmationPending from "./pages/auth/ConfirmationPending";
 import MendSuperAdmin from "./pages/roles/MendSuperAdmin";
 import MendAccountManager from "./pages/roles/MendAccountManager";
 import MendDataEntry from "./pages/roles/MendDataEntry";
@@ -24,6 +25,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth/login" element={<Login />} />
+          <Route path="/auth/confirmation-pending" element={<ConfirmationPending />} />
           <Route path="/roles/mend-super-admin" element={<MendSuperAdmin />} />
           <Route path="/roles/mend-account-manager" element={<MendAccountManager />} />
           <Route path="/roles/mend-data-entry" element={<MendDataEntry />} />
