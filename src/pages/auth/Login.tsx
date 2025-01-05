@@ -121,14 +121,13 @@ const Login = () => {
               }}
               providers={[]}
               redirectTo={window.location.origin}
-              onError={(error) => {
-                console.error('Auth error:', error);
-                setError(error.message);
-                toast({
-                  title: "Authentication Error",
-                  description: error.message,
-                  variant: "destructive",
-                });
+              localization={{
+                variables: {
+                  sign_in: {
+                    email_label: 'Email',
+                    password_label: 'Password',
+                  },
+                },
               }}
             />
           </CardContent>
