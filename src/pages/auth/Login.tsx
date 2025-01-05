@@ -6,13 +6,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
+const roleRoutes: { [key: number]: string } = {
+  1: '/roles/public',
+  2: '/roles/admin',
+  3: '/roles/manager',
+  4: '/roles/supervisor',
+  5: '/roles/employee',
+  6: '/roles/contractor',
+  7: '/roles/client',
+  8: '/roles/vendor',
+  9: '/roles/guest'
+};
+
 const Login = () => {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const [roleId, setRoleId] = useState<number | null>(null);
 
-  // Function to fetch user profile and role
   const fetchUserProfile = async (userId: string) => {
     try {
       console.log("Fetching profile for user:", userId);
@@ -35,6 +46,10 @@ const Login = () => {
       console.log("Fetched profile:", profile);
       if (profile?.role_id) {
         setRoleId(profile.role_id);
+        const route = roleRoutes[profile.role_id];
+        if (route) {
+          navigate(route);
+        }
       }
       return profile;
     } catch (err) {
@@ -44,20 +59,17 @@ const Login = () => {
   };
 
   useEffect(() => {
-    // Check current session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         fetchUserProfile(session.user.id);
       }
     });
 
-    // Listen for auth state changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Auth state changed:", event, session);
       if (event === "SIGNED_IN" && session) {
-        // Fetch user profile after successful sign in
         const profile = await fetchUserProfile(session.user.id);
         
         if (profile) {
@@ -69,7 +81,6 @@ const Login = () => {
       }
     });
 
-    // Cleanup subscription
     return () => subscription.unsubscribe();
   }, [navigate, toast]);
 
