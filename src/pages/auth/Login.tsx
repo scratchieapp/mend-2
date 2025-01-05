@@ -130,11 +130,9 @@ const Login = () => {
                     password_input_placeholder: 'Your password',
                     email_input_placeholder: 'Your email',
                     link_text: 'Already have an account? Sign in',
-                    forgotten_password_label: 'Forgot your password?'
                   },
                   forgotten_password: {
                     email_label: 'Email',
-                    password_label: 'Password',
                     button_label: 'Send reset instructions',
                     loading_button_label: 'Sending reset instructions...',
                     link_text: 'Forgot your password?',
