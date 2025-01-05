@@ -6,16 +6,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
-// Update roleRoutes to match the actual role IDs from the database
 const roleRoutes: { [key: number]: string } = {
-  1: '/roles/admin', // mend_super_admin
-  2: '/roles/manager', // mend_account_manager
-  3: '/roles/supervisor',
-  4: '/roles/employee',
-  5: '/roles/contractor',
-  6: '/roles/client',
-  7: '/roles/vendor',
-  8: '/roles/guest',
+  1: '/roles/mend-super-admin',
+  2: '/roles/mend-account-manager',
+  3: '/roles/mend-data-entry',
+  4: '/roles/mend-analyst',
+  5: '/roles/builder-admin',
+  6: '/roles/site-admin',
   9: '/roles/public'
 };
 
