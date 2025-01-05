@@ -76,6 +76,16 @@ const Login = () => {
             description: `Logged in as ${profile.display_name || session.user.email}`,
           });
         }
+      } else if (event === "SIGNED_OUT") {
+        toast({
+          title: "Signed out",
+          description: "You have been signed out successfully",
+        });
+      } else if (event === "USER_UPDATED") {
+        toast({
+          title: "Email confirmed",
+          description: "Your email has been confirmed successfully",
+        });
       }
     });
 
@@ -130,6 +140,16 @@ const Login = () => {
                     password_input_placeholder: 'Your password',
                     email_input_placeholder: 'Your email',
                     link_text: 'Already have an account? Sign in',
+                  },
+                  sign_up: {
+                    email_label: 'Email',
+                    password_label: 'Password',
+                    button_label: 'Sign up',
+                    loading_button_label: 'Signing up...',
+                    password_input_placeholder: 'Your password',
+                    email_input_placeholder: 'Your email',
+                    link_text: 'Don\'t have an account? Sign up',
+                    confirmation_text: 'Check your email for the confirmation link'
                   },
                   forgotten_password: {
                     email_label: 'Email',
