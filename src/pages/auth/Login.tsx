@@ -52,29 +52,44 @@ const Login = () => {
     }
   };
 
-  // Custom error handler for auth errors
-  const handleAuthError = (error: any) => {
-    console.error('Auth error:', error);
-    
-    // Handle rate limit error
-    if (error.message?.includes('429') || error.body?.includes('rate_limit')) {
-      setError("Too many attempts. Please wait a few minutes before trying again.");
-      toast({
-        title: "Rate Limit Exceeded",
-        description: "Please wait a few minutes before trying again",
-        variant: "destructive",
-      });
-      return;
-    }
+  // Set up auth state change listener for error handling
+  useState(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        fetchUserProfile(session.user.id);
+      }
+    });
 
-    // Handle other common errors
-    if (error.message?.includes('body stream already read')) {
-      // Ignore this error as it's harmless
-      return;
-    }
+    // Set up error listener
+    supabase.auth.onError((error) => {
+      console.error('Auth error:', error);
+      
+      // Handle rate limit error
+      if (error.message?.includes('429') || error.message?.includes('rate_limit')) {
+        setError("Too many attempts. Please wait a few minutes before trying again.");
+        toast({
+          title: "Rate Limit Exceeded",
+          description: "Please wait a few minutes before trying again",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    setError("An error occurred. Please try again.");
-  };
+      // Handle other common errors
+      if (error.message?.includes('body stream already read')) {
+        // Ignore this error as it's harmless
+        return;
+      }
+
+      setError("An error occurred. Please try again.");
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -107,7 +122,6 @@ const Login = () => {
             redirectTo={window.location.origin}
             magicLink={false}
             showLinks={true}
-            onError={handleAuthError}
             localization={{
               variables: {
                 sign_in: {
