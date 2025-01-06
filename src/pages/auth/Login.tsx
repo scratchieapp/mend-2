@@ -52,7 +52,7 @@ const Login = () => {
     }
   };
 
-  // Set up auth state change listener for error handling
+  // Set up auth state change listener
   useState(() => {
     const {
       data: { subscription },
@@ -60,30 +60,31 @@ const Login = () => {
       if (event === "SIGNED_IN" && session) {
         fetchUserProfile(session.user.id);
       }
-    });
 
-    // Set up error listener
-    supabase.auth.onError((error) => {
-      console.error('Auth error:', error);
-      
-      // Handle rate limit error
-      if (error.message?.includes('429') || error.message?.includes('rate_limit')) {
-        setError("Too many attempts. Please wait a few minutes before trying again.");
-        toast({
-          title: "Rate Limit Exceeded",
-          description: "Please wait a few minutes before trying again",
-          variant: "destructive",
-        });
-        return;
+      // Handle errors through the event
+      if (event === "USER_ERROR") {
+        const error = session?.error;
+        console.error('Auth error:', error);
+        
+        // Handle rate limit error
+        if (error?.message?.includes('429') || error?.message?.includes('rate_limit')) {
+          setError("Too many attempts. Please wait a few minutes before trying again.");
+          toast({
+            title: "Rate Limit Exceeded",
+            description: "Please wait a few minutes before trying again",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Handle other common errors
+        if (error?.message?.includes('body stream already read')) {
+          // Ignore this error as it's harmless
+          return;
+        }
+
+        setError("An error occurred. Please try again.");
       }
-
-      // Handle other common errors
-      if (error.message?.includes('body stream already read')) {
-        // Ignore this error as it's harmless
-        return;
-      }
-
-      setError("An error occurred. Please try again.");
     });
 
     return () => {
