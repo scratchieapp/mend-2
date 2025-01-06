@@ -28,62 +28,49 @@ export const AuthCallback = ({ onProfileFetch }: AuthCallbackProps) => {
         console.log('Access token present:', !!accessToken);
         console.log('Refresh token present:', !!refreshToken);
 
+        // If we have tokens in the URL hash, set up the session
         if (accessToken && refreshToken) {
           console.log('AuthCallback: Setting session with tokens');
           
-          // Clear URL hash
-          window.history.replaceState(null, '', window.location.pathname);
-
           try {
-            // Set the session
             const { data: { session }, error } = await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken
             });
 
-            if (error) {
-              console.error('Session error:', error);
-              throw error;
-            }
-            
-            if (!session) {
-              console.error('No session established');
-              throw new Error('No session established');
-            }
+            if (error) throw error;
+            if (!session) throw new Error('No session established');
 
             console.log('Session established successfully:', session.user.id);
             
-            // Fetch user profile
             const profile = await onProfileFetch(session.user.id);
             console.log('Profile fetched:', profile);
+            
+            // Clear URL hash
+            window.history.replaceState(null, '', window.location.pathname);
             
             toast({
               title: "Success!",
               description: "Successfully authenticated",
             });
             
-            navigate('/', { replace: true });
+            navigate('/roles/public', { replace: true });
             return;
-          } catch (sessionError) {
-            console.error('Error setting session:', sessionError);
-            throw sessionError;
+          } catch (error) {
+            console.error('Session error:', error);
+            throw error;
           }
         }
 
         // If no hash tokens, check for existing session
         console.log('Checking existing session');
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error('Session error:', sessionError);
-          throw sessionError;
-        }
+        const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
           console.log('Existing session found:', session.user.id);
           const profile = await onProfileFetch(session.user.id);
           console.log('Profile fetched:', profile);
-          navigate('/', { replace: true });
+          navigate('/roles/public', { replace: true });
         } else {
           console.log('No session found, redirecting to login');
           navigate('/auth/login', { replace: true });
@@ -105,6 +92,7 @@ export const AuthCallback = ({ onProfileFetch }: AuthCallbackProps) => {
   return (
     <div className="flex items-center justify-center min-h-screen">
       <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
         <p className="text-gray-600">Processing authentication...</p>
       </div>
     </div>
