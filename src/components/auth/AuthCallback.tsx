@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -9,18 +9,34 @@ interface AuthCallbackProps {
 
 export const AuthCallback = ({ onProfileFetch }: AuthCallbackProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        // Get the current session
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        // First check if we have a hash with tokens
+        const hashParams = new URLSearchParams(
+          window.location.hash.substring(1) // Remove the # character
+        );
         
-        if (sessionError) throw sessionError;
-        
-        if (session) {
-          // Session exists, fetch profile
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+
+        if (accessToken && refreshToken) {
+          // Clear URL hash immediately
+          window.history.replaceState(null, '', window.location.pathname);
+
+          // Set the session with the tokens
+          const { data: { session }, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
+
+          if (error) throw error;
+          if (!session) throw new Error('No session established');
+
+          // Fetch user profile
           const profile = await onProfileFetch(session.user.id);
           
           if (profile) {
@@ -30,38 +46,16 @@ export const AuthCallback = ({ onProfileFetch }: AuthCallbackProps) => {
             });
             navigate('/', { replace: true });
           }
-        } else {
-          // No session, try to get tokens from URL hash
-          const hash = window.location.hash;
-          if (!hash) {
-            navigate('/auth/login', { replace: true });
-            return;
-          }
+          return;
+        }
 
-          // Parse the hash parameters
-          const params = new URLSearchParams(hash.substring(1));
-          const accessToken = params.get('access_token');
-          const refreshToken = params.get('refresh_token');
-
-          if (!accessToken || !refreshToken) {
-            throw new Error('Missing authentication tokens');
-          }
-
-          // Clear URL hash immediately
-          window.history.replaceState(null, '', window.location.pathname);
-
-          // Set the session
-          const { data: { session: newSession }, error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken
-          });
-
-          if (error) throw error;
-          if (!newSession) throw new Error('No session established');
-
-          // Fetch user profile
-          const profile = await onProfileFetch(newSession.user.id);
-          
+        // If no hash tokens, check for existing session
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) throw sessionError;
+        
+        if (session) {
+          const profile = await onProfileFetch(session.user.id);
           if (profile) {
             toast({
               title: "Success!",
@@ -69,6 +63,8 @@ export const AuthCallback = ({ onProfileFetch }: AuthCallbackProps) => {
             });
             navigate('/', { replace: true });
           }
+        } else {
+          navigate('/auth/login', { replace: true });
         }
       } catch (error) {
         console.error('Authentication error:', error);
