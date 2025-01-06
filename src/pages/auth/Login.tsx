@@ -56,34 +56,36 @@ const Login = () => {
   useState(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session) {
         fetchUserProfile(session.user.id);
       }
 
-      // Handle rate limit and other errors through error handling
-      const { error } = session?.error ?? {};
-      if (error) {
-        console.error('Auth error:', error);
-        
-        // Handle rate limit error
-        if (error.message?.includes('429') || error.message?.includes('rate_limit')) {
-          setError("Too many attempts. Please wait a few minutes before trying again.");
-          toast({
-            title: "Rate Limit Exceeded",
-            description: "Please wait a few minutes before trying again",
-            variant: "destructive",
-          });
-          return;
-        }
+      // Handle rate limit and other errors
+      if (event === "SIGNED_OUT") {
+        const error = await supabase.auth.getError();
+        if (error) {
+          console.error('Auth error:', error);
+          
+          // Handle rate limit error
+          if (error.message?.includes('429') || error.message?.includes('rate_limit')) {
+            setError("Too many attempts. Please wait a few minutes before trying again.");
+            toast({
+              title: "Rate Limit Exceeded",
+              description: "Please wait a few minutes before trying again",
+              variant: "destructive",
+            });
+            return;
+          }
 
-        // Handle other common errors
-        if (error.message?.includes('body stream already read')) {
-          // Ignore this error as it's harmless
-          return;
-        }
+          // Handle other common errors
+          if (error.message?.includes('body stream already read')) {
+            // Ignore this error as it's harmless
+            return;
+          }
 
-        setError("An error occurred. Please try again.");
+          setError("An error occurred. Please try again.");
+        }
       }
     });
 
