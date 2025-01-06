@@ -34,8 +34,12 @@ const Login = () => {
         if (error) {
           console.error('Auth error:', error);
           
-          // Handle rate limit error
-          if (error.message?.includes('429') || error.message?.includes('rate_limit')) {
+          // Handle rate limit error specifically
+          if (error.message?.includes('429') || 
+              error.message?.includes('rate_limit') || 
+              (typeof error === 'object' && 
+               'code' in error && 
+               error.code === 'over_email_send_rate_limit')) {
             setError("Too many attempts. Please wait a few minutes before trying again.");
             toast({
               title: "Rate Limit Exceeded",
