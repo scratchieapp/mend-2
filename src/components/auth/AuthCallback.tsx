@@ -14,15 +14,17 @@ export const AuthCallback = ({ onProfileFetch }: AuthCallbackProps) => {
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        // Check for hash tokens first
-        const hashParams = new URLSearchParams(
-          window.location.hash.substring(1)
-        );
-        
+        // Check for hash tokens and log them for debugging
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
+        
+        console.log('Hash params present:', !!window.location.hash);
+        console.log('Access token present:', !!accessToken);
+        console.log('Refresh token present:', !!refreshToken);
 
         if (accessToken && refreshToken) {
+          console.log('Setting session with tokens');
           // Clear URL hash
           window.history.replaceState(null, '', window.location.pathname);
 
@@ -32,9 +34,17 @@ export const AuthCallback = ({ onProfileFetch }: AuthCallbackProps) => {
             refresh_token: refreshToken
           });
 
-          if (error) throw error;
-          if (!session) throw new Error('No session established');
+          if (error) {
+            console.error('Session error:', error);
+            throw error;
+          }
+          
+          if (!session) {
+            console.error('No session established');
+            throw new Error('No session established');
+          }
 
+          console.log('Session established successfully');
           // Fetch user profile
           await onProfileFetch(session.user.id);
           
@@ -47,14 +57,20 @@ export const AuthCallback = ({ onProfileFetch }: AuthCallbackProps) => {
         }
 
         // If no hash tokens, check for existing session
+        console.log('Checking existing session');
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
-        if (sessionError) throw sessionError;
+        if (sessionError) {
+          console.error('Session error:', sessionError);
+          throw sessionError;
+        }
         
         if (session) {
+          console.log('Existing session found');
           await onProfileFetch(session.user.id);
           navigate('/', { replace: true });
         } else {
+          console.log('No session found, redirecting to login');
           navigate('/auth/login', { replace: true });
         }
       } catch (error) {
@@ -71,5 +87,12 @@ export const AuthCallback = ({ onProfileFetch }: AuthCallbackProps) => {
     handleCallback();
   }, [navigate, toast, onProfileFetch]);
 
-  return null;
+  // Return a loading state while processing
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center">
+        <p className="text-gray-600">Processing authentication...</p>
+      </div>
+    </div>
+  );
 };
