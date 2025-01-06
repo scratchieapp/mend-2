@@ -63,7 +63,7 @@ const Login = () => {
               },
             }}
             providers={[]}
-            redirectTo={`${window.location.origin}/auth/callback`}
+            redirectTo={window.location.origin}
             magicLink={false}
             showLinks={true}
             localization={{

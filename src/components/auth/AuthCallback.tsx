@@ -14,40 +14,61 @@ export const AuthCallback = ({ onProfileFetch }: AuthCallbackProps) => {
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        // Get the current URL hash
-        const hash = window.location.hash;
-        if (!hash) return;
-
-        // Parse the hash parameters
-        const params = new URLSearchParams(hash.substring(1));
-        const accessToken = params.get('access_token');
-        const refreshToken = params.get('refresh_token');
-
-        if (!accessToken || !refreshToken) {
-          throw new Error('Missing authentication tokens');
-        }
-
-        // Clear URL hash immediately
-        window.history.replaceState(null, '', window.location.pathname);
-
-        // Set the session
-        const { data: { session }, error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken
-        });
-
-        if (error) throw error;
-        if (!session) throw new Error('No session established');
-
-        // Fetch user profile
-        const profile = await onProfileFetch(session.user.id);
+        // Get the current session
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
-        if (profile) {
-          toast({
-            title: "Success!",
-            description: "Successfully authenticated",
+        if (sessionError) throw sessionError;
+        
+        if (session) {
+          // Session exists, fetch profile
+          const profile = await onProfileFetch(session.user.id);
+          
+          if (profile) {
+            toast({
+              title: "Success!",
+              description: "Successfully authenticated",
+            });
+            navigate('/', { replace: true });
+          }
+        } else {
+          // No session, try to get tokens from URL hash
+          const hash = window.location.hash;
+          if (!hash) {
+            navigate('/auth/login', { replace: true });
+            return;
+          }
+
+          // Parse the hash parameters
+          const params = new URLSearchParams(hash.substring(1));
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token');
+
+          if (!accessToken || !refreshToken) {
+            throw new Error('Missing authentication tokens');
+          }
+
+          // Clear URL hash immediately
+          window.history.replaceState(null, '', window.location.pathname);
+
+          // Set the session
+          const { data: { session: newSession }, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
           });
-          navigate('/', { replace: true });
+
+          if (error) throw error;
+          if (!newSession) throw new Error('No session established');
+
+          // Fetch user profile
+          const profile = await onProfileFetch(newSession.user.id);
+          
+          if (profile) {
+            toast({
+              title: "Success!",
+              description: "Successfully authenticated",
+            });
+            navigate('/', { replace: true });
+          }
         }
       } catch (error) {
         console.error('Authentication error:', error);
