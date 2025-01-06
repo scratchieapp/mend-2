@@ -21,6 +21,7 @@ const Login = () => {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [roleId, setRoleId] = useState<number | null>(null);
+  const { toast } = useToast();
 
   const fetchUserProfile = async (userId: string) => {
     try {
@@ -51,12 +52,36 @@ const Login = () => {
     }
   };
 
+  // Custom error handler for auth errors
+  const handleAuthError = (error: any) => {
+    console.error('Auth error:', error);
+    
+    // Handle rate limit error
+    if (error.message?.includes('429') || error.body?.includes('rate_limit')) {
+      setError("Too many attempts. Please wait a few minutes before trying again.");
+      toast({
+        title: "Rate Limit Exceeded",
+        description: "Please wait a few minutes before trying again",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Handle other common errors
+    if (error.message?.includes('body stream already read')) {
+      // Ignore this error as it's harmless
+      return;
+    }
+
+    setError("An error occurred. Please try again.");
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-md">
         <AuthStateHandler onProfileFetch={fetchUserProfile} />
         <AuthCard
-          title="Welcome to the Platform"
+          title="Welcome"
           description="Sign in to your account or create a new one"
           roleId={roleId}
         >
@@ -82,6 +107,7 @@ const Login = () => {
             redirectTo={window.location.origin}
             magicLink={false}
             showLinks={true}
+            onError={handleAuthError}
             localization={{
               variables: {
                 sign_in: {
