@@ -29,33 +29,9 @@ const Login = () => {
           title: "Success",
           description: "Successfully signed in",
         });
-      } else if (event === "SIGNED_OUT") {
-        const { error } = await supabase.auth.getSession();
-        if (error) {
-          console.error('Auth error:', error);
-          
-          // Handle rate limit error specifically
-          if (error.message?.includes('429') || 
-              error.message?.includes('rate_limit') || 
-              (typeof error === 'object' && 
-               'code' in error && 
-               error.code === 'over_email_send_rate_limit')) {
-            setError("Too many attempts. Please wait a few minutes before trying again.");
-            toast({
-              title: "Rate Limit Exceeded",
-              description: "Please wait a few minutes before trying again",
-              variant: "destructive",
-            });
-            return;
-          }
-
-          // Handle other errors
-          setError("An error occurred. Please try again.");
-        }
       }
     });
 
-    // Cleanup subscription on unmount
     return () => {
       subscription.unsubscribe();
     };
@@ -87,7 +63,7 @@ const Login = () => {
               },
             }}
             providers={[]}
-            redirectTo={window.location.origin}
+            redirectTo={`${window.location.origin}/auth/callback`}
             magicLink={false}
             showLinks={true}
             localization={{
