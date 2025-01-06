@@ -24,7 +24,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<AuthCallback onProfileFetch={async (userId) => true} />} />
+          <Route path="/" element={<AuthCallback />} />
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/confirmation-pending" element={<ConfirmationPending />} />
           <Route path="/roles/mend-super-admin" element={<MendSuperAdmin />} />

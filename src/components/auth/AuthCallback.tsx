@@ -4,7 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 interface AuthCallbackProps {
-  onProfileFetch: (userId: string) => Promise<any>;
+  onProfileFetch?: (userId: string) => Promise<any>;
 }
 
 export const AuthCallback = ({ onProfileFetch }: AuthCallbackProps) => {
@@ -45,7 +45,9 @@ export const AuthCallback = ({ onProfileFetch }: AuthCallbackProps) => {
               }
 
               console.log('Session established:', session.user.id);
-              await onProfileFetch(session.user.id);
+              if (onProfileFetch) {
+                await onProfileFetch(session.user.id);
+              }
               
               // Clear hash and navigate
               window.history.replaceState(null, '', window.location.pathname);
@@ -69,7 +71,9 @@ export const AuthCallback = ({ onProfileFetch }: AuthCallbackProps) => {
         
         if (session) {
           console.log('Existing session found:', session.user.id);
-          await onProfileFetch(session.user.id);
+          if (onProfileFetch) {
+            await onProfileFetch(session.user.id);
+          }
           navigate('/roles/public', { replace: true });
         } else {
           console.log('No session found, redirecting to login');
