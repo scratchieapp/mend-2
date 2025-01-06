@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -9,12 +9,15 @@ interface AuthStateHandlerProps {
 
 export const AuthStateHandler = ({ onProfileFetch }: AuthStateHandlerProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   
   useEffect(() => {
-    const handleHashParams = async () => {
+    const handleAuthRedirect = async () => {
+      // Get the hash from the URL
       const hash = window.location.hash;
-      if (hash && hash.includes('access_token')) {
+      
+      if (hash) {
         try {
           // Remove the # from the hash string
           const params = new URLSearchParams(hash.substring(1));
@@ -35,18 +38,31 @@ export const AuthStateHandler = ({ onProfileFetch }: AuthStateHandlerProps) => {
                 variant: "destructive",
               });
               navigate('/auth/login');
-            } else if (session) {
+              return;
+            }
+            
+            if (session) {
               // Clear the URL hash
               window.history.replaceState(null, '', window.location.pathname);
               
-              // Fetch user profile and handle redirection
-              const profile = await onProfileFetch(session.user.id);
-              if (profile) {
+              try {
+                // Fetch user profile
+                const profile = await onProfileFetch(session.user.id);
+                if (profile) {
+                  toast({
+                    title: "Success!",
+                    description: "Successfully authenticated",
+                  });
+                  navigate('/');
+                }
+              } catch (profileError) {
+                console.error('Error fetching profile:', profileError);
                 toast({
-                  title: "Success!",
-                  description: "Successfully authenticated",
+                  title: "Error",
+                  description: "Failed to fetch user profile",
+                  variant: "destructive",
                 });
-                navigate('/');
+                navigate('/auth/login');
               }
             }
           }
@@ -62,15 +78,17 @@ export const AuthStateHandler = ({ onProfileFetch }: AuthStateHandlerProps) => {
       }
     };
 
-    // Handle initial hash params (email confirmation flow)
-    handleHashParams();
+    // Handle initial auth redirect
+    handleAuthRedirect();
 
     // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        onProfileFetch(session.user.id);
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && location.pathname === '/auth/login') {
+        navigate('/');
       }
-    });
+    };
+    checkSession();
 
     // Listen for auth state changes
     const {
@@ -91,16 +109,11 @@ export const AuthStateHandler = ({ onProfileFetch }: AuthStateHandlerProps) => {
           description: "You have been signed out successfully",
         });
         navigate('/auth/login');
-      } else if (event === "USER_UPDATED") {
-        toast({
-          title: "Profile updated",
-          description: "Your profile has been updated successfully",
-        });
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [onProfileFetch, toast, navigate]);
+  }, [onProfileFetch, toast, navigate, location]);
 
   return null;
 };
