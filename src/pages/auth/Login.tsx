@@ -63,7 +63,7 @@ const Login = () => {
 
       // Handle rate limit and other errors
       if (event === "SIGNED_OUT") {
-        const error = await supabase.auth.getError();
+        const { error } = await supabase.auth.getSession();
         if (error) {
           console.error('Auth error:', error);
           
