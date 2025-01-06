@@ -1,68 +1,35 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Auth } from "@supabase/auth-ui-react";
 import { ThemeSupa } from "@supabase/auth-ui-shared";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AuthCard } from "@/components/auth/AuthCard";
-import { AuthStateHandler } from "@/components/auth/AuthStateHandler";
-
-const roleRoutes: { [key: number]: string } = {
-  1: '/roles/mend-super-admin',
-  2: '/roles/mend-account-manager',
-  3: '/roles/mend-data-entry',
-  4: '/roles/mend-analyst',
-  5: '/roles/builder-admin',
-  6: '/roles/site-admin',
-  9: '/roles/public'
-};
 
 const Login = () => {
   const navigate = useNavigate();
-  const [error, setError] = useState<string | null>(null);
-  const [roleId, setRoleId] = useState<number | null>(null);
   const { toast } = useToast();
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchUserProfile = async (userId: string) => {
-    try {
-      console.log("Fetching profile for user:", userId);
-      const { data: profile, error: profileError } = await supabase
-        .from('users')
-        .select('*, user_roles!inner(*)')
-        .eq('user_id', userId)
-        .single();
-
-      if (profileError) {
-        console.error('Error fetching user profile:', profileError);
-        return null;
+  useEffect(() => {
+    // Check if user is already logged in
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        navigate("/");
       }
+    });
 
-      console.log("Fetched profile:", profile);
-      if (profile?.role_id) {
-        setRoleId(profile.role_id);
-        const route = roleRoutes[profile.role_id];
-        if (route) {
-          navigate(route);
-        }
-      }
-      return profile;
-    } catch (err) {
-      console.error('Error:', err);
-      return null;
-    }
-  };
-
-  // Set up auth state change listener
-  useState(() => {
+    // Listen for auth state changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" && session) {
-        fetchUserProfile(session.user.id);
-      }
-
-      // Handle rate limit and other errors
-      if (event === "SIGNED_OUT") {
+      if (event === "SIGNED_IN") {
+        navigate("/");
+        toast({
+          title: "Success",
+          description: "Successfully signed in",
+        });
+      } else if (event === "SIGNED_OUT") {
         const { error } = await supabase.auth.getSession();
         if (error) {
           console.error('Auth error:', error);
@@ -78,30 +45,24 @@ const Login = () => {
             return;
           }
 
-          // Handle other common errors
-          if (error.message?.includes('body stream already read')) {
-            // Ignore this error as it's harmless
-            return;
-          }
-
+          // Handle other errors
           setError("An error occurred. Please try again.");
         }
       }
     });
 
+    // Cleanup subscription on unmount
     return () => {
       subscription.unsubscribe();
     };
-  });
+  }, [navigate, toast]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-md">
-        <AuthStateHandler onProfileFetch={fetchUserProfile} />
         <AuthCard
           title="Welcome"
           description="Sign in to your account or create a new one"
-          roleId={roleId}
         >
           {error && (
             <div className="mb-4 p-4 text-sm text-red-800 bg-red-100 rounded">
