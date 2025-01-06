@@ -26,7 +26,6 @@ const App = () => (
         <Routes>
           <Route path="/" element={<AuthCallback onProfileFetch={async (userId) => true} />} />
           <Route path="/auth/login" element={<Login />} />
-          <Route path="/auth/callback" element={<AuthCallback onProfileFetch={async (userId) => true} />} />
           <Route path="/auth/confirmation-pending" element={<ConfirmationPending />} />
           <Route path="/roles/mend-super-admin" element={<MendSuperAdmin />} />
           <Route path="/roles/mend-account-manager" element={<MendAccountManager />} />
@@ -35,7 +34,6 @@ const App = () => (
           <Route path="/roles/builder-admin" element={<BuilderAdmin />} />
           <Route path="/roles/site-admin" element={<SiteAdmin />} />
           <Route path="/roles/public" element={<PublicUser />} />
-          {/* Add a catch-all route that redirects to home */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
