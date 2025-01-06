@@ -57,6 +57,38 @@ const Login = () => {
   };
 
   useEffect(() => {
+    // Handle hash fragment from email confirmation
+    const handleHashParams = async () => {
+      const hash = window.location.hash;
+      if (hash && hash.includes('access_token')) {
+        const params = new URLSearchParams(hash.replace('#', ''));
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+        
+        if (accessToken && refreshToken) {
+          const { data: { session }, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
+          
+          if (error) {
+            console.error('Error setting session:', error);
+            toast({
+              title: "Error",
+              description: "Failed to authenticate",
+              variant: "destructive",
+            });
+          } else if (session) {
+            // Clear the hash without triggering a reload
+            window.history.replaceState(null, '', window.location.pathname);
+            await fetchUserProfile(session.user.id);
+          }
+        }
+      }
+    };
+
+    handleHashParams();
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         fetchUserProfile(session.user.id);
