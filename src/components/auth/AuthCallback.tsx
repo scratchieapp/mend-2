@@ -19,7 +19,8 @@ export const AuthCallback = ({ onProfileFetch }: AuthCallbackProps) => {
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
         
-        console.log('Hash params present:', !!window.location.hash);
+        console.log('Current URL:', window.location.href);
+        console.log('Hash:', window.location.hash);
         console.log('Access token present:', !!accessToken);
         console.log('Refresh token present:', !!refreshToken);
 
@@ -87,7 +88,6 @@ export const AuthCallback = ({ onProfileFetch }: AuthCallbackProps) => {
     handleCallback();
   }, [navigate, toast, onProfileFetch]);
 
-  // Return a loading state while processing
   return (
     <div className="flex items-center justify-center min-h-screen">
       <div className="text-center">

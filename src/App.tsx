@@ -14,6 +14,7 @@ import BuilderAdmin from "./pages/roles/BuilderAdmin";
 import SiteAdmin from "./pages/roles/SiteAdmin";
 import PublicUser from "./pages/roles/PublicUser";
 import { AuthCallback } from "./components/auth/AuthCallback";
+import { AuthStateHandler } from "./components/auth/AuthStateHandler";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <AuthStateHandler onProfileFetch={async (userId) => true} />
         <Routes>
           <Route path="/" element={<AuthCallback onProfileFetch={async (userId) => true} />} />
           <Route path="/auth/login" element={<Login />} />
