@@ -61,13 +61,13 @@ const Login = () => {
         fetchUserProfile(session.user.id);
       }
 
-      // Handle errors through the event
-      if (event === "USER_ERROR") {
-        const error = session?.error;
+      // Handle rate limit and other errors through error handling
+      const { error } = session?.error ?? {};
+      if (error) {
         console.error('Auth error:', error);
         
         // Handle rate limit error
-        if (error?.message?.includes('429') || error?.message?.includes('rate_limit')) {
+        if (error.message?.includes('429') || error.message?.includes('rate_limit')) {
           setError("Too many attempts. Please wait a few minutes before trying again.");
           toast({
             title: "Rate Limit Exceeded",
@@ -78,7 +78,7 @@ const Login = () => {
         }
 
         // Handle other common errors
-        if (error?.message?.includes('body stream already read')) {
+        if (error.message?.includes('body stream already read')) {
           // Ignore this error as it's harmless
           return;
         }
