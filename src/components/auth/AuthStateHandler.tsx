@@ -8,7 +8,7 @@ interface AuthStateHandlerProps {
 export const AuthStateHandler = ({ onProfileFetch }: AuthStateHandlerProps) => {
   return (
     <>
-      <AuthCallback onProfileFetch={onProfileFetch} />
+      <AuthCallback />
       <SessionManager onProfileFetch={onProfileFetch} />
     </>
   );
