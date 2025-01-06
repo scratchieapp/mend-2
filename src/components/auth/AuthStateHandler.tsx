@@ -25,6 +25,9 @@ export const AuthStateHandler = ({ onProfileFetch }: AuthStateHandlerProps) => {
           const refreshToken = params.get('refresh_token');
           
           if (accessToken && refreshToken) {
+            // First, clear the URL hash to prevent issues with reloads
+            window.history.replaceState(null, '', window.location.pathname);
+            
             const { data: { session }, error } = await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken
@@ -42,9 +45,6 @@ export const AuthStateHandler = ({ onProfileFetch }: AuthStateHandlerProps) => {
             }
             
             if (session) {
-              // Clear the URL hash
-              window.history.replaceState(null, '', window.location.pathname);
-              
               try {
                 // Fetch user profile
                 const profile = await onProfileFetch(session.user.id);
@@ -53,7 +53,7 @@ export const AuthStateHandler = ({ onProfileFetch }: AuthStateHandlerProps) => {
                     title: "Success!",
                     description: "Successfully authenticated",
                   });
-                  navigate('/');
+                  navigate('/', { replace: true });
                 }
               } catch (profileError) {
                 console.error('Error fetching profile:', profileError);
@@ -62,7 +62,7 @@ export const AuthStateHandler = ({ onProfileFetch }: AuthStateHandlerProps) => {
                   description: "Failed to fetch user profile",
                   variant: "destructive",
                 });
-                navigate('/auth/login');
+                navigate('/auth/login', { replace: true });
               }
             }
           }
@@ -73,7 +73,7 @@ export const AuthStateHandler = ({ onProfileFetch }: AuthStateHandlerProps) => {
             description: "Failed to process authentication",
             variant: "destructive",
           });
-          navigate('/auth/login');
+          navigate('/auth/login', { replace: true });
         }
       }
     };
@@ -85,7 +85,7 @@ export const AuthStateHandler = ({ onProfileFetch }: AuthStateHandlerProps) => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session && location.pathname === '/auth/login') {
-        navigate('/');
+        navigate('/', { replace: true });
       }
     };
     checkSession();
@@ -101,14 +101,14 @@ export const AuthStateHandler = ({ onProfileFetch }: AuthStateHandlerProps) => {
             title: "Welcome!",
             description: `Logged in as ${profile.display_name || session.user.email}`,
           });
-          navigate('/');
+          navigate('/', { replace: true });
         }
       } else if (event === "SIGNED_OUT") {
         toast({
           title: "Signed out",
           description: "You have been signed out successfully",
         });
-        navigate('/auth/login');
+        navigate('/auth/login', { replace: true });
       }
     });
 
