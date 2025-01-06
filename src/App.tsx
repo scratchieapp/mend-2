@@ -24,15 +24,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
+          <Route path="/" element={<AuthCallback onProfileFetch={async (userId) => true} />} />
           <Route path="/auth/login" element={<Login />} />
-          <Route path="/auth/callback" element={
-            <AuthCallback onProfileFetch={async (userId) => {
-              // For now, just return true to indicate success
-              // Later we can fetch user profile data here
-              return true;
-            }} />
-          } />
+          <Route path="/auth/callback" element={<AuthCallback onProfileFetch={async (userId) => true} />} />
           <Route path="/auth/confirmation-pending" element={<ConfirmationPending />} />
           <Route path="/roles/mend-super-admin" element={<MendSuperAdmin />} />
           <Route path="/roles/mend-account-manager" element={<MendAccountManager />} />
