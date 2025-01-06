@@ -16,7 +16,8 @@ export const AuthStateHandler = ({ onProfileFetch }: AuthStateHandlerProps) => {
       const hash = window.location.hash;
       if (hash && hash.includes('access_token')) {
         try {
-          const params = new URLSearchParams(hash.replace('#', ''));
+          // Remove the # from the hash string
+          const params = new URLSearchParams(hash.substring(1));
           const accessToken = params.get('access_token');
           const refreshToken = params.get('refresh_token');
           
@@ -43,8 +44,9 @@ export const AuthStateHandler = ({ onProfileFetch }: AuthStateHandlerProps) => {
               if (profile) {
                 toast({
                   title: "Success!",
-                  description: "Email confirmed successfully",
+                  description: "Successfully authenticated",
                 });
+                navigate('/');
               }
             }
           }
@@ -81,6 +83,7 @@ export const AuthStateHandler = ({ onProfileFetch }: AuthStateHandlerProps) => {
             title: "Welcome!",
             description: `Logged in as ${profile.display_name || session.user.email}`,
           });
+          navigate('/');
         }
       } else if (event === "SIGNED_OUT") {
         toast({
