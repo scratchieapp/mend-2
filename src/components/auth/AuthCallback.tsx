@@ -1,14 +1,11 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-interface AuthCallbackProps {
-  onProfileFetch?: (userId: string) => Promise<any>;
-}
-
-export const AuthCallback = ({ onProfileFetch }: AuthCallbackProps) => {
+export const AuthCallback = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -17,6 +14,7 @@ export const AuthCallback = ({ onProfileFetch }: AuthCallbackProps) => {
         console.log('AuthCallback: Component mounted');
         console.log('Full URL:', window.location.href);
         console.log('Hash:', window.location.hash);
+        console.log('Pathname:', window.location.pathname);
         
         // Check for hash tokens first
         if (window.location.hash) {
@@ -45,9 +43,6 @@ export const AuthCallback = ({ onProfileFetch }: AuthCallbackProps) => {
               }
 
               console.log('Session established:', session.user.id);
-              if (onProfileFetch) {
-                await onProfileFetch(session.user.id);
-              }
               
               // Clear hash and navigate
               window.history.replaceState(null, '', window.location.pathname);
@@ -71,9 +66,6 @@ export const AuthCallback = ({ onProfileFetch }: AuthCallbackProps) => {
         
         if (session) {
           console.log('Existing session found:', session.user.id);
-          if (onProfileFetch) {
-            await onProfileFetch(session.user.id);
-          }
           navigate('/roles/public', { replace: true });
         } else {
           console.log('No session found, redirecting to login');
@@ -91,7 +83,7 @@ export const AuthCallback = ({ onProfileFetch }: AuthCallbackProps) => {
     };
 
     handleCallback();
-  }, [navigate, toast, onProfileFetch]);
+  }, [navigate, toast]);
 
   return (
     <div className="flex items-center justify-center min-h-screen">

@@ -24,7 +24,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<AuthCallback />} />
+          <Route path="/*" element={<AuthCallback />} />
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/confirmation-pending" element={<ConfirmationPending />} />
           <Route path="/roles/mend-super-admin" element={<MendSuperAdmin />} />
@@ -34,7 +34,6 @@ const App = () => (
           <Route path="/roles/builder-admin" element={<BuilderAdmin />} />
           <Route path="/roles/site-admin" element={<SiteAdmin />} />
           <Route path="/roles/public" element={<PublicUser />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
