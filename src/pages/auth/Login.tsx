@@ -1,106 +1,93 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Auth } from "@supabase/auth-ui-react";
-import { ThemeSupa } from "@supabase/auth-ui-shared";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { AuthCard } from "@/components/auth/AuthCard";
+// src/pages/auth/Login.tsx
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/lib/auth/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-const Login = () => {
+export default function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const { signIn, isLoading, error, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [error, setError] = useState<string | null>(null);
+  const [hasNavigated, setHasNavigated] = useState(false);
 
+  // Debug logging
   useEffect(() => {
-    // Check if user is already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        navigate("/");
-      }
-    });
+    console.log('Login component state:', { isAuthenticated, isLoading, error, hasNavigated });
+  }, [isAuthenticated, isLoading, error, hasNavigated]);
 
-    // Listen for auth state changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN") {
-        navigate("/");
-        toast({
-          title: "Success",
-          description: "Successfully signed in",
-        });
-      }
-    });
+  // Handle navigation after successful authentication
+  useEffect(() => {
+    if (isAuthenticated && !hasNavigated) {
+      console.log('Authenticated, navigating to /');
+      navigate('/');
+      setHasNavigated(true);
+    }
+  }, [isAuthenticated, navigate, hasNavigated]);
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [navigate, toast]);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isLoading) {
+      console.log('Login already in progress, ignoring submission');
+      return; // Prevent multiple submissions
+    }
+    
+    try {
+      console.log('Login attempt with email:', email);
+      await signIn(email, password);
+      // Don't navigate here, let the useEffect handle navigation
+    } catch (err) {
+      console.error('Login error:', err);
+      // Error handled in AuthContext
+    }
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md">
-        <AuthCard
-          title="Welcome"
-          description="Sign in to your account or create a new one"
-        >
-          {error && (
-            <div className="mb-4 p-4 text-sm text-red-800 bg-red-100 rounded">
-              {error}
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>Login</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </div>
-          )}
-          <Auth
-            supabaseClient={supabase}
-            appearance={{
-              theme: ThemeSupa,
-              variables: {
-                default: {
-                  colors: {
-                    brand: '#000000',
-                    brandAccent: '#333333',
-                  },
-                },
-              },
-            }}
-            providers={[]}
-            redirectTo={window.location.origin}
-            magicLink={false}
-            showLinks={true}
-            localization={{
-              variables: {
-                sign_in: {
-                  email_label: 'Email',
-                  password_label: 'Password',
-                  button_label: 'Sign in',
-                  loading_button_label: 'Signing in...',
-                  password_input_placeholder: 'Your password',
-                  email_input_placeholder: 'Your email',
-                  link_text: 'Already have an account? Sign in',
-                },
-                sign_up: {
-                  email_label: 'Email',
-                  password_label: 'Create Password',
-                  button_label: 'Create Account',
-                  loading_button_label: 'Creating account...',
-                  password_input_placeholder: 'Choose a password',
-                  email_input_placeholder: 'Your email',
-                  link_text: 'Need an account? Sign up',
-                  confirmation_text: 'Check your email for the confirmation link'
-                },
-                forgotten_password: {
-                  email_label: 'Email',
-                  button_label: 'Send reset instructions',
-                  loading_button_label: 'Sending reset instructions...',
-                  link_text: 'Forgot your password?',
-                  confirmation_text: 'Check your email for the password reset link'
-                }
-              }
-            }}
-          />
-        </AuthCard>
-      </div>
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            {error && (
+              <p className="text-red-500 text-sm">
+                {error === "Failed to fetch user data"
+                  ? "Network error fetching user data. Please try again."
+                  : error === "Login failed after retries"
+                  ? "Login failed due to network issues. Check your connection and retry."
+                  : error}
+              </p>
+            )}
+            <Button type="submit" disabled={isLoading} className="w-full">
+              {isLoading ? 'Logging in...' : 'Login'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
-};
-
-export default Login;
+}
