@@ -18,7 +18,7 @@ import { UserRoleName } from "@/types/auth";
 
 interface AddUserDialogProps {
   createUserMutation: UseMutationResult<
-    any,
+    unknown,
     Error,
     { email: string; password: string; role: UserRoleName },
     unknown

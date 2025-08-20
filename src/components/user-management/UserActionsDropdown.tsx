@@ -12,8 +12,8 @@ import { UseMutationResult } from "@tanstack/react-query";
 
 interface UserActionsDropdownProps {
   userId: string;
-  updateUserRoleMutation: UseMutationResult<any, Error, { userId: string; role: string; }, unknown>;
-  deactivateUserMutation: UseMutationResult<any, Error, string, unknown>;
+  updateUserRoleMutation: UseMutationResult<unknown, Error, { userId: string; role: string; }, unknown>;
+  deactivateUserMutation: UseMutationResult<unknown, Error, string, unknown>;
 }
 
 export function UserActionsDropdown({

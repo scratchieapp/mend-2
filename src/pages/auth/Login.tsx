@@ -1,6 +1,6 @@
 // src/pages/auth/Login.tsx
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -155,17 +155,24 @@ export default function Login() {
               )}
             </Button>
 
-            <div className="text-center text-sm text-gray-600">
-              <a 
-                href="#" 
-                className="hover:text-primary transition-colors"
-                onClick={(e) => {
-                  e.preventDefault();
-                  // TODO: Implement forgot password
-                }}
-              >
-                Forgot your password?
-              </a>
+            <div className="text-center text-sm text-gray-600 space-y-2">
+              <div>
+                <Link 
+                  to="/auth/forgot-password" 
+                  className="hover:text-primary transition-colors"
+                >
+                  Forgot your password?
+                </Link>
+              </div>
+              <div>
+                Don't have an account?{' '}
+                <Link 
+                  to="/auth/signup" 
+                  className="text-primary hover:underline transition-colors"
+                >
+                  Sign up
+                </Link>
+              </div>
             </div>
           </form>
         </CardContent>

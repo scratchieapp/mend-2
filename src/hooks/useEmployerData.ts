@@ -45,8 +45,7 @@ export const useEmployerData = (selectedEmployerId: number | null, selectedMonth
           .eq('month', monthDate)
           .maybeSingle();
 
-        if (ltiError) {
-        }
+        // ltiError is handled gracefully - we return default values
 
 
         return {

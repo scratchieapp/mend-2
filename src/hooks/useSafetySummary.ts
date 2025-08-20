@@ -24,7 +24,6 @@ export const useSafetySummary = (employerId: number | null, selectedMonth: strin
     queryFn: async () => {
       if (!employerId) return null;
 
-      try {
         const monthDate = `${selectedMonth}-01`;
 
         // Update the query to ensure we get a unique record
@@ -85,9 +84,6 @@ export const useSafetySummary = (employerId: number | null, selectedMonth: strin
         }
 
         return { summary: newSummary.summary, cached: false };
-      } catch (error) {
-        throw error;
-      }
     },
     staleTime: 24 * 60 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,

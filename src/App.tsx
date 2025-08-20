@@ -7,6 +7,9 @@ import "./App.css";
 import AuthStateHandler from "./components/auth/AuthStateHandler"; // still in use
 import AuthCallback from "./pages/auth/AuthCallback";
 import Login from "./pages/auth/Login";
+import SignUp from "./pages/auth/SignUp";
+import ForgotPassword from "./pages/auth/ForgotPassword";
+import ResetPassword from "./pages/auth/ResetPassword";
 import DashboardRouter from "./components/auth/DashboardRouter";
 import { SessionWarning } from "./components/SessionWarning";
 
@@ -43,8 +46,12 @@ function App() {
 
       <Routes>
 
-        {/* Standard login page */}
+        {/* Auth pages */}
         <Route path="/auth/login" element={<Login />} />
+        <Route path="/auth/signup" element={<SignUp />} />
+        <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+        <Route path="/auth/reset-password" element={<ResetPassword />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
 
         {/* Protected routes go inside a parent route guarded by <ProtectedRoute> */}
         <Route
