@@ -200,6 +200,8 @@ npx supabase start
 - **Database Types**: `/src/integrations/supabase/types.ts`
 - **Migrations**: `/supabase/migrations/`
 
+## Documentation
+
 ## Architecture Decisions
 1. **Supabase over custom backend**: Faster development, built-in auth
 2. **shadcn/ui components**: Consistent, accessible, customizable
@@ -226,6 +228,16 @@ This is an internal workplace safety management system. For issues or questions:
 - Security vulnerabilities need addressing
 - Code quality issues impact maintainability
 - No critical runtime bugs identified
+
+## EXTREMELY IMPORTANT: Code Quality Checks
+**Always run the following commands before completing any task.**
+
+1. Automatically use the IDE's built-in diagnostics tool to check for linting and type errors:
+- You can use the error checking sub-agent
+- If Code Rabbit is available, then use that.
+- Do this for every file that you create or modify.
+
+This is a critical step that must never be skipped when working on any code-related task.
 
 ## Recommendation
 The application is ready for **staging deployment** and user acceptance testing, but requires the high-priority security fixes before production deployment. Estimated time to production-ready: 3-5 days of focused development.

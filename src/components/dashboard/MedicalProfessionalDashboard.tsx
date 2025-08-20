@@ -8,6 +8,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+interface Worker {
+  given_name: string;
+  family_name: string;
+}
+
 interface Incident {
   incident_id: number;
   incident_number: string;
@@ -18,10 +23,20 @@ interface Incident {
   case_notes: string;
   doctor_details: string;
   referral: string;
-  worker: {
-    given_name: string;
-    family_name: string;
-  };
+  worker: Worker;
+}
+
+interface SupabaseIncidentResult {
+  incident_id: number;
+  incident_number: string;
+  date_of_injury: string;
+  injury_description: string;
+  treatment_provided: string;
+  doctor_notes: string;
+  case_notes: string;
+  doctor_details: string;
+  referral: string;
+  worker: Worker[];
 }
 
 export function MedicalProfessionalDashboard() {
@@ -54,7 +69,7 @@ export function MedicalProfessionalDashboard() {
       if (error) throw error;
       
       // Transform the data to match the Incident interface
-      return (data as any[]).map(incident => ({
+      return (data as SupabaseIncidentResult[]).map(incident => ({
         ...incident,
         worker: {
           given_name: incident.worker[0]?.given_name || '',

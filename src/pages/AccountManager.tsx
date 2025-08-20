@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { UserData, UserRole, UserRoleName } from "@/types/auth";
+import { getAvailableRolesToCreate } from "@/lib/auth/roles";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -88,7 +89,7 @@ const createUserMutation = useMutation(
       });
       setShowAddUserDialog(false);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       let errorMessage = "Failed to create user. Please try again.";
       if (error?.message?.includes('user_already_exists')) {
         errorMessage = "This email is already registered. Please use a different email address.";

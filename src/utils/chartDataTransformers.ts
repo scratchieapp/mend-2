@@ -10,8 +10,15 @@ export interface ChartDataResponse {
   employerOrder: string[];
 }
 
+type Incident = {
+  date_of_injury: string;
+  employers?: {
+    employer_name: string;
+  };
+};
+
 export const transformIncidentData = (
-  incidents: any[] | null,
+  incidents: Incident[] | null,
   employers: { employer_name: string }[] | null
 ): ChartDataResponse => {
   if (!employers || !incidents) return { data: [], employerOrder: [] };

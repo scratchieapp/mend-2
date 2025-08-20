@@ -2,7 +2,23 @@ import { useQuery, UseQueryOptions } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { PostgrestError } from '@supabase/supabase-js';
 
-type QueryFn<T> = (userData: any) => Promise<{
+// User data type from AuthContext
+type UserData = {
+  user_id: string;
+  email?: string | null;
+  display_name?: string | null;
+  custom_display_name?: string | null;
+  role_id?: number | null;
+  employer_id?: string | null;
+  site_id?: string | null;
+  role?: {
+    role_id: number;
+    role_name: string;
+    role_label: string;
+  };
+};
+
+type QueryFn<T> = (userData: UserData) => Promise<{
   data: T | null;
   error: PostgrestError | null;
 }>;

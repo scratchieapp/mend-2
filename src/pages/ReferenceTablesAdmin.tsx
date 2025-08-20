@@ -6,13 +6,13 @@ import { Plus, ArrowLeft } from "lucide-react";
 import { EditDialog } from "@/components/reference-tables/EditDialog";
 import { ReferenceTable } from "@/components/reference-tables/ReferenceTable";
 import { useReferenceTable } from "@/components/reference-tables/useReferenceTable";
-import { tableOptions } from "@/components/reference-tables/types";
+import { tableOptions, TableRowData } from "@/components/reference-tables/types";
 import { Link } from "react-router-dom";
 
 export default function ReferenceTablesAdmin() {
   const [activeTable, setActiveTable] = useState(tableOptions[0].name);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editingData, setEditingData] = useState<any>(null);
+  const [editingData, setEditingData] = useState<TableRowData | null>(null);
 
   const currentTable = tableOptions.find(t => t.name === activeTable) || tableOptions[0];
   const {
@@ -29,7 +29,7 @@ export default function ReferenceTablesAdmin() {
     setEditDialogOpen(true);
   };
 
-  const handleEdit = (row: any) => {
+  const handleEdit = (row: TableRowData) => {
     setEditingData(row);
     setEditDialogOpen(true);
   };
@@ -40,7 +40,7 @@ export default function ReferenceTablesAdmin() {
     }
   };
 
-  const handleSave = (formData: any) => {
+  const handleSave = (formData: TableRowData) => {
     if (editingData) {
       updateMutation.mutate({
         id: editingData[currentTable.idColumn],

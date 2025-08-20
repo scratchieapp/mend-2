@@ -14,6 +14,27 @@ interface Site {
   site_name: string;
 }
 
+interface ReportMetrics {
+  firstAid: number;
+  mti: number;
+  lti: number;
+  ltifr: number;
+  trifr: number;
+  mtifr: number;
+}
+
+interface IncidentType {
+  type: string;
+  count: number;
+}
+
+interface ReportData {
+  executiveSummary: string;
+  metrics: ReportMetrics;
+  incidentTypes: IncidentType[];
+  recommendations: string[];
+}
+
 const MonthlyReportsPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -22,7 +43,7 @@ const MonthlyReportsPage = () => {
     format(new Date(), "yyyy-MM")
   );
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedReport, setGeneratedReport] = useState<any>(null);
+  const [generatedReport, setGeneratedReport] = useState<ReportData | null>(null);
   const [selectedSiteName, setSelectedSiteName] = useState<string>("");
 
   // Get last 12 months for the dropdown

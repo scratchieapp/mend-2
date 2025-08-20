@@ -217,3 +217,53 @@ export const canManageUser = (currentUser: UserData | null, targetUser: UserData
   
   return false;
 };
+
+/**
+ * Get list of roles that the current user can create
+ */
+export const getAvailableRolesToCreate = (userData: UserData | null): string[] => {
+  if (!userData) return [];
+  
+  // Super admins can create any role
+  if (isSuperAdmin(userData)) {
+    return [
+      ROLE_NAMES.MEND_ACCOUNT_MANAGER,
+      ROLE_NAMES.ADMINISTRATOR,
+      ROLE_NAMES.MEND_ANALYST,
+      ROLE_NAMES.BUILDER_ADMIN,
+      ROLE_NAMES.SITE_ADMIN,
+      ROLE_NAMES.CLIENT,
+      ROLE_NAMES.VENDOR,
+      ROLE_NAMES.PUBLIC
+    ];
+  }
+  
+  // Builder admins can create certain roles within their organization
+  if (isBuilderAdmin(userData)) {
+    return [
+      ROLE_NAMES.SITE_ADMIN,
+      ROLE_NAMES.CLIENT,
+      ROLE_NAMES.VENDOR,
+      ROLE_NAMES.PUBLIC
+    ];
+  }
+  
+  // Site admins can create basic user roles
+  if (isSiteAdmin(userData)) {
+    return [
+      ROLE_NAMES.CLIENT,
+      ROLE_NAMES.VENDOR,
+      ROLE_NAMES.PUBLIC
+    ];
+  }
+  
+  // Mend account managers can create client roles
+  if (userData.role?.role_id === ROLES.MEND_ACCOUNT_MANAGER) {
+    return [
+      ROLE_NAMES.CLIENT,
+      ROLE_NAMES.VENDOR
+    ];
+  }
+  
+  return [];
+};

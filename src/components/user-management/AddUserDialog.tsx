@@ -78,21 +78,16 @@ export function AddUserDialog({
                 description: "User has been created successfully.",
               });
               (e.target as HTMLFormElement).reset();
-            } catch (error: any) {
-              if (error?.message?.includes("user_already_exists")) {
-                toast({
-                  title: "Error",
-                  description:
-                    "This email is already registered. Please use a different email address.",
-                  variant: "destructive",
-                });
-              } else {
-                toast({
-                  title: "Error",
-                  description: "Failed to create user. Please try again.",
-                  variant: "destructive",
-                });
-              }
+            } catch (error: unknown) {
+              const errorMessage = error instanceof Error && error.message.includes("user_already_exists")
+                ? "This email is already registered. Please use a different email address."
+                : "Failed to create user. Please try again.";
+              
+              toast({
+                title: "Error",
+                description: errorMessage,
+                variant: "destructive",
+              });
             }
           }}
         >

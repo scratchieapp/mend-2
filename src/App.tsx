@@ -7,6 +7,7 @@ import "./App.css";
 import AuthStateHandler from "./components/auth/AuthStateHandler"; // still in use
 import AuthCallback from "./pages/auth/AuthCallback";
 import Login from "./pages/auth/Login";
+import ClerkLogin from "./pages/auth/ClerkLogin";
 import SignUp from "./pages/auth/SignUp";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
@@ -48,6 +49,7 @@ function App() {
 
         {/* Auth pages */}
         <Route path="/auth/login" element={<Login />} />
+        <Route path="/auth/clerk-login" element={<ClerkLogin />} />
         <Route path="/auth/signup" element={<SignUp />} />
         <Route path="/auth/forgot-password" element={<ForgotPassword />} />
         <Route path="/auth/reset-password" element={<ResetPassword />} />

@@ -11,6 +11,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { errorLogger, logAuthError } from "@/lib/monitoring/errorLogger";
+import { useAuth as useClerkAuth, useUser as useClerkUser } from "@clerk/clerk-react";
 
 // User role type matching database structure
 type UserRole = {
@@ -66,6 +67,10 @@ const SESSION_CHECK_INTERVAL = 60 * 1000; // Check every minute
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  // Check for Clerk authentication
+  const { isLoaded: clerkLoaded, isSignedIn: clerkSignedIn, userId: clerkUserId } = useClerkAuth();
+  const { user: clerkUser } = useClerkUser();
+  
   // Core auth state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -108,6 +113,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Fetch user data from database
   const updateUserData = useCallback(async () => {
+    // Check for Clerk user first
+    if (clerkSignedIn && clerkUser) {
+      // Fetch by email for Clerk users
+      try {
+        const { data, error } = await supabase
+          .from("users")
+          .select(`
+            user_id,
+            email,
+            display_name,
+            custom_display_name,
+            role_id,
+            employer_id,
+            site_id,
+            created_at,
+            updated_at,
+            last_seen_at,
+            role:user_roles (
+              role_id,
+              role_name,
+              role_label
+            )
+          `)
+          .eq("email", clerkUser.primaryEmailAddress?.emailAddress)
+          .single();
+
+        if (!error && data) {
+          const processedData: UserData = {
+            ...data,
+            role: Array.isArray(data.role) && data.role.length > 0 
+              ? data.role[0] 
+              : data.role || undefined
+          };
+          
+          setUserData(processedData);
+          lastFetchedUserId.current = clerkUserId || null;
+          clearError();
+          return;
+        }
+      } catch (err) {
+        console.error('Error fetching Clerk user data:', err);
+      }
+    }
+    
+    // Fall back to Supabase user
     if (!user) {
       setUserData(null);
       return;
@@ -188,7 +238,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       isUpdatingUserData.current = false;
     }
-  }, [user, userData, clearError]);
+  }, [user, userData, clearError, clerkSignedIn, clerkUser, clerkUserId]);
 
   // Refresh session
   const refreshSession = useCallback(async () => {
@@ -308,7 +358,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const initializeAuth = async () => {
       try {
-        // Get initial session
+        // Check for Clerk authentication first
+        if (clerkLoaded && clerkSignedIn && clerkUser) {
+          if (mounted) {
+            // Create a mock user object for compatibility
+            setUser({ id: clerkUserId, email: clerkUser.primaryEmailAddress?.emailAddress } as SupabaseUser);
+            setIsAuthenticated(true);
+            setIsLoading(false);
+            // Fetch user data for Clerk user
+            await updateUserData();
+            return;
+          }
+        }
+        
+        // Fall back to Supabase auth
         const { data: { session } } = await supabase.auth.getSession();
         
         if (mounted && session) {
@@ -379,7 +442,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         clearInterval(sessionCheckIntervalRef.current);
       }
     };
-  }, [updateSessionExpiry, updateUserData]);
+  }, [updateSessionExpiry, updateUserData, clerkLoaded, clerkSignedIn, clerkUser, clerkUserId]);
 
   // Fetch user data when user changes
   useEffect(() => {
