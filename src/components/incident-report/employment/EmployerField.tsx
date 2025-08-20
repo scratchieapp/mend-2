@@ -7,9 +7,10 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useFormContext, useWatch } from "react-hook-form";
 import { useUserMode } from "@/hooks/useUserMode";
+import type { IncidentReportFormData } from "@/lib/validations/incident";
 
 interface EmployerFieldProps {
-  control: Control<any>;
+  control: Control<IncidentReportFormData>;
 }
 
 export function EmployerField({ control }: EmployerFieldProps) {

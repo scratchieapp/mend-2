@@ -3,15 +3,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormField, FormItem } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
-import { Control } from "react-hook-form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { UseFormReturn } from "react-hook-form";
+import type { IncidentReportFormData } from "@/lib/validations/incident";import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ExpandedInjuryDetails } from "./injury/ExpandedInjuryDetails";
 
 interface InjuryDetailsSectionProps {
-  control: Control<any>;
+  form: UseFormReturn<IncidentReportFormData>;
 }
 
 interface InjuryType {
@@ -24,7 +24,7 @@ interface BodyPart {
   body_part_name: string;
 }
 
-export function InjuryDetailsSection({ control }: InjuryDetailsSectionProps) {
+export function InjuryDetailsSection({ form }: InjuryDetailsSectionProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [injuryTypes, setInjuryTypes] = useState<InjuryType[]>([]);
   const [bodyParts, setBodyParts] = useState<BodyPart[]>([]);
@@ -37,10 +37,7 @@ export function InjuryDetailsSection({ control }: InjuryDetailsSectionProps) {
         .from('injury_type')
         .select('id, injury_type_name');
       
-      if (typesError) {
-        console.error('Error fetching injury types:', typesError);
-      } else if (typesData) {
-        console.log('Fetched injury types:', typesData); // Debug log
+      if (!typesError && typesData) {
         setInjuryTypes(typesData.map(type => ({
           type_id: type.id,
           type_name: type.injury_type_name
@@ -52,9 +49,7 @@ export function InjuryDetailsSection({ control }: InjuryDetailsSectionProps) {
         .from('body_parts')
         .select('body_part_id, body_part_name');
       
-      if (partsError) {
-        console.error('Error fetching body parts:', partsError);
-      } else if (partsData) {
+      if (!partsError && partsData) {
         setBodyParts(partsData);
       }
     };
@@ -67,7 +62,7 @@ export function InjuryDetailsSection({ control }: InjuryDetailsSectionProps) {
       <h3 className="text-lg font-semibold border-b pb-2">Injury Details</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <FormField
-          control={control}
+          control={form.control}
           name="injury_type"
           render={({ field }) => (
             <FormItem>
@@ -89,7 +84,7 @@ export function InjuryDetailsSection({ control }: InjuryDetailsSectionProps) {
         />
 
         <FormField
-          control={control}
+          control={form.control}
           name="body_part"
           render={({ field }) => (
             <FormItem>
@@ -117,7 +112,7 @@ export function InjuryDetailsSection({ control }: InjuryDetailsSectionProps) {
         />
 
         <FormField
-          control={control}
+          control={form.control}
           name="date_of_injury"
           render={({ field }) => (
             <FormItem>
@@ -128,7 +123,7 @@ export function InjuryDetailsSection({ control }: InjuryDetailsSectionProps) {
         />
 
         <FormField
-          control={control}
+          control={form.control}
           name="time_of_injury"
           render={({ field }) => (
             <FormItem>
@@ -140,7 +135,7 @@ export function InjuryDetailsSection({ control }: InjuryDetailsSectionProps) {
 
         <div className="col-span-full">
           <FormField
-            control={control}
+            control={form.control}
             name="injury_description"
             render={({ field }) => (
               <FormItem>
@@ -152,7 +147,7 @@ export function InjuryDetailsSection({ control }: InjuryDetailsSectionProps) {
         </div>
 
         <FormField
-          control={control}
+          control={form.control}
           name="witness"
           render={({ field }) => (
             <FormItem>
@@ -184,7 +179,7 @@ export function InjuryDetailsSection({ control }: InjuryDetailsSectionProps) {
 
           {isExpanded && (
             <ExpandedInjuryDetails 
-              control={control} 
+              control={form.control} 
               selectedBodyPart={selectedBodyPart}
             />
           )}

@@ -5,9 +5,10 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Control, useFormContext, useWatch } from "react-hook-form";
 import { Worker } from "./types";
+import type { IncidentReportFormData } from "@/lib/validations/incident";
 
 interface WorkerSelectorProps {
-  control: Control<any>;
+  control: Control<IncidentReportFormData>;
 }
 
 export function WorkerSelector({ control }: WorkerSelectorProps) {
@@ -23,18 +24,15 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
     queryFn: async () => {
       if (!selectedEmployerId) return [];
       
-      console.log('Fetching workers for employer:', selectedEmployerId);
       const { data, error } = await supabase
         .from('workers')
         .select('*')
         .eq('employer_id', selectedEmployerId);
       
       if (error) {
-        console.error('Error fetching workers:', error);
         throw error;
       }
       
-      console.log('Fetched workers:', data);
       return data as Worker[];
     },
     enabled: !!selectedEmployerId,

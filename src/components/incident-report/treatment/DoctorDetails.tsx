@@ -2,9 +2,10 @@ import { FormField, FormItem } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Control } from "react-hook-form";
+import type { IncidentReportFormData } from "@/lib/validations/incident";
 
 interface DoctorDetailsProps {
-  control: Control<any>;
+  control: Control<IncidentReportFormData>;
 }
 
 export function DoctorDetails({ control }: DoctorDetailsProps) {

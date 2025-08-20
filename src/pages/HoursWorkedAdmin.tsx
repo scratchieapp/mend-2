@@ -81,7 +81,6 @@ const HoursWorkedAdmin = () => {
       toast.success("Hours updated successfully");
       setHoursData({});
     } catch (error) {
-      console.error('Error saving hours:', error);
       toast.error("Failed to update hours");
     } finally {
       setIsSubmitting(false);

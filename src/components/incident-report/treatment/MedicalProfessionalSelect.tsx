@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Control } from "react-hook-form";
+import type { IncidentReportFormData } from "@/lib/validations/incident";
 
 interface MedicalProfessional {
   doctor_id: string;
@@ -15,24 +16,21 @@ interface MedicalProfessional {
 }
 
 interface MedicalProfessionalSelectProps {
-  control: Control<any>;
+  control: Control<IncidentReportFormData>;
 }
 
 export function MedicalProfessionalSelect({ control }: MedicalProfessionalSelectProps) {
   const { data: medicalProfessionals } = useQuery({
     queryKey: ['medicalProfessionals'],
     queryFn: async () => {
-      console.log('Fetching medical professionals...');
       const { data, error } = await supabase
         .from('medical_professionals')
         .select('doctor_id, first_name, last_name, specialty, phone_number, email');
       
       if (error) {
-        console.error('Error fetching medical professionals:', error);
         throw error;
       }
       
-      console.log('Fetched medical professionals:', data);
       return data as MedicalProfessional[];
     }
   });

@@ -23,7 +23,6 @@ export const useEmployerSelection = () => {
         .order('employer_name');
 
       if (error) {
-        console.error('Error fetching employers:', error);
         return [];
       }
 
@@ -53,7 +52,6 @@ export const useEmployerSelection = () => {
       // Force reload the page to reset all React states
       window.location.reload();
     } catch (error) {
-      console.error('Error changing employer:', error);
       toast({
         title: "Error",
         description: "Failed to change employer. Please try again.",

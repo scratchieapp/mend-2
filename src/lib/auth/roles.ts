@@ -58,8 +58,14 @@ export const isSuperAdmin = (roleIdOrUserData?: number | UserData | null): boole
   if (typeof roleIdOrUserData === 'number') {
     return roleIdOrUserData === ROLES.MEND_SUPER_ADMIN;
   }
-  return roleIdOrUserData?.role?.role_id === ROLES.MEND_SUPER_ADMIN || 
-         (roleIdOrUserData as any)?.role_id === ROLES.MEND_SUPER_ADMIN;
+  if (roleIdOrUserData?.role?.role_id !== undefined) {
+    return roleIdOrUserData.role.role_id === ROLES.MEND_SUPER_ADMIN;
+  }
+  // Handle case where role_id might be directly on the object
+  if (roleIdOrUserData && 'role_id' in roleIdOrUserData) {
+    return (roleIdOrUserData as UserData & { role_id: number }).role_id === ROLES.MEND_SUPER_ADMIN;
+  }
+  return false;
 };
 
 /**
@@ -69,8 +75,15 @@ export const isAdmin = (roleIdOrUserData?: number | UserData | null): boolean =>
   if (typeof roleIdOrUserData === 'number') {
     return roleIdOrUserData === ROLES.MEND_SUPER_ADMIN || roleIdOrUserData === ROLES.BUILDER_ADMIN;
   }
-  const roleId = roleIdOrUserData?.role?.role_id || (roleIdOrUserData as any)?.role_id;
-  return roleId === ROLES.MEND_SUPER_ADMIN || roleId === ROLES.BUILDER_ADMIN;
+  if (roleIdOrUserData?.role?.role_id !== undefined) {
+    const roleId = roleIdOrUserData.role.role_id;
+    return roleId === ROLES.MEND_SUPER_ADMIN || roleId === ROLES.BUILDER_ADMIN;
+  }
+  if (roleIdOrUserData && 'role_id' in roleIdOrUserData) {
+    const roleId = (roleIdOrUserData as UserData & { role_id: number }).role_id;
+    return roleId === ROLES.MEND_SUPER_ADMIN || roleId === ROLES.BUILDER_ADMIN;
+  }
+  return false;
 };
 
 /**
@@ -80,8 +93,13 @@ export const isBuilderAdmin = (roleIdOrUserData?: number | UserData | null): boo
   if (typeof roleIdOrUserData === 'number') {
     return roleIdOrUserData === ROLES.BUILDER_ADMIN;
   }
-  return roleIdOrUserData?.role?.role_id === ROLES.BUILDER_ADMIN || 
-         (roleIdOrUserData as any)?.role_id === ROLES.BUILDER_ADMIN;
+  if (roleIdOrUserData?.role?.role_id !== undefined) {
+    return roleIdOrUserData.role.role_id === ROLES.BUILDER_ADMIN;
+  }
+  if (roleIdOrUserData && 'role_id' in roleIdOrUserData) {
+    return (roleIdOrUserData as UserData & { role_id: number }).role_id === ROLES.BUILDER_ADMIN;
+  }
+  return false;
 };
 
 /**
@@ -91,8 +109,13 @@ export const isAdministrator = (roleIdOrUserData?: number | UserData | null): bo
   if (typeof roleIdOrUserData === 'number') {
     return roleIdOrUserData === ROLES.ADMINISTRATOR;
   }
-  return roleIdOrUserData?.role?.role_id === ROLES.ADMINISTRATOR || 
-         (roleIdOrUserData as any)?.role_id === ROLES.ADMINISTRATOR;
+  if (roleIdOrUserData?.role?.role_id !== undefined) {
+    return roleIdOrUserData.role.role_id === ROLES.ADMINISTRATOR;
+  }
+  if (roleIdOrUserData && 'role_id' in roleIdOrUserData) {
+    return (roleIdOrUserData as UserData & { role_id: number }).role_id === ROLES.ADMINISTRATOR;
+  }
+  return false;
 };
 
 /**

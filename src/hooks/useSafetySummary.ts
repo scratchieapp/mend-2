@@ -26,7 +26,6 @@ export const useSafetySummary = (employerId: number | null, selectedMonth: strin
 
       try {
         const monthDate = `${selectedMonth}-01`;
-        console.log('Fetching summary for month:', monthDate);
 
         // Update the query to ensure we get a unique record
         const { data: reportData, error: fetchError } = await supabase
@@ -38,11 +37,9 @@ export const useSafetySummary = (employerId: number | null, selectedMonth: strin
           .maybeSingle();
 
         if (fetchError) {
-          console.error('Error fetching report:', fetchError);
           throw fetchError;
         }
 
-        console.log('Retrieved report data:', reportData);
 
         if (
           reportData?.current_summary &&
@@ -60,11 +57,9 @@ export const useSafetySummary = (employerId: number | null, selectedMonth: strin
         });
 
         if (error) {
-          console.error('Error fetching safety summary:', error);
           throw error;
         }
 
-        console.log('Generated new summary:', newSummary);
 
         const newHistoryEntry = {
           summary: newSummary.summary,
@@ -86,13 +81,11 @@ export const useSafetySummary = (employerId: number | null, selectedMonth: strin
           });
 
         if (updateError) {
-          console.error('Error storing summary:', updateError);
           throw updateError;
         }
 
         return { summary: newSummary.summary, cached: false };
       } catch (error) {
-        console.error('Error in safety summary query:', error);
         throw error;
       }
     },

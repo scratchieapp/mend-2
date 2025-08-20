@@ -9,7 +9,6 @@ export const useEmployerData = (selectedEmployerId: number | null, selectedMonth
       if (!selectedEmployerId) return null;
 
       try {
-        console.log('Setting employer context for KPI data:', selectedEmployerId, 'Month:', selectedMonth);
         
         // First set employer context
         const { error: contextError } = await supabase.rpc('set_employer_context', {
@@ -17,7 +16,6 @@ export const useEmployerData = (selectedEmployerId: number | null, selectedMonth
         });
 
         if (contextError) {
-          console.error('Error setting employer context:', contextError);
           throw contextError;
         }
 
@@ -34,14 +32,11 @@ export const useEmployerData = (selectedEmployerId: number | null, selectedMonth
           .maybeSingle();
 
         if (employerError) {
-          console.error('Error fetching employer data:', employerError);
           return null;
         }
 
         // Get selected month's LTI rate from lti_rates table
         const monthDate = `${selectedMonth}-01`;
-        
-        console.log('Fetching LTI rates for month:', monthDate, 'employer:', selectedEmployerId);
         
         const { data: ltiData, error: ltiError } = await supabase
           .from('lti_rates')
@@ -51,10 +46,8 @@ export const useEmployerData = (selectedEmployerId: number | null, selectedMonth
           .maybeSingle();
 
         if (ltiError) {
-          console.error('Error fetching LTI data:', ltiError);
         }
 
-        console.log('Selected month LTI data:', ltiData);
 
         return {
           lti_rate: ltiData?.lti_rate || 0,
@@ -64,7 +57,6 @@ export const useEmployerData = (selectedEmployerId: number | null, selectedMonth
           baseline_comp_insurance: employerData?.employer_kpis?.[0]?.baseline_comp_insurance || null,
         };
       } catch (error) {
-        console.error('Error in employer data fetch:', error);
         return null;
       }
     },

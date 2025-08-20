@@ -3,9 +3,9 @@ import { Label } from "@/components/ui/label";
 import { FormField, FormItem } from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Control } from "react-hook-form";
-
+import type { IncidentReportFormData } from "@/lib/validations/incident";
 interface EmploymentTypeFieldProps {
-  control: Control<any>;
+  control: Control<IncidentReportFormData>;
 }
 
 export function EmploymentTypeField({ control }: EmploymentTypeFieldProps) {

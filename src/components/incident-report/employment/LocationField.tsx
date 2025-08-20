@@ -3,7 +3,7 @@ import { Label } from "@/components/ui/label";
 import { FormField, FormItem } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Control, useFormContext, useWatch } from "react-hook-form";
-import { useQuery } from "@tanstack/react-query";
+import type { IncidentReportFormData } from "@/lib/validations/incident";import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Site {
@@ -15,7 +15,7 @@ interface Site {
 }
 
 interface LocationFieldProps {
-  control: Control<any>;
+  control: Control<IncidentReportFormData>;
 }
 
 export function LocationField({ control }: LocationFieldProps) {

@@ -7,9 +7,9 @@ import { useState } from 'react';
 interface EditDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  item?: any;
+  item?: Record<string, unknown>;
   columns: string[];
-  onSave: (data: any) => void;
+  onSave: (data: Record<string, unknown>) => void;
 }
 
 export function EditDialog({ open, onOpenChange, item, columns, onSave }: EditDialogProps) {
@@ -36,7 +36,7 @@ export function EditDialog({ open, onOpenChange, item, columns, onSave }: EditDi
                 </Label>
                 <Input
                   id={column}
-                  value={formData[column] || ''}
+                  value={String(formData[column] ?? '')}
                   onChange={(e) => setFormData({ ...formData, [column]: e.target.value })}
                 />
               </div>

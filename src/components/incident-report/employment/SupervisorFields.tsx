@@ -3,9 +3,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormField, FormItem } from "@/components/ui/form";
 import { Control } from "react-hook-form";
-
+import type { IncidentReportFormData } from "@/lib/validations/incident";
 interface SupervisorFieldsProps {
-  control: Control<any>;
+  control: Control<IncidentReportFormData>;
 }
 
 export function SupervisorFields({ control }: SupervisorFieldsProps) {

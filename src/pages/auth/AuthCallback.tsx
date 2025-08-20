@@ -21,7 +21,6 @@ const AuthCallback = () => {
           });
 
           if (error) {
-            console.error("[AuthCallback] Session error:", error);
             navigate("/auth/login");
             return;
           }
@@ -37,7 +36,6 @@ const AuthCallback = () => {
           navigate("/auth/login");
         }
       } catch (error) {
-        console.error("[AuthCallback] Authentication error:", error);
         navigate("/auth/login");
       }
     };

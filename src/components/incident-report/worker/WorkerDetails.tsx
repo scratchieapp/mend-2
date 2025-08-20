@@ -3,9 +3,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Control } from "react-hook-form";
+import type { IncidentReportFormData } from "@/lib/validations/incident";
 
 interface WorkerDetailsProps {
-  control: Control<any>;
+  control: Control<IncidentReportFormData>;
 }
 
 export function WorkerDetails({ control }: WorkerDetailsProps) {

@@ -1,18 +1,18 @@
 import { Label } from "@/components/ui/label";
 import { FormField, FormItem } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
-import { Control } from "react-hook-form";
-
+import { UseFormReturn } from "react-hook-form";
+import type { IncidentReportFormData } from "@/lib/validations/incident";
 interface CaseNotesSectionProps {
-  control: Control<any>;
+  form: UseFormReturn<IncidentReportFormData>;
 }
 
-export function CaseNotesSection({ control }: CaseNotesSectionProps) {
+export function CaseNotesSection({ form }: CaseNotesSectionProps) {
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold border-b pb-2">Case Notes</h3>
       <FormField
-        control={control}
+        control={form.control}
         name="case_notes"
         render={({ field }) => (
           <FormItem>

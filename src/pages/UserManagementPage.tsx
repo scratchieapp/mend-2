@@ -42,7 +42,6 @@ export default function UserManagementPage() {
         if (usersError) throw usersError;
         setUsers(usersData);
       } catch (err) {
-        console.error("Error fetching data:", err);
         setError(err instanceof Error ? err.message : "Failed to load users");
       } finally {
         setIsLoading(false);

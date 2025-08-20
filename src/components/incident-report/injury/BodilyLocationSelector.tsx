@@ -5,9 +5,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Control } from "react-hook-form";
 import { supabase } from "@/integrations/supabase/client";
 import { BodilyLocation } from "./types";
+import type { IncidentReportFormData } from "@/lib/validations/incident";
 
 interface BodilyLocationSelectorProps {
-  control: Control<any>;
+  control: Control<IncidentReportFormData>;
   selectedBodyPart: string;
 }
 
@@ -18,7 +19,6 @@ export function BodilyLocationSelector({ control, selectedBodyPart }: BodilyLoca
     const fetchBodilyLocations = async () => {
       if (!selectedBodyPart) return;
 
-      console.log('Fetching bodily locations for body part:', selectedBodyPart);
       
       // 1. Get the related bl_code_ids from the join table
       const { data: relatedCodes, error: joinError } = await supabase
@@ -27,19 +27,16 @@ export function BodilyLocationSelector({ control, selectedBodyPart }: BodilyLoca
         .eq('body_part_id', parseInt(selectedBodyPart));
 
       if (joinError) {
-        console.error('Error fetching related codes:', joinError);
         return;
       }
 
       if (!relatedCodes?.length) {
-        console.log('No related codes found for body part:', selectedBodyPart);
         setBodilyLocations([]);
         return;
       }
 
       // 2. Get the bl_code_ids array
       const codeIds = relatedCodes.map(row => row.bl_code_id);
-      console.log('Related code IDs:', codeIds);
 
       // 3. Fetch the actual bodily location details
       const { data: locationData, error: locationError } = await supabase
@@ -48,12 +45,10 @@ export function BodilyLocationSelector({ control, selectedBodyPart }: BodilyLoca
         .in('bl_code_id', codeIds);
 
       if (locationError) {
-        console.error('Error fetching bodily locations:', locationError);
         return;
       }
 
       if (locationData) {
-        console.log('Fetched bodily locations:', locationData);
         setBodilyLocations(locationData);
       }
     };

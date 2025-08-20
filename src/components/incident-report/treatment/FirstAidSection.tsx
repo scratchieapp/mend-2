@@ -2,9 +2,10 @@ import { FormField, FormItem } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Control } from "react-hook-form";
+import type { IncidentReportFormData } from "@/lib/validations/incident";
 
 interface FirstAidSectionProps {
-  control: Control<any>;
+  control: Control<IncidentReportFormData>;
 }
 
 export function FirstAidSection({ control }: FirstAidSectionProps) {

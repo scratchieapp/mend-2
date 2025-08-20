@@ -1,7 +1,7 @@
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } from "recharts";
 
 interface StackedBarChartProps {
-  data: any[];
+  data: Record<string, unknown>[];
   dataKeys: string[];
   colors: readonly string[];
   height?: number;

@@ -1,13 +1,14 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormField, FormItem } from "@/components/ui/form";
-import { Control } from "react-hook-form";
+import { UseFormReturn } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { IncidentReportFormData } from "@/lib/validations/incident";
 
 interface NotificationSectionProps {
-  control: Control<any>;
+  form: UseFormReturn<IncidentReportFormData>;
 }
 
 interface Employer {
@@ -16,22 +17,19 @@ interface Employer {
   employer_state: string;
 }
 
-export function NotificationSection({ control }: NotificationSectionProps) {
+export function NotificationSection({ form }: NotificationSectionProps) {
   const { data: employers = [], isLoading } = useQuery({
     queryKey: ['employers'],
     queryFn: async () => {
-      console.log('Fetching employers...');
       const { data, error } = await supabase
         .from('employers')
         .select('employer_id, employer_name, employer_state')
         .order('employer_name');
       
       if (error) {
-        console.error('Error fetching employers:', error);
         throw error;
       }
       
-      console.log('Fetched employers:', data);
       return data as Employer[];
     },
     retry: 3,
@@ -44,7 +42,7 @@ export function NotificationSection({ control }: NotificationSectionProps) {
       <h3 className="text-lg font-semibold border-b pb-2">Notification Details</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <FormField
-          control={control}
+          control={form.control}
           name="mend_client"
           render={({ field }) => (
             <FormItem>
@@ -73,7 +71,7 @@ export function NotificationSection({ control }: NotificationSectionProps) {
         />
 
         <FormField
-          control={control}
+          control={form.control}
           name="notifying_person_name"
           render={({ field }) => (
             <FormItem>
@@ -84,7 +82,7 @@ export function NotificationSection({ control }: NotificationSectionProps) {
         />
 
         <FormField
-          control={control}
+          control={form.control}
           name="notifying_person_position"
           render={({ field }) => (
             <FormItem>
@@ -95,7 +93,7 @@ export function NotificationSection({ control }: NotificationSectionProps) {
         />
 
         <FormField
-          control={control}
+          control={form.control}
           name="notifying_person_telephone"
           render={({ field }) => (
             <FormItem>

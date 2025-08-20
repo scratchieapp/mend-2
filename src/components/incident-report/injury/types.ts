@@ -1,7 +1,8 @@
 import { Control } from "react-hook-form";
+import type { IncidentReportFormData } from "@/lib/validations/incident";
 
 export interface ExpandedInjuryDetailsProps {
-  control: Control<any>;
+  control: Control<IncidentReportFormData>;
   selectedBodyPart: string;
 }
 

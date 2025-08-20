@@ -130,7 +130,6 @@ const MonthlyReportsPage = () => {
       });
 
     } catch (error) {
-      console.error('Error generating report:', error);
       toast({
         title: "Error",
         description: "Failed to generate report. Please try again.",

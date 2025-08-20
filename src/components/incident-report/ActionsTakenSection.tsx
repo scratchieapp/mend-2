@@ -1,13 +1,13 @@
 import { Label } from "@/components/ui/label";
 import { FormField, FormItem } from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Control } from "react-hook-form";
-
+import { UseFormReturn } from "react-hook-form";
+import type { IncidentReportFormData } from "@/lib/validations/incident";
 interface ActionsTakenSectionProps {
-  control: Control<any>;
+  form: UseFormReturn<IncidentReportFormData>;
 }
 
-export function ActionsTakenSection({ control }: ActionsTakenSectionProps) {
+export function ActionsTakenSection({ form }: ActionsTakenSectionProps) {
   const actions = [
     { id: "data_input", label: "Data Input" },
     { id: "notification_emailed", label: "Notification Emailed" },
@@ -23,7 +23,7 @@ export function ActionsTakenSection({ control }: ActionsTakenSectionProps) {
         {actions.map((action) => (
           <FormField
             key={action.id}
-            control={control}
+            control={form.control}
             name="actions_taken"
             render={({ field }) => (
               <FormItem className="flex items-center space-x-2">

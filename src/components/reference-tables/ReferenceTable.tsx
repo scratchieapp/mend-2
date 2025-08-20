@@ -3,10 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Edit, Trash2 } from 'lucide-react';
 
 interface ReferenceTableProps {
-  data: any[];
+  data: Record<string, unknown>[];
   columns: string[];
-  onEdit?: (item: any) => void;
-  onDelete?: (item: any) => void;
+  onEdit?: (item: Record<string, unknown>) => void;
+  onDelete?: (item: Record<string, unknown>) => void;
 }
 
 export function ReferenceTable({ data, columns, onEdit, onDelete }: ReferenceTableProps) {
@@ -34,7 +34,7 @@ export function ReferenceTable({ data, columns, onEdit, onDelete }: ReferenceTab
         {data.map((item, index) => (
           <TableRow key={index}>
             {columns.map((column) => (
-              <TableCell key={column}>{item[column]}</TableCell>
+              <TableCell key={column}>{String(item[column] ?? '')}</TableCell>
             ))}
             <TableCell>
               <div className="flex gap-2">

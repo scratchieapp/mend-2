@@ -3,14 +3,38 @@ import { supabase } from '@/integrations/supabase/client';
 import { errorLogger } from '@/lib/monitoring/errorLogger';
 
 export function useReferenceTable(tableName: string) {
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (tableName) {
-      fetchData();
-    }
+    const fetchTableData = async () => {
+      if (!tableName) return;
+      
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const { data, error } = await supabase
+          .from(tableName)
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        
+        setData(data || []);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
+        errorLogger.error('Failed to fetch reference table data', err instanceof Error ? err : new Error(errorMessage), {
+          tableName
+        });
+        setError(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchTableData();
   }, [tableName]);
 
   const fetchData = async () => {
@@ -37,7 +61,7 @@ export function useReferenceTable(tableName: string) {
     }
   };
 
-  const addItem = async (item: any) => {
+  const addItem = async (item: Record<string, unknown>) => {
     try {
       const { error } = await supabase
         .from(tableName)
@@ -57,7 +81,7 @@ export function useReferenceTable(tableName: string) {
     }
   };
 
-  const updateItem = async (id: number, updates: any) => {
+  const updateItem = async (id: number, updates: Record<string, unknown>) => {
     try {
       const { error } = await supabase
         .from(tableName)

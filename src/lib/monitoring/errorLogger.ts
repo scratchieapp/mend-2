@@ -8,7 +8,7 @@ interface ErrorLogContext {
   userAgent?: string;
   timestamp: string;
   sessionId?: string;
-  additionalContext?: Record<string, any>;
+  additionalContext?: Record<string, unknown>;
 }
 
 interface ErrorLog {
@@ -29,7 +29,7 @@ class ErrorLogger {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  private getContext(additionalContext?: Record<string, any>): ErrorLogContext {
+  private getContext(additionalContext?: Record<string, unknown>): ErrorLogContext {
     return {
       url: window.location.href,
       userAgent: navigator.userAgent,
@@ -113,7 +113,7 @@ class ErrorLogger {
   /**
    * Log an error
    */
-  error(message: string, error?: Error, context?: Record<string, any>): void {
+  error(message: string, error?: Error, context?: Record<string, unknown>): void {
     const log: ErrorLog = {
       id: this.generateId(),
       level: 'error',
@@ -128,7 +128,7 @@ class ErrorLogger {
   /**
    * Log a warning
    */
-  warn(message: string, context?: Record<string, any>): void {
+  warn(message: string, context?: Record<string, unknown>): void {
     const log: ErrorLog = {
       id: this.generateId(),
       level: 'warn',
@@ -141,7 +141,7 @@ class ErrorLogger {
   /**
    * Log info
    */
-  info(message: string, context?: Record<string, any>): void {
+  info(message: string, context?: Record<string, unknown>): void {
     const log: ErrorLog = {
       id: this.generateId(),
       level: 'info',
@@ -203,7 +203,7 @@ class ErrorLogger {
     method: string, 
     error: Error | string, 
     statusCode?: number,
-    responseData?: any
+    responseData?: unknown
   ): void {
     this.error('API request failed', error instanceof Error ? error : new Error(error), {
       api: {
@@ -218,7 +218,7 @@ class ErrorLogger {
   /**
    * Log authentication errors
    */
-  logAuthError(action: string, error: Error | string, context?: Record<string, any>): void {
+  logAuthError(action: string, error: Error | string, context?: Record<string, unknown>): void {
     this.error(`Authentication ${action} failed`, error instanceof Error ? error : new Error(error), {
       auth: {
         action,
@@ -230,7 +230,7 @@ class ErrorLogger {
   /**
    * Log form validation errors
    */
-  logValidationError(formName: string, errors: Record<string, any>): void {
+  logValidationError(formName: string, errors: Record<string, unknown>): void {
     this.warn('Form validation failed', {
       form: {
         name: formName,
