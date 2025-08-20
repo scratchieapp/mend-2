@@ -200,7 +200,11 @@ npx supabase start
 - **Database Types**: `/src/integrations/supabase/types.ts`
 - **Migrations**: `/supabase/migrations/`
 
-## Documentation
+## Documentation and MCP servers generally
+- There is a Context7 MCP server, so make sure to use that whenever you need documentation from something.
+- The Supabase MCP is crucial for interacting with the database. If anything is not connected or not working, then you need to let me know so I can fix that.There is a specialist sub-agent for Supabase.
+- Use Playwright for any testing.
+- There is also a Vercel MCP, so you can check out the logs if any builds are failing.And just anything else with regards to deployment.
 
 ## Architecture Decisions
 1. **Supabase over custom backend**: Faster development, built-in auth

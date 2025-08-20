@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useClerkAuthContext } from '@/lib/clerk/ClerkAuthProvider';
+import { getClerkRedirectUrl } from '@/lib/config';
 
 export default function ClerkLogin() {
   const navigate = useNavigate();
@@ -46,7 +47,8 @@ export default function ClerkLogin() {
                 footerActionLink: 'text-primary hover:text-primary/90',
               },
             }}
-            redirectUrl="/dashboard"
+            fallbackRedirectUrl={getClerkRedirectUrl('/dashboard')}
+            signUpFallbackRedirectUrl={getClerkRedirectUrl('/auth/clerk-login')}
           />
         </CardContent>
       </Card>
