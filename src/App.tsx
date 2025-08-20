@@ -1,43 +1,168 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import Index from "./pages/Index";
+// mend-2/src/App.tsx
+
+import { Routes, Route } from "react-router-dom";
+import "./App.css";
+
+// Auth
+import AuthStateHandler from "./components/auth/AuthStateHandler"; // still in use
+import AuthCallback from "./pages/auth/AuthCallback";
 import Login from "./pages/auth/Login";
-import ConfirmationPending from "./pages/auth/ConfirmationPending";
-import MendSuperAdmin from "./pages/roles/MendSuperAdmin";
-import MendAccountManager from "./pages/roles/MendAccountManager";
-import MendDataEntry from "./pages/roles/MendDataEntry";
-import MendAnalyst from "./pages/roles/MendAnalyst";
-import BuilderAdmin from "./pages/roles/BuilderAdmin";
-import SiteAdmin from "./pages/roles/SiteAdmin";
-import PublicUser from "./pages/roles/PublicUser";
-import { AuthCallback } from "./components/auth/AuthCallback";
+import DashboardRouter from "./components/auth/DashboardRouter";
+import { SessionWarning } from "./components/SessionWarning";
 
-const queryClient = new QueryClient();
+// Pages
+// NOTE: Import your Administrator page. Adjust the path if it's in a different folder.
+import Administrator from "./pages/roles/Administrator";
+import AccountManager from "./pages/AccountManager";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import UserManagementPage from "./pages/UserManagementPage";
+import Dashboard from "./pages/Dashboard";
+import AdminDashboard from "./pages/AdminDashboard";
+import StorageSetupAdmin from "./pages/StorageSetupAdmin";
+import DataAdmin from "./pages/DataAdmin";
+import DataImportAdmin from "./pages/DataImportAdmin";
+import ReferenceTablesAdmin from "./pages/ReferenceTablesAdmin";
+import SearchVerifyAdmin from "./pages/SearchVerifyAdmin";
+import SystemLogsAdmin from "./pages/SystemLogsAdmin";
+import MedicalProfessionalsAdmin from "./pages/MedicalProfessionalsAdmin";
+import HoursWorkedAdmin from "./pages/HoursWorkedAdmin";
+import UserManagementAdmin from "./pages/UserManagementAdmin";
+import IncidentReport from "./pages/IncidentReport";
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/*" element={<AuthCallback />} />
-          <Route path="/auth/login" element={<Login />} />
-          <Route path="/auth/confirmation-pending" element={<ConfirmationPending />} />
-          <Route path="/roles/mend-super-admin" element={<MendSuperAdmin />} />
-          <Route path="/roles/mend-account-manager" element={<MendAccountManager />} />
-          <Route path="/roles/mend-data-entry" element={<MendDataEntry />} />
-          <Route path="/roles/mend-analyst" element={<MendAnalyst />} />
-          <Route path="/roles/builder-admin" element={<BuilderAdmin />} />
-          <Route path="/roles/site-admin" element={<SiteAdmin />} />
-          <Route path="/roles/public" element={<PublicUser />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+function App() {
+  return (
+    <>
+      {/* Session warning for expiring sessions */}
+      <SessionWarning />
+      
+      {/* 
+        AuthStateHandler will auto-redirect on first load:
+          - If user is not logged in → /auth/login
+          - If user is logged in → "/"
+      */}
+
+      <Routes>
+
+        {/* Standard login page */}
+        <Route path="/auth/login" element={<Login />} />
+
+        {/* Protected routes go inside a parent route guarded by <ProtectedRoute> */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <DashboardRouter />
+            </ProtectedRoute>
+          }
+        >
+          {/* Example routes inside the protected area */}
+          <Route path="account-manager" element={<AccountManager />} />
+          <Route path="user-management" element={<UserManagementPage />} />
+
+          {/* Administrator route (requires you import Administrator above) */}
+          <Route
+            path="administrator"
+            element={
+              <ProtectedRoute allowedRoles={["mend_super_admin", "builder_admin"]}>
+                <Administrator />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+             <ProtectedRoute>
+               <Dashboard />
+             </ProtectedRoute>
+             }
+          />
+          <Route path="incident-report" element={<IncidentReport />} />
+          
+          {/* Admin routes */}
+          <Route
+            path="admin"
+            element={
+              <ProtectedRoute allowedRoles={["mend_super_admin", "builder_admin", "administrator"]}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="admin/storage-setup"
+            element={
+              <ProtectedRoute allowedRoles={["mend_super_admin"]}>
+                <StorageSetupAdmin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="admin/data"
+            element={
+              <ProtectedRoute allowedRoles={["mend_super_admin", "builder_admin", "administrator"]}>
+                <DataAdmin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="admin/data-import"
+            element={
+              <ProtectedRoute allowedRoles={["mend_super_admin", "builder_admin", "administrator"]}>
+                <DataImportAdmin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="admin/reference-tables"
+            element={
+              <ProtectedRoute allowedRoles={["mend_super_admin", "builder_admin", "administrator"]}>
+                <ReferenceTablesAdmin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="admin/search-verify"
+            element={
+              <ProtectedRoute allowedRoles={["mend_super_admin", "builder_admin"]}>
+                <SearchVerifyAdmin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="admin/system-logs"
+            element={
+              <ProtectedRoute allowedRoles={["mend_super_admin"]}>
+                <SystemLogsAdmin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="admin/medical-professionals"
+            element={
+              <ProtectedRoute allowedRoles={["mend_super_admin", "builder_admin", "administrator"]}>
+                <MedicalProfessionalsAdmin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="admin/hours-worked"
+            element={
+              <ProtectedRoute allowedRoles={["mend_super_admin", "builder_admin"]}>
+                <HoursWorkedAdmin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="admin/user-management"
+            element={
+              <ProtectedRoute allowedRoles={["mend_super_admin", "builder_admin", "administrator"]}>
+                <UserManagementAdmin />
+              </ProtectedRoute>
+            }
+          />
+        </Route>
+      </Routes>
+    </>
+  );
+}
 
 export default App;
