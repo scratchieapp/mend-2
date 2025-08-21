@@ -33,7 +33,7 @@ const SitesMap = ({ sites }: SitesMapProps) => {
   }, [setMap]);
 
   const handleSiteClick = (siteId: number) => {
-    console.log('Navigating to site:', siteId);
+    // Navigating to site
     navigate(`/builder/site/${siteId}`);
   };
 

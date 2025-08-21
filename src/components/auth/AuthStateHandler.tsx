@@ -11,8 +11,9 @@ export default function AuthStateHandler() {
   useEffect(() => {
     if (!loading) {
       const isAuthRoute = location.pathname.startsWith('/auth/');
+      const isDevRoute = location.pathname.startsWith('/dev/');
       
-      if (!user && !isAuthRoute) {
+      if (!user && !isAuthRoute && !isDevRoute) {
         // Redirect to Clerk login page which handles auth properly
         navigate('/auth/clerk-login');
       } else if (user && isAuthRoute && !location.pathname.includes('clear-session')) {
@@ -20,6 +21,7 @@ export default function AuthStateHandler() {
         navigate('/dashboard');
       }
       // If user is at "/" and authenticated, or at "/auth/*" and not authenticated, do nothing
+      // Development routes are allowed without authentication
     }
   }, [user, loading, navigate, location]);
 

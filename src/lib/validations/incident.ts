@@ -1,7 +1,26 @@
 import { z } from 'zod';
 
-// Phone number regex for Australian format
-const phoneRegex = /^(\+61|0)[2-478][\d]{8}$/;
+// Australian phone validation with normalization
+const validateAustralianPhone = (phone: string): boolean => {
+  if (!phone) return false;
+  
+  // Remove all spaces and formatting
+  const cleaned = phone.replace(/\s/g, "");
+  
+  // Convert +61 to 0 format
+  const normalized = cleaned.replace(/^\+?61/, "0");
+  
+  // Check if it matches Australian mobile (04) or landline (02,03,07,08) pattern
+  const mobileRegex = /^04\d{8}$/;
+  const landlineRegex = /^0[2378]\d{8}$/;
+  
+  return mobileRegex.test(normalized) || landlineRegex.test(normalized);
+};
+
+// Phone validation schema
+const phoneValidation = z.string().refine(validateAustralianPhone, {
+  message: "Please enter a valid Australian phone number (e.g., 04## ### ### or 02 #### ####)"
+});
 
 // Email validation
 const emailSchema = z.string().email('Invalid email address');
@@ -19,7 +38,7 @@ export const notificationSchema = z.object({
   mend_client: z.string().min(1, 'Client is required'),
   notifying_person_name: z.string().min(2, 'Name must be at least 2 characters'),
   notifying_person_position: z.string().min(2, 'Position is required'),
-  notifying_person_telephone: z.string().regex(phoneRegex, 'Invalid phone number format'),
+  notifying_person_telephone: phoneValidation,
 });
 
 // Worker details schema
@@ -27,7 +46,7 @@ export const workerDetailsSchema = z.object({
   worker_id: z.string().min(1, 'Worker selection is required'),
   worker_name: z.string().optional(),
   worker_email: emailSchema.optional(),
-  worker_phone: z.string().regex(phoneRegex, 'Invalid phone number').optional(),
+  worker_phone: phoneValidation.optional(),
 });
 
 // Employment section schema
@@ -35,7 +54,7 @@ export const employmentSchema = z.object({
   employer_name: z.string().min(1, 'Employer name is required'),
   location_site: z.string().min(1, 'Site location is required'),
   supervisor_contact: z.string().min(2, 'Supervisor name is required'),
-  supervisor_phone: z.string().regex(phoneRegex, 'Invalid phone number format'),
+  supervisor_phone: phoneValidation,
   employment_type: z.enum(['full_time', 'part_time', 'casual', 'contractor'], {
     errorMap: () => ({ message: 'Please select employment type' }),
   }),
@@ -105,7 +124,7 @@ export const incidentReportSchema = z.object({
   mend_client: z.string().min(1, 'Client is required'),
   notifying_person_name: z.string().min(2, 'Name must be at least 2 characters'),
   notifying_person_position: z.string().min(2, 'Position is required'),
-  notifying_person_telephone: z.string().regex(phoneRegex, 'Invalid phone number format'),
+  notifying_person_telephone: phoneValidation,
   
   // Worker
   worker_id: z.string().min(1, 'Worker selection is required'),
@@ -114,7 +133,7 @@ export const incidentReportSchema = z.object({
   employer_name: z.string().min(1, 'Employer name is required'),
   location_site: z.string().min(1, 'Site location is required'),
   supervisor_contact: z.string().min(2, 'Supervisor name is required'),
-  supervisor_phone: z.string().regex(phoneRegex, 'Invalid phone number format'),
+  supervisor_phone: phoneValidation,
   employment_type: z.enum(['full_time', 'part_time', 'casual', 'contractor']),
   
   // Injury

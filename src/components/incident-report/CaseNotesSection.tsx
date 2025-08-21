@@ -10,7 +10,6 @@ interface CaseNotesSectionProps {
 export function CaseNotesSection({ form }: CaseNotesSectionProps) {
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold border-b pb-2">Case Notes</h3>
       <FormField
         control={form.control}
         name="case_notes"

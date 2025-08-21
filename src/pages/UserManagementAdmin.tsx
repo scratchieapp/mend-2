@@ -18,7 +18,7 @@ export default function UserManagementAdmin() {
   const { data: users, isLoading } = useQuery({
     queryKey: ['users'],
     queryFn: async () => {
-      console.log('Fetching users...');
+      // Fetching users...
       const { data, error } = await supabase.functions.invoke('manage-users', {
         method: 'POST',
         body: { action: 'listUsers' }
@@ -29,7 +29,7 @@ export default function UserManagementAdmin() {
         throw error;
       }
       
-      console.log('Received users data:', data);
+      // Received users data
       return Array.isArray(data) ? data : [];
     }
   });

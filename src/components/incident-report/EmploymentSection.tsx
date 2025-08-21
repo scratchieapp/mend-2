@@ -12,9 +12,11 @@ interface EmploymentSectionProps {
 
 export function EmploymentSection({ form }: EmploymentSectionProps) {
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold border-b pb-2">Employment Details</h3>
-      <div className="grid grid-cols-1 gap-4">
+    <div className="space-y-6">
+      <div>
+        <p className="text-sm text-muted-foreground">Information about the worker's employment and workplace</p>
+      </div>
+      <div className="space-y-6">
         <EmployerField control={form.control} />
         <LocationField control={form.control} />
         <SupervisorFields control={form.control} />

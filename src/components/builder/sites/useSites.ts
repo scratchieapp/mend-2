@@ -7,11 +7,11 @@ export const useSites = (selectedEmployerId: number | null) => {
     queryKey: ['sites', selectedEmployerId],
     queryFn: async () => {
       if (!selectedEmployerId) {
-        console.log('No employer selected');
+        // No employer selected
         return [];
       }
 
-      console.log('Fetching sites for employer:', selectedEmployerId);
+      // Fetching sites for employer
 
       const { error: contextError } = await supabase.rpc('set_employer_context', {
         employer_id: selectedEmployerId
@@ -33,7 +33,7 @@ export const useSites = (selectedEmployerId: number | null) => {
         throw error;
       }
 
-      console.log('Fetched sites:', data);
+      // Fetched sites successfully
       return data as Site[];
     },
     enabled: !!selectedEmployerId,

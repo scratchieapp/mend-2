@@ -28,12 +28,12 @@ interface IncidentsListProps {
 
 export function IncidentsList({ siteId, month }: IncidentsListProps) {
   const navigate = useNavigate();
-  console.log('Rendering IncidentsList with siteId:', siteId, 'month:', month);
+  // Rendering IncidentsList
 
   const { data: incidents, isLoading, error } = useQuery({
     queryKey: ['incidents', siteId, month],
     queryFn: async () => {
-      console.log('Fetching incidents for siteId:', siteId, 'month:', month);
+      // Fetching incidents for site and month
       
       const startOfMonth = new Date(month);
       startOfMonth.setDate(1);
@@ -59,7 +59,7 @@ export function IncidentsList({ siteId, month }: IncidentsListProps) {
         .lte('date_of_injury', endOfMonth.toISOString());
 
       if (error) throw error;
-      console.log('Raw incidents data:', data);
+      // Raw incidents data received
 
       return data as unknown as Incident[];
     }

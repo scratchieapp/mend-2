@@ -8,7 +8,7 @@ export const IndustryLTIChart = () => {
   const { data: chartData, isLoading, error } = useQuery({
     queryKey: ['industry-lti-rates'],
     queryFn: async () => {
-      console.log('Fetching industry LTI rates...');
+      // Fetching industry LTI rates...
       
       const { data, error } = await supabase
         .from('lti_rates_mend')
@@ -20,7 +20,7 @@ export const IndustryLTIChart = () => {
         throw error;
       }
 
-      console.log('Raw data from database:', data);
+      // Raw data from database received
       
       // Filter out future months and ensure unique months
       const currentMonth = startOfMonth(new Date());
@@ -33,7 +33,7 @@ export const IndustryLTIChart = () => {
           return !isFuture(itemDate) && !isEqual(itemDate, currentMonth);
         })
         .map(item => {
-          console.log(`Processing item - Month: ${item.month}, Average: ${item.mend_average}`);
+          // Processing item
           return {
             month: new Date(item.month).toLocaleDateString('default', { month: 'short', year: 'numeric' }),
             rate: Number(item.mend_average.toFixed(1))
@@ -45,12 +45,12 @@ export const IndustryLTIChart = () => {
           if (!exists) {
             acc.push(current);
           } else {
-            console.warn('Duplicate month found:', current);
+            // Duplicate month found
           }
           return acc;
         }, []);
 
-      console.log('Processed chart data:', processedData);
+      // Processed chart data
       return processedData;
     }
   });

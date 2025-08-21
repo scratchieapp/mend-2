@@ -22,11 +22,7 @@ export const useTimeSeriesData = (selectedEmployerId: number | null) => {
         const endDate = startOfMonth(new Date());
         const startDate = subMonths(endDate, 5);
 
-        console.log('Fetching time series data for date range:', {
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-          employerId: selectedEmployerId
-        });
+        // Fetching time series data for date range
 
         // First set employer context
         const { error: contextError } = await supabase.rpc('set_employer_context', {
@@ -51,7 +47,7 @@ export const useTimeSeriesData = (selectedEmployerId: number | null) => {
           throw error;
         }
 
-        console.log('Raw LTI rates data:', data);
+        // Raw LTI rates data received
 
         // Format the data for the chart, ensuring we only take the latest entry for each month
         const monthlyData = (data || []).reduce((acc: Record<string, MonthlyData>, record) => {
@@ -61,7 +57,7 @@ export const useTimeSeriesData = (selectedEmployerId: number | null) => {
           // Flag months with insufficient hours but include them in the data
           const hasInsufficientHours = record.total_hours < MIN_MONTHLY_HOURS;
           if (hasInsufficientHours) {
-            console.warn(`Warning: ${formattedMonth} has insufficient hours (${record.total_hours})`);
+            // Warning: Month has insufficient hours
           }
           
           // Only update if we don't have this month yet or if this record is more recent
@@ -82,7 +78,7 @@ export const useTimeSeriesData = (selectedEmployerId: number | null) => {
           new Date(a.original_date).getTime() - new Date(b.original_date).getTime()
         );
 
-        console.log('Processed time series data:', sortedData);
+        // Processed time series data
 
         return sortedData;
       } catch (error) {

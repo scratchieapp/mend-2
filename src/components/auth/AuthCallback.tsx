@@ -11,10 +11,8 @@ export const AuthCallback = () => {
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        console.log('AuthCallback: Component mounted');
-        console.log('Full URL:', window.location.href);
-        console.log('Hash:', window.location.hash);
-        console.log('Pathname:', window.location.pathname);
+        // AuthCallback: Component mounted
+        // Full URL, Hash, and Pathname being processed
         
         // Check for hash tokens first
         if (window.location.hash) {
@@ -22,11 +20,11 @@ export const AuthCallback = () => {
           const accessToken = hashParams.get('access_token');
           const refreshToken = hashParams.get('refresh_token');
           
-          console.log('Parsed tokens - Access:', !!accessToken, 'Refresh:', !!refreshToken);
+          // Parsed tokens from hash
 
           if (accessToken && refreshToken) {
             try {
-              console.log('Setting session with tokens');
+              // Setting session with tokens
               const { data: { session }, error } = await supabase.auth.setSession({
                 access_token: accessToken,
                 refresh_token: refreshToken
@@ -42,7 +40,7 @@ export const AuthCallback = () => {
                 throw new Error('No session established');
               }
 
-              console.log('Session established:', session.user.id);
+              // Session established successfully
               
               // Clear hash and navigate
               window.history.replaceState(null, '', window.location.pathname);
@@ -61,14 +59,14 @@ export const AuthCallback = () => {
         }
 
         // If no hash tokens, check existing session
-        console.log('Checking existing session');
+        // Checking existing session
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
-          console.log('Existing session found:', session.user.id);
+          // Existing session found
           navigate('/roles/public', { replace: true });
         } else {
-          console.log('No session found, redirecting to login');
+          // No session found, redirecting to login
           navigate('/auth/login', { replace: true });
         }
       } catch (error) {

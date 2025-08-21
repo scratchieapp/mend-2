@@ -10,7 +10,6 @@ interface WorkerDetailsSectionProps {
 export function WorkerDetailsSection({ form }: WorkerDetailsSectionProps) {
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold border-b pb-2">Worker Details</h3>
       <div className="grid grid-cols-1 gap-4">
         <WorkerSelector control={form.control} />
         <WorkerDetails control={form.control} />

@@ -18,7 +18,6 @@ export function ActionsTakenSection({ form }: ActionsTakenSectionProps) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold border-b pb-2">Actions Taken</h3>
       <div className="space-y-4">
         {actions.map((action) => (
           <FormField

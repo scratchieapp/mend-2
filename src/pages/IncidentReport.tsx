@@ -122,17 +122,11 @@ const IncidentReport = () => {
 
   return (
     <DataErrorBoundary errorTitle="Failed to load incident report form">
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
-        <div className="max-w-4xl mx-auto">
-          <Card>
-            <CardHeader className="space-y-6">
-              <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle className="text-2xl">Incident Report</CardTitle>
-                  <p className="text-muted-foreground mt-1">
-                    Report workplace incidents and injuries
-                  </p>
-                </div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4 md:p-6 lg:p-8">
+        <div className="max-w-5xl mx-auto">
+          <Card className="shadow-lg border-0 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm">
+            <CardHeader className="space-y-4 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
+              <div className="flex justify-between items-start">
                 <Button
                   type="button"
                   variant="outline"
@@ -142,33 +136,13 @@ const IncidentReport = () => {
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Back to Dashboard
                 </Button>
-              </div>
-
-              {/* Progress indicator */}
-              <div className="flex items-center space-x-2">
-                {tabOrder.map((tab, index) => (
-                  <div key={tab.id} className="flex items-center">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                        index <= currentTabIndex
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {index + 1}
-                    </div>
-                    <span className={`ml-2 text-sm ${
-                      index <= currentTabIndex ? 'text-foreground' : 'text-muted-foreground'
-                    }`}>
-                      {tab.title}
-                    </span>
-                    {index < tabOrder.length - 1 && (
-                      <div className={`w-8 h-0.5 mx-4 ${
-                        index < currentTabIndex ? 'bg-primary' : 'bg-muted'
-                      }`} />
-                    )}
-                  </div>
-                ))}
+                <div className="text-center flex-1">
+                  <CardTitle className="text-2xl">Incident Report</CardTitle>
+                  <p className="text-muted-foreground mt-1">
+                    Report workplace incidents and injuries
+                  </p>
+                </div>
+                <div className="w-[140px]"></div> {/* Spacer to balance the layout */}
               </div>
 
               {/* Validation errors summary */}
@@ -189,70 +163,90 @@ const IncidentReport = () => {
               )}
             </CardHeader>
 
-            <CardContent>
+            <CardContent className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm p-8">
               <Form {...form}>
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
                   <Tabs value={activeTab} onValueChange={setActiveTab}>
-                    <TabsList className="grid w-full grid-cols-8">
+                    {/* Improved responsive tab layout */}
+                    <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1 h-auto p-1">
                       {tabOrder.map((tab) => (
                         <TabsTrigger
                           key={tab.id}
                           value={tab.id}
-                          className="text-xs"
+                          className="text-xs sm:text-sm font-medium px-2 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                           disabled={isSubmitting}
                         >
-                          {tab.title}
+                          <span className="truncate">{tab.title}</span>
                         </TabsTrigger>
                       ))}
                     </TabsList>
 
-                    <TabsContent value="notification" className="space-y-4">
-                      <DataErrorBoundary errorTitle="Failed to load notification section">
-                        <NotificationSection form={form} />
-                      </DataErrorBoundary>
-                    </TabsContent>
+                    {/* Enhanced tab content with proper spacing and container sizing */}
+                    <div className="mt-6">
+                      <TabsContent value="notification" className="mt-0">
+                        <div className="bg-card rounded-lg border p-6 space-y-6">
+                          <DataErrorBoundary errorTitle="Failed to load notification section">
+                            <NotificationSection form={form} />
+                          </DataErrorBoundary>
+                        </div>
+                      </TabsContent>
 
-                    <TabsContent value="worker" className="space-y-4">
-                      <DataErrorBoundary errorTitle="Failed to load worker details">
-                        <WorkerDetailsSection form={form} />
-                      </DataErrorBoundary>
-                    </TabsContent>
+                      <TabsContent value="worker" className="mt-0">
+                        <div className="bg-card rounded-lg border p-6 space-y-6">
+                          <DataErrorBoundary errorTitle="Failed to load worker details">
+                            <WorkerDetailsSection form={form} />
+                          </DataErrorBoundary>
+                        </div>
+                      </TabsContent>
 
-                    <TabsContent value="employment" className="space-y-4">
-                      <DataErrorBoundary errorTitle="Failed to load employment section">
-                        <EmploymentSection form={form} />
-                      </DataErrorBoundary>
-                    </TabsContent>
+                      <TabsContent value="employment" className="mt-0">
+                        <div className="bg-card rounded-lg border p-6 space-y-6">
+                          <DataErrorBoundary errorTitle="Failed to load employment section">
+                            <EmploymentSection form={form} />
+                          </DataErrorBoundary>
+                        </div>
+                      </TabsContent>
 
-                    <TabsContent value="injury" className="space-y-4">
-                      <DataErrorBoundary errorTitle="Failed to load injury details">
-                        <InjuryDetailsSection form={form} />
-                      </DataErrorBoundary>
-                    </TabsContent>
+                      <TabsContent value="injury" className="mt-0">
+                        <div className="bg-card rounded-lg border p-6 space-y-6">
+                          <DataErrorBoundary errorTitle="Failed to load injury details">
+                            <InjuryDetailsSection form={form} />
+                          </DataErrorBoundary>
+                        </div>
+                      </TabsContent>
 
-                    <TabsContent value="treatment" className="space-y-4">
-                      <DataErrorBoundary errorTitle="Failed to load treatment section">
-                        <TreatmentDetailsSection form={form} />
-                      </DataErrorBoundary>
-                    </TabsContent>
+                      <TabsContent value="treatment" className="mt-0">
+                        <div className="bg-card rounded-lg border p-6 space-y-6">
+                          <DataErrorBoundary errorTitle="Failed to load treatment section">
+                            <TreatmentDetailsSection form={form} />
+                          </DataErrorBoundary>
+                        </div>
+                      </TabsContent>
 
-                    <TabsContent value="actions" className="space-y-4">
-                      <DataErrorBoundary errorTitle="Failed to load actions section">
-                        <ActionsTakenSection form={form} />
-                      </DataErrorBoundary>
-                    </TabsContent>
+                      <TabsContent value="actions" className="mt-0">
+                        <div className="bg-card rounded-lg border p-6 space-y-6">
+                          <DataErrorBoundary errorTitle="Failed to load actions section">
+                            <ActionsTakenSection form={form} />
+                          </DataErrorBoundary>
+                        </div>
+                      </TabsContent>
 
-                    <TabsContent value="notes" className="space-y-4">
-                      <DataErrorBoundary errorTitle="Failed to load case notes">
-                        <CaseNotesSection form={form} />
-                      </DataErrorBoundary>
-                    </TabsContent>
+                      <TabsContent value="notes" className="mt-0">
+                        <div className="bg-card rounded-lg border p-6 space-y-6">
+                          <DataErrorBoundary errorTitle="Failed to load case notes">
+                            <CaseNotesSection form={form} />
+                          </DataErrorBoundary>
+                        </div>
+                      </TabsContent>
 
-                    <TabsContent value="documents" className="space-y-4">
-                      <DataErrorBoundary errorTitle="Failed to load documents section">
-                        <DocumentsSection form={form} />
-                      </DataErrorBoundary>
-                    </TabsContent>
+                      <TabsContent value="documents" className="mt-0">
+                        <div className="bg-card rounded-lg border p-6 space-y-6">
+                          <DataErrorBoundary errorTitle="Failed to load documents section">
+                            <DocumentsSection form={form} />
+                          </DataErrorBoundary>
+                        </div>
+                      </TabsContent>
+                    </div>
                   </Tabs>
 
                   {/* Navigation buttons */}

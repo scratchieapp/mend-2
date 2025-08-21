@@ -31,7 +31,7 @@ export function LocationField({ control }: LocationFieldProps) {
     queryFn: async () => {
       if (!selectedEmployerId) return [];
       
-      console.log('Fetching locations for employer:', selectedEmployerId);
+      // Fetching locations for employer
       const { data, error } = await supabase
         .from('sites')
         .select('*')
@@ -42,7 +42,7 @@ export function LocationField({ control }: LocationFieldProps) {
         throw error;
       }
       
-      console.log('Fetched locations:', data);
+      // Fetched locations successfully
       return data as Site[];
     },
     enabled: !!selectedEmployerId,

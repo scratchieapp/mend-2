@@ -33,6 +33,7 @@ import MedicalProfessionalsAdmin from "./pages/MedicalProfessionalsAdmin";
 import HoursWorkedAdmin from "./pages/HoursWorkedAdmin";
 import UserManagementAdmin from "./pages/UserManagementAdmin";
 import IncidentReport from "./pages/IncidentReport";
+import IncidentReportDev from "./pages/IncidentReportDev";
 
 function App() {
   return (
@@ -57,6 +58,9 @@ function App() {
         <Route path="/auth/forgot-password" element={<ForgotPassword />} />
         <Route path="/auth/reset-password" element={<ResetPassword />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+
+        {/* Development routes (unprotected for UX testing) */}
+        <Route path="/dev/incident-report" element={<IncidentReportDev />} />
 
         {/* Protected routes go inside a parent route guarded by <ProtectedRoute> */}
         <Route

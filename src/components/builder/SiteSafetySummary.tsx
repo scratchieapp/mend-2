@@ -54,7 +54,7 @@ export const SiteSafetySummary = ({ siteId }: SiteSafetySummaryProps) => {
   };
 
   const handleUpdateStatus = (status: string) => {
-    console.log('Status updated:', status);
+    // Status updated
   };
 
   return (

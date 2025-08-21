@@ -255,8 +255,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (err) {
       logAuthError('refresh-session', err instanceof Error ? err : String(err));
-      // Session refresh failed, user needs to login again
-      await signOut();
+      // Session refresh failed, clear session data
+      setSession(null);
+      setUser(null);
+      setIsAuthenticated(false);
+      clearSessionExpiry();
     }
   }, [updateSessionExpiry]);
 

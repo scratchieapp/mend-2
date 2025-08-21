@@ -31,13 +31,7 @@ export const useHoursUpdate = () => {
         throw new Error('Employer ID is required');
       }
 
-      console.log('Updating hours with:', {
-        site_id: siteId,
-        employer_id: employerId,
-        month,
-        employer_hours: employerHours,
-        subcontractor_hours: subcontractorHours
-      });
+      // Updating hours for site
 
       const { error } = await supabase
         .from('hours_worked')

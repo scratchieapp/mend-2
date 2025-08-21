@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/PhoneInput";
 import { Label } from "@/components/ui/label";
 import { FormField, FormItem } from "@/components/ui/form";
 import { UseFormReturn } from "react-hook-form";
@@ -38,21 +39,23 @@ export function NotificationSection({ form }: NotificationSectionProps) {
   });
 
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold border-b pb-2">Notification Details</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="space-y-6">
+      <div>
+        <p className="text-sm text-muted-foreground">Provide information about the person reporting this incident</p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <FormField
           control={form.control}
           name="mend_client"
-          render={({ field }) => (
-            <FormItem>
-              <Label>Mend Client</Label>
+          render={({ field, fieldState }) => (
+            <FormItem className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">Mend Client *</Label>
               <Select
                 disabled={isLoading}
                 onValueChange={field.onChange}
                 value={field.value}
               >
-                <SelectTrigger>
+                <SelectTrigger className={fieldState.error ? "border-destructive" : ""}>
                   <SelectValue placeholder="Select client..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -66,6 +69,9 @@ export function NotificationSection({ form }: NotificationSectionProps) {
                   ))}
                 </SelectContent>
               </Select>
+              {fieldState.error && (
+                <p className="text-sm text-destructive">{fieldState.error.message}</p>
+              )}
             </FormItem>
           )}
         />
@@ -73,10 +79,17 @@ export function NotificationSection({ form }: NotificationSectionProps) {
         <FormField
           control={form.control}
           name="notifying_person_name"
-          render={({ field }) => (
-            <FormItem>
-              <Label>Person Notifying</Label>
-              <Input {...field} required />
+          render={({ field, fieldState }) => (
+            <FormItem className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">Person Notifying *</Label>
+              <Input 
+                {...field} 
+                placeholder="Full name"
+                className={fieldState.error ? "border-destructive" : ""}
+              />
+              {fieldState.error && (
+                <p className="text-sm text-destructive">{fieldState.error.message}</p>
+              )}
             </FormItem>
           )}
         />
@@ -84,10 +97,17 @@ export function NotificationSection({ form }: NotificationSectionProps) {
         <FormField
           control={form.control}
           name="notifying_person_position"
-          render={({ field }) => (
-            <FormItem>
-              <Label>Position</Label>
-              <Input {...field} required />
+          render={({ field, fieldState }) => (
+            <FormItem className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">Position *</Label>
+              <Input 
+                {...field} 
+                placeholder="Job title or role"
+                className={fieldState.error ? "border-destructive" : ""}
+              />
+              {fieldState.error && (
+                <p className="text-sm text-destructive">{fieldState.error.message}</p>
+              )}
             </FormItem>
           )}
         />
@@ -95,10 +115,17 @@ export function NotificationSection({ form }: NotificationSectionProps) {
         <FormField
           control={form.control}
           name="notifying_person_telephone"
-          render={({ field }) => (
-            <FormItem>
-              <Label>Telephone</Label>
-              <Input {...field} type="tel" required />
+          render={({ field, fieldState }) => (
+            <FormItem className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">Telephone *</Label>
+              <PhoneInput 
+                value={field.value}
+                onChange={field.onChange}
+                error={!!fieldState.error}
+              />
+              {fieldState.error && (
+                <p className="text-sm text-destructive">{fieldState.error.message}</p>
+              )}
             </FormItem>
           )}
         />
