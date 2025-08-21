@@ -48,9 +48,9 @@ export default function ClearSession() {
     // Show success message
     alert('Session cleared! Redirecting to login page...');
     
-    // Redirect to login
+    // Redirect to Clerk login page
     setTimeout(() => {
-      window.location.href = '/auth/login';
+      window.location.href = '/auth/clerk-login';
     }, 1000);
   };
 
@@ -73,7 +73,7 @@ export default function ClearSession() {
             If you're not redirected automatically, click the button below:
           </p>
           <Button 
-            onClick={() => navigate('/auth/login')} 
+            onClick={() => navigate('/auth/clerk-login')} 
             className="w-full"
           >
             Go to Login Page

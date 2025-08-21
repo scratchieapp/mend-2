@@ -13,11 +13,11 @@ export default function AuthStateHandler() {
       const isAuthRoute = location.pathname.startsWith('/auth/');
       
       if (!user && !isAuthRoute) {
-        // Only redirect to login if not already on an auth page
-        navigate('/auth/login');
-      } else if (user && isAuthRoute) {
-        // Only redirect away from auth pages if user is logged in
-        navigate('/');
+        // Redirect to Clerk login page which handles auth properly
+        navigate('/auth/clerk-login');
+      } else if (user && isAuthRoute && !location.pathname.includes('clear-session')) {
+        // Only redirect away from auth pages if user is logged in (except clear-session)
+        navigate('/dashboard');
       }
       // If user is at "/" and authenticated, or at "/auth/*" and not authenticated, do nothing
     }
