@@ -103,8 +103,8 @@ function ClerkAuthSync({ children }: { children: React.ReactNode }) {
 
             supabaseUser = newUser;
           } else {
-            // Update user's display name if needed
-            if (existingUser.custom_display_name !== clerkUser.fullName) {
+            // Update user's clerk_user_id and display name if needed
+            if (!existingUser.clerk_user_id || existingUser.custom_display_name !== clerkUser.fullName) {
               const { data: updatedUser, error: updateError } = await supabase
                 .from('users')
                 .update({ 

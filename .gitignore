@@ -34,3 +34,4 @@ claude_mcp_config.json
 mcp-servers/
 file-tree.txt
 project_structure.txt
+.vercel

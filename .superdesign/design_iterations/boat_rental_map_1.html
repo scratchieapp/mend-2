@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnchorAway - Discover Your Perfect Boat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&family=Architects+Daughter&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="archipelago_theme.css">
+    <style>
+        body {
+            font-family: var(--font-sans) !important;
+            background-color: var(--background) !important;
+            color: var(--foreground) !important;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            font-family: var(--font-mono) !important;
+        }
+        
+        /* Map animations */
+        @keyframes pinDrop {
+            0% {
+                transform: translateY(-20px) scale(0);
+                opacity: 0;
+            }
+            50% {
+                transform: translateY(0) scale(1.2);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+        
+        .pin-marker {
+            animation: pinDrop 0.3s ease-out forwards;
+        }
+        
+        /* Wave effect for water */
+        @keyframes wave {
+            0% { transform: translateX(0) translateY(0); }
+            25% { transform: translateX(-5px) translateY(-2px); }
+            50% { transform: translateX(0) translateY(-3px); }
+            75% { transform: translateX(5px) translateY(-2px); }
+            100% { transform: translateX(0) translateY(0); }
+        }
+        
+        .wave-effect {
+            animation: wave 3s ease-in-out infinite;
+        }
+        
+        /* Marina floating animation */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .marina-float {
+            animation: float 4s ease-in-out infinite;
+        }
+        
+        /* Pulse effect for hover */
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(101, 163, 180, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(101, 163, 180, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(101, 163, 180, 0);
+            }
+        }
+        
+        .pulse-hover:hover {
+            animation: pulse 1.5s infinite;
+        }
+        
+        /* Card float effect */
+        .card-float {
+            transition: all 0.3s ease-out;
+        }
+        
+        .card-float:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        /* Custom styles */
+        .map-container {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .map-container::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+            transform: rotate(45deg);
+            opacity: 0.5;
+        }
+        
+        .search-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-left: 4px solid var(--primary);
+        }
+        
+        .boat-marker {
+            width: 40px;
+            height: 40px;
+            background: var(--accent);
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .boat-marker:hover {
+            transform: rotate(-45deg) scale(1.3);
+        }
+        
+        .boat-marker::after {
+            content: '⛵';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(45deg);
+            font-size: 20px;
+        }
+        
+        /* Island markers */
+        .island-marker {
+            background: var(--secondary);
+            color: var(--secondary-foreground);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .island-marker:hover {
+            transform: scale(1.1);
+            box-shadow: var(--shadow-md);
+        }
+        
+        /* Quick pick cards */
+        .quick-pick-card {
+            background: white;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .quick-pick-card img {
+            transition: transform 0.3s ease;
+        }
+        
+        .quick-pick-card:hover img {
+            transform: scale(1.05);
+        }
+        
+        /* Marina assistant bubble */
+        .marina-bubble {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border-radius: 20px;
+            padding: 12px 20px;
+            position: relative;
+            box-shadow: var(--shadow-md);
+        }
+        
+        .marina-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 20px;
+            width: 16px;
+            height: 16px;
+            background: inherit;
+            transform: rotate(45deg);
+        }
+        
+        /* Fade in animation */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+        
+        /* Stagger delays */
+        .delay-100 { animation-delay: 100ms; }
+        .delay-200 { animation-delay: 200ms; }
+        .delay-300 { animation-delay: 300ms; }
+        .delay-400 { animation-delay: 400ms; }
+        .delay-500 { animation-delay: 500ms; }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full bg-white/90 backdrop-blur-md z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-8">
+                    <h1 class="text-2xl font-bold flex items-center gap-2" style="color: var(--primary);">
+                        <i data-lucide="anchor" class="w-6 h-6"></i>
+                        AnchorAway
+                    </h1>
+                    <div class="hidden md:flex space-x-6">
+                        <a href="#" class="text-gray-700 hover:text-primary transition-colors">Destinations</a>
+                        <a href="#" class="text-gray-700 hover:text-primary transition-colors">Fleet</a>
+                        <a href="#" class="text-gray-700 hover:text-primary transition-colors">Experiences</a>
+                    </div>
+                </div>
+                <button class="px-4 py-2 rounded-full border-2 border-primary text-primary hover:bg-primary hover:text-white transition-all">
+                    Sign In
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="pt-16 h-screen flex">
+        <!-- Interactive Map -->
+        <div class="flex-1 map-container relative">
+            <!-- Map Controls -->
+            <div class="absolute top-4 left-4 z-10 bg-white rounded-lg shadow-md p-2">
+                <button class="p-2 hover:bg-gray-100 rounded transition-colors">
+                    <i data-lucide="plus" class="w-5 h-5"></i>
+                </button>
+                <button class="p-2 hover:bg-gray-100 rounded transition-colors">
+                    <i data-lucide="minus" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Island Markers -->
+            <div class="absolute top-32 left-48 island-marker pin-marker">
+                Bahamas
+            </div>
+            <div class="absolute top-64 left-32 island-marker pin-marker delay-100">
+                Turks & Caicos
+            </div>
+            <div class="absolute top-48 right-64 island-marker pin-marker delay-200">
+                Virgin Islands
+            </div>
+            <div class="absolute bottom-48 left-64 island-marker pin-marker delay-300">
+                Aruba
+            </div>
+            <div class="absolute bottom-32 right-48 island-marker pin-marker delay-400">
+                St. Lucia
+            </div>
+
+            <!-- Boat Markers -->
+            <div class="absolute top-40 left-56 boat-marker pulse-hover pin-marker delay-500"></div>
+            <div class="absolute top-72 left-40 boat-marker pulse-hover pin-marker delay-600"></div>
+            <div class="absolute top-56 right-72 boat-marker pulse-hover pin-marker delay-700"></div>
+            <div class="absolute bottom-56 left-72 boat-marker pulse-hover pin-marker delay-800"></div>
+            <div class="absolute bottom-40 right-56 boat-marker pulse-hover pin-marker delay-900"></div>
+
+            <!-- Marina Assistant Bubble -->
+            <div class="absolute bottom-8 left-8 marina-float">
+                <div class="marina-bubble fade-in delay-1000">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                            <i data-lucide="sparkles" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <p class="font-semibold">Hi! I'm Marina 👋</p>
+                            <p class="text-sm opacity-90">Click any island to explore available boats!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Panel -->
+        <div class="w-96 search-panel shadow-xl">
+            <div class="p-6">
+                <h2 class="text-2xl font-bold mb-6">Find Your Dream Boat</h2>
+                
+                <!-- Search Form -->
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Check-in Date</label>
+                        <div class="relative">
+                            <input type="date" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all">
+                            <i data-lucide="calendar" class="absolute right-3 top-3.5 w-5 h-5 text-gray-400"></i>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Check-out Date</label>
+                        <div class="relative">
+                            <input type="date" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all">
+                            <i data-lucide="calendar" class="absolute right-3 top-3.5 w-5 h-5 text-gray-400"></i>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Guests & Boat Type</label>
+                        <div class="relative">
+                            <select class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all appearance-none">
+                                <option>2-4 guests, Any boat</option>
+                                <option>4-6 guests, Sailboat</option>
+                                <option>6-8 guests, Catamaran</option>
+                                <option>8-12 guests, Motor Yacht</option>
+                                <option>12+ guests, Luxury Yacht</option>
+                            </select>
+                            <i data-lucide="chevron-down" class="absolute right-3 top-3.5 w-5 h-5 text-gray-400"></i>
+                        </div>
+                    </div>
+                    
+                    <button class="w-full py-3 bg-primary text-white rounded-lg font-semibold hover:bg-opacity-90 transition-all flex items-center justify-center gap-2">
+                        <i data-lucide="search" class="w-5 h-5"></i>
+                        Search Available Boats
+                    </button>
+                </div>
+
+                <!-- Quick Filters -->
+                <div class="mt-6 pt-6 border-t">
+                    <h3 class="font-semibold mb-3">Quick Filters</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <button class="px-3 py-1 rounded-full bg-secondary/20 text-secondary hover:bg-secondary hover:text-white transition-all text-sm">
+                            With Captain
+                        </button>
+                        <button class="px-3 py-1 rounded-full bg-secondary/20 text-secondary hover:bg-secondary hover:text-white transition-all text-sm">
+                            Family Friendly
+                        </button>
+                        <button class="px-3 py-1 rounded-full bg-secondary/20 text-secondary hover:bg-secondary hover:text-white transition-all text-sm">
+                            Snorkeling Gear
+                        </button>
+                        <button class="px-3 py-1 rounded-full bg-secondary/20 text-secondary hover:bg-secondary hover:text-white transition-all text-sm">
+                            WiFi Onboard
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Picks Section -->
+    <section class="py-12 px-4 bg-gray-50">
+        <div class="max-w-7xl mx-auto">
+            <h2 class="text-3xl font-bold mb-8">Quick Picks Near You</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="quick-pick-card card-float fade-in">
+                    <div class="relative overflow-hidden h-48">
+                        <img src="https://images.unsplash.com/photo-1540946485063-a40da27545f8?w=400&h=300&fit=crop" 
+                             alt="Sailboat" 
+                             class="w-full h-full object-cover">
+                        <span class="absolute top-3 left-3 bg-accent text-white px-3 py-1 rounded-full text-sm font-semibold">
+                            Available Now
+                        </span>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="font-bold text-lg mb-1">Ocean Breeze</h3>
+                        <p class="text-gray-600 text-sm mb-2">Nassau, Bahamas</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-primary font-bold">$1,200/day</span>
+                            <span class="text-sm text-gray-500">6 guests</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="quick-pick-card card-float fade-in delay-100">
+                    <div class="relative overflow-hidden h-48">
+                        <img src="https://images.unsplash.com/photo-1569263979104-865ab7cd8d13?w=400&h=300&fit=crop" 
+                             alt="Catamaran" 
+                             class="w-full h-full object-cover">
+                        <span class="absolute top-3 left-3 bg-secondary text-white px-3 py-1 rounded-full text-sm font-semibold">
+                            Popular
+                        </span>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="font-bold text-lg mb-1">Island Hopper</h3>
+                        <p class="text-gray-600 text-sm mb-2">Virgin Islands</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-primary font-bold">$2,500/day</span>
+                            <span class="text-sm text-gray-500">12 guests</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="quick-pick-card card-float fade-in delay-200">
+                    <div class="relative overflow-hidden h-48">
+                        <img src="https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?w=400&h=300&fit=crop" 
+                             alt="Yacht" 
+                             class="w-full h-full object-cover">
+                    </div>
+                    <div class="p-4">
+                        <h3 class="font-bold text-lg mb-1">Sunset Dream</h3>
+                        <p class="text-gray-600 text-sm mb-2">Turks & Caicos</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-primary font-bold">$1,800/day</span>
+                            <span class="text-sm text-gray-500">8 guests</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="quick-pick-card card-float fade-in delay-300">
+                    <div class="relative overflow-hidden h-48">
+                        <img src="https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=400&h=300&fit=crop" 
+                             alt="Sailboat sunset" 
+                             class="w-full h-full object-cover">
+                        <span class="absolute top-3 left-3 bg-primary text-white px-3 py-1 rounded-full text-sm font-semibold">
+                            Captain Included
+                        </span>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="font-bold text-lg mb-1">Caribbean Star</h3>
+                        <p class="text-gray-600 text-sm mb-2">St. Lucia</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-primary font-bold">$2,200/day</span>
+                            <span class="text-sm text-gray-500">10 guests</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Marina Chat Widget -->
+    <div class="fixed bottom-6 right-6 z-50">
+        <div class="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-xl cursor-pointer transform transition-all hover:scale-110 pulse-hover">
+            <i data-lucide="message-circle" class="w-8 h-8 text-white"></i>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+        
+        // Simulate interactive map clicks
+        document.querySelectorAll('.island-marker, .boat-marker').forEach(marker => {
+            marker.addEventListener('click', function() {
+                // Add a temporary highlight effect
+                this.style.transform = 'scale(1.5)';
+                this.style.boxShadow = '0 0 20px rgba(101, 163, 180, 0.8)';
+                
+                setTimeout(() => {
+                    this.style.transform = '';
+                    this.style.boxShadow = '';
+                }, 300);
+            });
+        });
+        
+        // Add hover effect to quick pick cards
+        document.querySelectorAll('.quick-pick-card').forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                const img = this.querySelector('img');
+                if (img) {
+                    img.style.transform = 'scale(1.05)';
+                }
+            });
+            
+            card.addEventListener('mouseleave', function() {
+                const img = this.querySelector('img');
+                if (img) {
+                    img.style.transform = 'scale(1)';
+                }
+            });
+        });
+        
+        // Intersection Observer for fade-in animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+        
+        // Observe all fade-in elements
+        document.querySelectorAll('.fade-in').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(20px)';
+            el.style.transition = 'all 0.6s ease-out';
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>
