@@ -44,6 +44,7 @@ function App() {
           - If user is not logged in → /auth/login
           - If user is logged in → "/"
       */}
+      <AuthStateHandler />
 
       <Routes>
 
