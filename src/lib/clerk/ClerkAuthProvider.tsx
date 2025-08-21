@@ -190,8 +190,38 @@ export function ClerkAuthProvider({ children }: ClerkAuthProviderProps) {
     );
   }
 
+  // Add error boundary and session cleanup
+  const handleError = (error: Error) => {
+    console.error('Clerk initialization error:', error);
+    // Clear any stale session data
+    if (typeof window !== 'undefined') {
+      // Clear Clerk cookies and localStorage
+      document.cookie.split(";").forEach((c) => {
+        if (c.includes('__clerk') || c.includes('__session')) {
+          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        }
+      });
+      // Clear localStorage items
+      Object.keys(localStorage).forEach(key => {
+        if (key.includes('clerk') || key.includes('__clerk')) {
+          localStorage.removeItem(key);
+        }
+      });
+      // Reload to get fresh state
+      window.location.reload();
+    }
+  };
+
   return (
-    <ClerkProvider publishableKey={clerkPublishableKey}>
+    <ClerkProvider 
+      publishableKey={clerkPublishableKey}
+      navigate={(to) => window.location.href = to}
+      appearance={{
+        elements: {
+          rootBox: "mx-auto",
+        },
+      }}
+    >
       <ClerkAuthSync>{children}</ClerkAuthSync>
     </ClerkProvider>
   );
