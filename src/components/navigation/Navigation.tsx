@@ -1,25 +1,25 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/lib/auth/AuthContext';
+import { useClerkAuthContext } from '@/lib/clerk/ClerkAuthProvider';
 
 export const Navigation = () => {
-  const { userData } = useAuth();
+  const { user } = useClerkAuthContext();
   
   const { data: roleData } = useQuery({
-    queryKey: ['userRole', userData?.role_id],
+    queryKey: ['userRole', user?.role_id],
     queryFn: async () => {
-      if (!userData?.role_id) return null;
+      if (!user?.role_id) return null;
       
       const { data, error } = await supabase
         .from('user_roles')
         .select('role_name')
-        .eq('role_id', userData.role_id)
+        .eq('role_id', user.role_id)
         .single();
         
       if (error) throw error;
       return data;
     },
-    enabled: !!userData?.role_id
+    enabled: !!user?.role_id
   });
 
   const isMendUser = roleData?.role_name?.startsWith('mend_');

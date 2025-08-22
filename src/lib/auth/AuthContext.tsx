@@ -90,6 +90,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const sessionCheckIntervalRef = useRef<NodeJS.Timeout>();
   const lastFetchedUserId = useRef<string | null>(null);
   const isUpdatingUserData = useRef(false);
+  const lastClerkEmail = useRef<string | null>(null);
+  const lastClerkUserId = useRef<string | null>(null);
 
   // Clear error helper
   const clearError = useCallback(() => {
@@ -113,8 +115,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Fetch user data from database
   const updateUserData = useCallback(async () => {
+    // Prevent updating if already in progress
+    if (isUpdatingUserData.current) {
+      return;
+    }
+
     // Check for Clerk user first
     if (clerkSignedIn && clerkUser) {
+      const currentEmail = clerkUser.primaryEmailAddress?.emailAddress;
+      const currentUserId = clerkUserId;
+      
+      // Check if values have changed to prevent unnecessary API calls
+      if (currentEmail === lastClerkEmail.current && 
+          currentUserId === lastClerkUserId.current && 
+          userData) {
+        return;
+      }
+      
+      isUpdatingUserData.current = true;
       // Fetch by email for Clerk users
       try {
         const { data, error } = await supabase
@@ -149,11 +167,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           setUserData(processedData);
           lastFetchedUserId.current = clerkUserId || null;
+          lastClerkEmail.current = currentEmail || null;
+          lastClerkUserId.current = currentUserId || null;
           clearError();
           return;
         }
       } catch (err) {
         console.error('Error fetching Clerk user data:', err);
+      } finally {
+        isUpdatingUserData.current = false;
       }
     }
     
@@ -165,10 +187,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     // Prevent duplicate fetches
     if (user.id === lastFetchedUserId.current && userData) {
-      return;
-    }
-    
-    if (isUpdatingUserData.current) {
       return;
     }
 
@@ -238,7 +256,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       isUpdatingUserData.current = false;
     }
-  }, [user, userData, clearError, clerkSignedIn, clerkUser, clerkUserId]);
+  }, [user, userData, clearError, clerkSignedIn, clerkUser?.primaryEmailAddress?.emailAddress, clerkUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refresh session
   const refreshSession = useCallback(async () => {
@@ -445,7 +463,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         clearInterval(sessionCheckIntervalRef.current);
       }
     };
-  }, [updateSessionExpiry, updateUserData, clerkLoaded, clerkSignedIn, clerkUser, clerkUserId]);
+  }, [updateSessionExpiry, updateUserData, clerkLoaded, clerkSignedIn, clerkUser?.id, clerkUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch user data when user changes
   useEffect(() => {

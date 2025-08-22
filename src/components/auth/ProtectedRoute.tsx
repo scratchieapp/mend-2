@@ -1,6 +1,6 @@
 // src/components/auth/ProtectedRoute.tsx
 import { Navigate } from 'react-router-dom';
-import { useAuth } from '@/lib/auth/AuthContext';
+import { useClerkAuthContext } from '@/lib/clerk/ClerkAuthProvider';
 import { ReactNode } from 'react';
 
 interface ProtectedRouteProps {
@@ -9,17 +9,17 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
-  const { user, userData, loading } = useAuth();
+  const { user, isLoading } = useClerkAuthContext();
 
-  if (loading) {
+  if (isLoading) {
     return <div>Loading...</div>;
   }
 
   if (!user) {
-    return <Navigate to="/auth/login" replace />;
+    return <Navigate to="/auth/clerk-login" replace />;
   }
 
-  if (allowedRoles && userData?.role && !allowedRoles.includes(userData.role.role_name)) {
+  if (allowedRoles && user?.role && !allowedRoles.includes(user.role.role_name)) {
     return <Navigate to="/unauthorized" replace />;
   }
 

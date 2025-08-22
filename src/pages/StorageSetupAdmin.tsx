@@ -4,17 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle, AlertCircle, Database, Info } from 'lucide-react';
 import { setupStorageBuckets } from '@/lib/storage/setupStorage';
-import { useAuth } from '@/lib/auth/AuthContext';
+import { useClerkAuthContext } from '@/lib/clerk/ClerkAuthProvider';
 import { Navigate } from 'react-router-dom';
 import { isSuperAdmin } from '@/lib/auth/roles';
 
 export default function StorageSetupAdmin() {
-  const { userData } = useAuth();
+  const { user } = useClerkAuthContext();
   const [isSettingUp, setIsSettingUp] = useState(false);
   const [setupResult, setSetupResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Only super admins can access this page
-  if (!userData || !isSuperAdmin(userData.role_id)) {
+  if (!user || !isSuperAdmin(user.role_id)) {
     return <Navigate to="/unauthorized" replace />;
   }
 

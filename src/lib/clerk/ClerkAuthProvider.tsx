@@ -104,7 +104,11 @@ function ClerkAuthSync({ children }: { children: React.ReactNode }) {
             supabaseUser = newUser;
           } else {
             // Update user's clerk_user_id and display name if needed
-            if (!existingUser.clerk_user_id || existingUser.custom_display_name !== clerkUser.fullName) {
+            // IMPORTANT: Only update if values have actually changed to prevent infinite loops
+            const needsUpdate = existingUser.clerk_user_id !== clerkUser.id || 
+                               (clerkUser.fullName && existingUser.custom_display_name !== clerkUser.fullName);
+            
+            if (needsUpdate) {
               const { data: updatedUser, error: updateError } = await supabase
                 .from('users')
                 .update({ 
@@ -142,7 +146,7 @@ function ClerkAuthSync({ children }: { children: React.ReactNode }) {
     };
 
     syncUserData();
-  }, [isLoaded, isSignedIn, clerkUser, userId]);
+  }, [isLoaded, isSignedIn, clerkUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const signIn = async (email: string, password: string) => {
     // This will be handled by Clerk's SignIn component
@@ -153,7 +157,7 @@ function ClerkAuthSync({ children }: { children: React.ReactNode }) {
     try {
       // Sign out from Clerk (handled by Clerk's button)
       setUserData(null);
-      navigate('/auth/login');
+      navigate('/auth/clerk-login');
     } catch (err) {
       console.error('Error signing out:', err);
       setError(err instanceof Error ? err.message : 'Failed to sign out');
@@ -208,14 +212,13 @@ export function ClerkAuthProvider({ children }: ClerkAuthProviderProps) {
         }
       });
       // Reload to get fresh state
-      window.location.reload();
+      // window.location.reload(); // Commented out - may cause crashes
     }
   };
 
   return (
     <ClerkProvider 
       publishableKey={clerkPublishableKey}
-      navigate={(to) => window.location.href = to}
       appearance={{
         elements: {
           rootBox: "mx-auto",

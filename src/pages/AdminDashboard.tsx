@@ -1,7 +1,7 @@
 import { Link, Navigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/lib/auth/AuthContext';
+import { useClerkAuthContext } from '@/lib/clerk/ClerkAuthProvider';
 import { isSuperAdmin, isBuilderAdmin, isAdministrator } from '@/lib/auth/roles';
 import { 
   Database, 
@@ -26,13 +26,13 @@ interface AdminCardProps {
 }
 
 function AdminCard({ title, description, icon, link, requiredRole }: AdminCardProps) {
-  const { userData } = useAuth();
+  const { user } = useClerkAuthContext();
   
   // Check if user has required role
-  if (requiredRole === 'super' && !isSuperAdmin(userData?.role_id)) {
+  if (requiredRole === 'super' && !isSuperAdmin(user?.role_id)) {
     return null;
   }
-  if (requiredRole === 'builder' && !isBuilderAdmin(userData?.role_id) && !isSuperAdmin(userData?.role_id)) {
+  if (requiredRole === 'builder' && !isBuilderAdmin(user?.role_id) && !isSuperAdmin(user?.role_id)) {
     return null;
   }
   
@@ -57,7 +57,7 @@ function AdminCard({ title, description, icon, link, requiredRole }: AdminCardPr
 }
 
 export default function AdminDashboard() {
-  const { userData } = useAuth();
+  const { user } = useClerkAuthContext();
 
   // Check if user has any admin role
   const hasAdminAccess = userData && (
@@ -164,7 +164,7 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {isSuperAdmin(userData?.role_id) && (
+      {isSuperAdmin(user?.role_id) && (
         <div className="mt-12 p-6 bg-muted rounded-lg">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <Upload className="h-5 w-5" />

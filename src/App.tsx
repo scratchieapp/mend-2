@@ -13,7 +13,7 @@ import SignUp from "./pages/auth/SignUp";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
 import DashboardRouter from "./components/auth/DashboardRouter";
-import { SessionWarning } from "./components/SessionWarning";
+// import { SessionWarning } from "./components/SessionWarning"; // Disabled for Clerk-only auth
 
 // Pages
 // NOTE: Import your Administrator page. Adjust the path if it's in a different folder.
@@ -38,8 +38,8 @@ import IncidentReportDev from "./pages/IncidentReportDev";
 function App() {
   return (
     <>
-      {/* Session warning for expiring sessions */}
-      <SessionWarning />
+      {/* Session warning disabled for Clerk-only auth */}
+      {/* <SessionWarning /> */}
       
       {/* 
         AuthStateHandler will auto-redirect on first load:
@@ -71,6 +71,9 @@ function App() {
             </ProtectedRoute>
           }
         >
+          {/* Default route - show dashboard at root */}
+          <Route index element={<Dashboard />} />
+          
           {/* Example routes inside the protected area */}
           <Route path="account-manager" element={<AccountManager />} />
           <Route path="user-management" element={<UserManagementPage />} />
