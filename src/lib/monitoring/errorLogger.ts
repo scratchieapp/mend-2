@@ -61,6 +61,8 @@ class ErrorLogger {
     if (this.isDevelopment) {
       const style = log.level === 'error' ? 'color: red' : 
                    log.level === 'warn' ? 'color: orange' : 'color: blue';
+      
+      // Use console methods only in development
       console.group(`%c[${log.level.toUpperCase()}] ${log.message}`, style);
       console.log('Context:', log.context);
       if (log.error) {

@@ -34,6 +34,7 @@ import HoursWorkedAdmin from "./pages/HoursWorkedAdmin";
 import UserManagementAdmin from "./pages/UserManagementAdmin";
 import IncidentReport from "./pages/IncidentReport";
 import IncidentReportDev from "./pages/IncidentReportDev";
+import IncidentDetailsPage from "./pages/IncidentDetailsPage";
 
 function App() {
   return (
@@ -96,6 +97,7 @@ function App() {
              }
           />
           <Route path="incident-report" element={<IncidentReport />} />
+          <Route path="incident/:id" element={<IncidentDetailsPage />} />
           
           {/* Admin routes */}
           <Route
