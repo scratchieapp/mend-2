@@ -71,9 +71,6 @@ function App() {
             </ProtectedRoute>
           }
         >
-          {/* Default route - redirect to dashboard */}
-          <Route index element={<Dashboard />} />
-          
           {/* Example routes inside the protected area */}
           <Route path="account-manager" element={<AccountManager />} />
           <Route path="user-management" element={<UserManagementPage />} />
