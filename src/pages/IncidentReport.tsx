@@ -29,7 +29,7 @@ import { logValidationError } from "@/lib/monitoring/errorLogger";
 const IncidentReport = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("notification");
-  const { handleSubmit: submitIncident, loading: isSubmitting } = useIncidentSubmission();
+  const { handleSubmit: submitIncident, loading: isSubmitting, SuccessDialog } = useIncidentSubmission();
 
   const form = useForm<IncidentReportFormData>({
     resolver: zodResolver(incidentReportSchema),
@@ -288,6 +288,7 @@ const IncidentReport = () => {
           </Card>
         </div>
       </div>
+      <SuccessDialog />
     </DataErrorBoundary>
   );
 };
