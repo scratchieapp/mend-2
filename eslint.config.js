@@ -25,5 +25,12 @@ export default tseslint.config(
       ],
       "@typescript-eslint/no-unused-vars": "off",
     },
+  },
+  // Specific overrides for UI components that intentionally export utilities
+  {
+    files: ["src/components/ui/*.tsx", "src/lib/auth/AuthContext.tsx", "src/lib/clerk/ClerkAuthProvider.tsx"],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
   }
 );

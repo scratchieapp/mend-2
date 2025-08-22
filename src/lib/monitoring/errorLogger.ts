@@ -106,7 +106,9 @@ class ErrorLogger {
       // });
     } catch (err) {
       // Silently fail - don't want logging to break the app
-      console.warn('Failed to send error to logging service:', err);
+      if (this.isDevelopment) {
+        console.warn('Failed to send error to logging service:', err);
+      }
     }
   }
 
