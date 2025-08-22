@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { ClerkProvider, useAuth as useClerkAuth, useUser as useClerkUser } from '@clerk/clerk-react';
 import { supabase } from '@/integrations/supabase/client';
 import { UserData } from '@/lib/auth/roles';
@@ -35,11 +35,22 @@ function ClerkAuthSync({ children }: { children: React.ReactNode }) {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const syncInProgressRef = useRef(false);
+  const lastSyncedUserIdRef = useRef<string | null>(null);
 
   // Sync Clerk user with Supabase database
   useEffect(() => {
     const syncUserData = async () => {
       if (!isLoaded) return;
+      
+      // Prevent concurrent syncs and re-syncing the same user
+      if (syncInProgressRef.current) return;
+      if (isSignedIn && clerkUser?.id && lastSyncedUserIdRef.current === clerkUser.id) {
+        return;
+      }
+      
+      // Mark sync as in progress
+      syncInProgressRef.current = true;
       
       setIsLoading(true);
       setError(null);
@@ -129,8 +140,11 @@ function ClerkAuthSync({ children }: { children: React.ReactNode }) {
 
           // Set user data in context
           setUserData(supabaseUser as UserData);
+          // Mark this user as synced to prevent re-syncing
+          lastSyncedUserIdRef.current = clerkUser.id;
         } else {
           setUserData(null);
+          lastSyncedUserIdRef.current = null;
         }
       } catch (err) {
         console.error('Error syncing user data:', err);
@@ -138,11 +152,12 @@ function ClerkAuthSync({ children }: { children: React.ReactNode }) {
         setUserData(null);
       } finally {
         setIsLoading(false);
+        syncInProgressRef.current = false;
       }
     };
 
     syncUserData();
-  }, [isLoaded, isSignedIn, clerkUser, userId]);
+  }, [isLoaded]); // Only depend on isLoaded to prevent infinite loops
 
   const signIn = async (email: string, password: string) => {
     // This will be handled by Clerk's SignIn component
