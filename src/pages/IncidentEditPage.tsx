@@ -182,6 +182,7 @@ const IncidentEditPage = () => {
         console.log('Form values after reset:', form.getValues());
       }, 0);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incidentData]);
 
   // Update mutation

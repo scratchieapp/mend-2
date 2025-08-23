@@ -1,3 +1,4 @@
+import React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useClerkAuthContext } from '@/lib/clerk/ClerkAuthProvider';
 
@@ -13,7 +14,7 @@ export function useCompanyFilter() {
    * @param tableName - The name of the table being queried
    * @returns The filtered query
    */
-  const applyCompanyFilter = <T extends any>(
+  const applyCompanyFilter = <T,>(
     query: T,
     tableName: 'incidents' | 'sites' | 'workers' | 'employers'
   ): T => {
@@ -34,12 +35,12 @@ export function useCompanyFilter() {
 
     // All other users see only their company's data
     if (employerId) {
-      // @ts-ignore - Supabase query builder typing issue
+      // @ts-expect-error - Supabase query builder typing issue
       return query.eq('employer_id', employerId);
     }
 
     // If no employer_id, return empty results
-    // @ts-ignore
+    // @ts-expect-error - Supabase query builder typing issue
     return query.eq('employer_id', -1); // Impossible ID to return no results
   };
 
@@ -91,7 +92,7 @@ export function useCompanyFilter() {
    * Get filtered query for incidents
    */
   const getFilteredIncidents = () => {
-    let query = supabase.from('incidents').select('*');
+    const query = supabase.from('incidents').select('*');
     return applyCompanyFilter(query, 'incidents');
   };
 
@@ -99,7 +100,7 @@ export function useCompanyFilter() {
    * Get filtered query for sites
    */
   const getFilteredSites = () => {
-    let query = supabase.from('sites').select('*');
+    const query = supabase.from('sites').select('*');
     return applyCompanyFilter(query, 'sites');
   };
 
@@ -107,7 +108,7 @@ export function useCompanyFilter() {
    * Get filtered query for workers
    */
   const getFilteredWorkers = () => {
-    let query = supabase.from('workers').select('*');
+    const query = supabase.from('workers').select('*');
     return applyCompanyFilter(query, 'workers');
   };
 

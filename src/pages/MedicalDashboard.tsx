@@ -7,7 +7,7 @@ import { DataErrorBoundary } from "@/components/DataErrorBoundary";
 import { Stethoscope, FileText, Calendar, Activity } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const MedicalDashboard = () => {
+export default function MedicalDashboard() {
   const navigate = useNavigate();
 
   return (
@@ -117,6 +117,4 @@ const MedicalDashboard = () => {
       </div>
     </div>
   );
-};
-
-export default MedicalDashboard;
+}
