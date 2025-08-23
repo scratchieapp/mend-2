@@ -6,6 +6,7 @@ import {
   trackPageView,
   trackConversion,
   trackEngagement,
+  trackFunnel,
   setUserProperties,
 } from './ga4';
 
@@ -31,7 +32,7 @@ export const useAnalytics = () => {
 
     // Track funnel step based on path
     if (location.pathname === '/') {
-      trackConversion.landingPageView();
+      trackFunnel.landingPageView();
     }
   }, [location]);
 

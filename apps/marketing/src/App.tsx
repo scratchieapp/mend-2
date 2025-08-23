@@ -22,11 +22,14 @@ function App() {
               </div>
               <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Operations Platform</h1>
               <p className="text-gray-600 mb-6">
-                The Mend operations platform runs on a separate subdomain. You'll be redirected to the secure operations dashboard.
+                The Mend operations platform runs on a separate application. Click below to access the secure operations dashboard.
               </p>
               <div className="space-y-3">
                 <button 
-                  onClick={() => window.open('http://localhost:5173', '_blank')}
+                  onClick={() => {
+                    const operationsUrl = import.meta.env.VITE_OPERATIONS_URL || 'http://localhost:5173';
+                    window.location.href = `${operationsUrl}/auth/clerk-login`;
+                  }}
                   className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                 >
                   Go to Operations Platform

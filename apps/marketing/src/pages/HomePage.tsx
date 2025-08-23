@@ -38,7 +38,9 @@ const HomePage = () => {
   const handleLoginClick = (source: string) => {
     trackConversion.loginClicked(source);
     trackFunnel.conversionAction('login');
-    window.location.href = '/operations';
+    // Redirect to operations app login page
+    const operationsUrl = import.meta.env.VITE_OPERATIONS_URL || 'http://localhost:5173';
+    window.location.href = `${operationsUrl}/auth/clerk-login`;
   };
 
   return (
@@ -161,13 +163,19 @@ const HomePage = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-              <button className="px-8 py-4 bg-blue-600 text-white rounded-lg text-lg font-medium hover:bg-blue-700 flex items-center justify-center gap-2">
+              <button 
+                onClick={handleBookDemo}
+                className="px-8 py-4 bg-blue-600 text-white rounded-lg text-lg font-medium hover:bg-blue-700 flex items-center justify-center gap-2"
+              >
                 See How BuildCorp Saved $420K
                 <ArrowRight className="w-5 h-5" />
               </button>
-              <button className="px-8 py-4 border-2 border-gray-300 text-gray-700 rounded-lg text-lg font-medium hover:bg-gray-50 flex items-center justify-center gap-2">
+              <button 
+                onClick={() => handleLoginClick('hero')}
+                className="px-8 py-4 border-2 border-gray-300 text-gray-700 rounded-lg text-lg font-medium hover:bg-gray-50 flex items-center justify-center gap-2"
+              >
                 <Play className="w-5 h-5" />
-                Watch 2-Min Demo
+                Access Platform Demo
               </button>
             </div>
 
@@ -337,6 +345,35 @@ const HomePage = () => {
         </div>
       </section>
 
+      {/* Final CTA Section */}
+      <section className="bg-gradient-to-r from-blue-600 to-blue-700 py-16">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+            Ready to Transform Your Safety Management?
+          </h2>
+          <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
+            Join 47 construction companies that have already reduced incidents by 35% and saved millions in workers' comp costs.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button 
+              onClick={handleBookDemo}
+              className="px-8 py-4 bg-white text-blue-600 rounded-lg text-lg font-medium hover:bg-gray-100 transition-colors"
+            >
+              Book Your Free Demo
+            </button>
+            <button 
+              onClick={() => handleLoginClick('final-cta')}
+              className="px-8 py-4 bg-blue-800 text-white rounded-lg text-lg font-medium hover:bg-blue-900 transition-colors"
+            >
+              Access Platform Now
+            </button>
+          </div>
+          <p className="text-sm text-blue-200 mt-6">
+            No credit card required • 14-day free trial • Cancel anytime
+          </p>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="bg-gray-900 text-gray-300 py-12">
         <div className="max-w-7xl mx-auto px-4">
@@ -364,10 +401,26 @@ const HomePage = () => {
             <div>
               <h4 className="font-semibold text-white mb-4">Platform Access</h4>
               <ul className="space-y-2 text-sm">
-                <li><a href="/operations" className="hover:text-white transition-colors">Operations Dashboard</a></li>
-                <li><a href="/operations" className="hover:text-white transition-colors">Incident Reporting</a></li>
-                <li><a href="/operations" className="hover:text-white transition-colors">Analytics & Reports</a></li>
-                <li><a href="/operations" className="hover:text-white transition-colors">User Management</a></li>
+                <li>
+                  <button onClick={() => handleLoginClick('footer')} className="hover:text-white transition-colors text-left">
+                    Operations Dashboard
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => handleLoginClick('footer')} className="hover:text-white transition-colors text-left">
+                    Incident Reporting
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => handleLoginClick('footer')} className="hover:text-white transition-colors text-left">
+                    Analytics & Reports
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => handleLoginClick('footer')} className="hover:text-white transition-colors text-left">
+                    User Management
+                  </button>
+                </li>
               </ul>
             </div>
             

@@ -11,10 +11,10 @@
     "dev": "npm run dev --workspace=@mend/operations",
     "dev:ops": "npm run dev --workspace=@mend/operations",
     "dev:marketing": "npm run dev --workspace=@mend/marketing",
-    "build": "npm run build --workspaces",
+    "build": "npm run build:ops && npm run build:marketing",
     "build:ops": "npm run build --workspace=@mend/operations",
     "build:marketing": "npm run build --workspace=@mend/marketing",
-    "lint": "npm run lint --workspaces",
+    "lint": "npm run lint --workspace=@mend/operations && npm run lint --workspace=@mend/marketing",
     "preview": "vite preview",
     "create-demo-users": "node scripts/create-demo-users.js"
   },

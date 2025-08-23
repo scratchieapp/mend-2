@@ -548,7 +548,7 @@ const DashboardShowcase = () => {
             </div>
             <div className="p-3 bg-amber-50 rounded-lg">
               <p className="font-medium text-amber-900">Restricted duties:</p>
-              <p className="text-amber-700 mt-1">Ground-level work only, no lifting >10kg</p>
+              <p className="text-amber-700 mt-1">Ground-level work only, no lifting &gt;10kg</p>
             </div>
             <div className="p-3 bg-red-50 rounded-lg">
               <p className="font-medium text-red-900">Not suitable:</p>
