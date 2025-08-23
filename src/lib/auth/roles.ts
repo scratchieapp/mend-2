@@ -29,12 +29,12 @@ export type UserData = User;
 export const ROLES = {
   MEND_SUPER_ADMIN: 1,
   MEND_ACCOUNT_MANAGER: 2,
-  ADMINISTRATOR: 3,  // Changed from MEND_DATA_ENTRY to match actual role
+  MEND_DATA_ENTRY: 3,  // Corrected to match database
   MEND_ANALYST: 4,
   BUILDER_ADMIN: 5,
   SITE_ADMIN: 6,
-  CLIENT: 7,
-  VENDOR: 8,
+  CLIENT: 7,  // Client companies/workers
+  VENDOR: 8,  // Insurance/Government/Medical
   PUBLIC: 9,
 };
 
@@ -42,7 +42,7 @@ export const ROLES = {
 export const ROLE_NAMES = {
   MEND_SUPER_ADMIN: 'mend_super_admin',
   MEND_ACCOUNT_MANAGER: 'mend_account_manager',
-  ADMINISTRATOR: 'administrator',
+  MEND_DATA_ENTRY: 'mend_data_entry',
   MEND_ANALYST: 'mend_analyst',
   BUILDER_ADMIN: 'builder_admin',
   SITE_ADMIN: 'site_admin',
@@ -103,17 +103,17 @@ export const isBuilderAdmin = (roleIdOrUserData?: number | UserData | null): boo
 };
 
 /**
- * Check if user has administrator role (role_id 3)
+ * Check if user has MEND data entry role (role_id 3)
  */
-export const isAdministrator = (roleIdOrUserData?: number | UserData | null): boolean => {
+export const isMendDataEntry = (roleIdOrUserData?: number | UserData | null): boolean => {
   if (typeof roleIdOrUserData === 'number') {
-    return roleIdOrUserData === ROLES.ADMINISTRATOR;
+    return roleIdOrUserData === ROLES.MEND_DATA_ENTRY;
   }
   if (roleIdOrUserData?.role?.role_id !== undefined) {
-    return roleIdOrUserData.role.role_id === ROLES.ADMINISTRATOR;
+    return roleIdOrUserData.role.role_id === ROLES.MEND_DATA_ENTRY;
   }
   if (roleIdOrUserData && 'role_id' in roleIdOrUserData) {
-    return (roleIdOrUserData as UserData & { role_id: number }).role_id === ROLES.ADMINISTRATOR;
+    return (roleIdOrUserData as UserData & { role_id: number }).role_id === ROLES.MEND_DATA_ENTRY;
   }
   return false;
 };
@@ -132,7 +132,7 @@ export const isMendStaff = (userData?: UserData | null): boolean => {
   const mendRoles = [
     ROLES.MEND_SUPER_ADMIN,
     ROLES.MEND_ACCOUNT_MANAGER,
-    ROLES.ADMINISTRATOR,
+    ROLES.MEND_DATA_ENTRY,
     ROLES.MEND_ANALYST
   ];
   return mendRoles.includes(userData?.role?.role_id || 0);
@@ -228,7 +228,7 @@ export const getAvailableRolesToCreate = (userData: UserData | null): string[] =
   if (isSuperAdmin(userData)) {
     return [
       ROLE_NAMES.MEND_ACCOUNT_MANAGER,
-      ROLE_NAMES.ADMINISTRATOR,
+      ROLE_NAMES.MEND_DATA_ENTRY,
       ROLE_NAMES.MEND_ANALYST,
       ROLE_NAMES.BUILDER_ADMIN,
       ROLE_NAMES.SITE_ADMIN,

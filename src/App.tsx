@@ -24,8 +24,11 @@ import UserManagementPage from "./pages/UserManagementPage";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import BuilderSeniorDashboard from "./pages/BuilderSeniorDashboard";
+import BuilderDashboard from "./pages/BuilderDashboard";
 import SiteAdmin from "./pages/roles/SiteAdmin";
 import MedicalDashboard from "./pages/MedicalDashboard";
+import MedicalHomePage from "./pages/MedicalHomePage";
+import MedicalPatientsPage from "./pages/MedicalPatientsPage";
 import StorageSetupAdmin from "./pages/StorageSetupAdmin";
 import DataAdmin from "./pages/DataAdmin";
 import DataImportAdmin from "./pages/DataImportAdmin";
@@ -39,6 +42,9 @@ import IncidentReport from "./pages/IncidentReport";
 import IncidentReportDev from "./pages/IncidentReportDev";
 import IncidentDetailsPage from "./pages/IncidentDetailsPage";
 import IncidentEditPage from "./pages/IncidentEditPage";
+import LTIDetailsPage from "./pages/LTIDetailsPage";
+import InsuranceProviderDashboard from "./pages/InsuranceProviderDashboard";
+import GovernmentOfficialDashboard from "./pages/GovernmentOfficialDashboard";
 
 function App() {
   return (
@@ -84,8 +90,14 @@ function App() {
           <Route path="account-manager" element={<AccountManager />} />
           <Route path="user-management" element={<UserManagementPage />} />
           <Route path="builder-senior" element={<BuilderSeniorDashboard />} />
+          <Route path="builder" element={<BuilderDashboard />} />
+          <Route path="builder/senior/lti-details" element={<LTIDetailsPage />} />
           <Route path="site-admin" element={<SiteAdmin />} />
           <Route path="medical-dashboard" element={<MedicalDashboard />} />
+          <Route path="medical" element={<MedicalHomePage />} />
+          <Route path="medical/patients" element={<MedicalPatientsPage />} />
+          <Route path="insurance" element={<InsuranceProviderDashboard />} />
+          <Route path="government" element={<GovernmentOfficialDashboard />} />
 
           {/* Administrator route (requires you import Administrator above) */}
           <Route
