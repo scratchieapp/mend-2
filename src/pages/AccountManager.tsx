@@ -1,7 +1,7 @@
 // src/pages/AccountManager.tsx
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth/AuthContext";
+import { useClerkAuthContext } from "@/lib/clerk/ClerkAuthProvider";
 import { UserData, UserRole, UserRoleName } from "@/types/auth";
 import { getAvailableRolesToCreate } from "@/lib/auth/roles";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function AccountManager() {
-  const { userData } = useAuth();
+  const { user: userData } = useClerkAuthContext();
   const [users, setUsers] = useState<UserData[]>([]);
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserData | null | undefined>(null);

@@ -2,7 +2,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useClerkAuthContext } from '@/lib/clerk/ClerkAuthProvider';
-import { isSuperAdmin, isBuilderAdmin, isAdministrator } from '@/lib/auth/roles';
+import { isSuperAdmin, isBuilderAdmin, isMendDataEntry } from '@/lib/auth/roles';
 import { 
   Database, 
   Users, 
@@ -63,7 +63,7 @@ export default function AdminDashboard() {
   const hasAdminAccess = user && (
     isSuperAdmin(user.role_id) || 
     isBuilderAdmin(user.role_id) || 
-    isAdministrator(user.role_id)
+    isMendDataEntry(user.role_id)
   );
 
   if (!hasAdminAccess) {
