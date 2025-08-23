@@ -44,20 +44,20 @@ const IncidentEditPage = () => {
         .from('incidents')
         .select(`
           *,
-          workers!inner(
+          workers(
             worker_id,
-            first_name,
-            last_name,
-            contact_number,
-            employee_number
+            given_name,
+            family_name,
+            phone_number,
+            mobile_number
           ),
-          employers!inner(
-            employer_id,
-            employer_name
-          ),
-          sites!inner(
+          sites(
             site_id,
             site_name,
+            street_address,
+            city,
+            state,
+            post_code,
             supervisor_name,
             supervisor_telephone
           )
@@ -75,7 +75,7 @@ const IncidentEditPage = () => {
     resolver: zodResolver(incidentReportSchema),
     mode: 'onBlur',
     defaultValues: {
-      mend_client: "",
+      mend_client: "Mend Safety Platform",
       notifying_person_name: "",
       notifying_person_position: "",
       notifying_person_telephone: "",
@@ -104,31 +104,52 @@ const IncidentEditPage = () => {
   // Populate form with existing data
   useEffect(() => {
     if (incidentData) {
-      form.reset({
-        mend_client: incidentData.mend_client || "",
+      // Map database fields to form fields properly
+      const formData = {
+        // Notification section - use placeholder for missing mend_client
+        mend_client: "Mend Safety Platform", // Default client name
         notifying_person_name: incidentData.notifying_person_name || "",
         notifying_person_position: incidentData.notifying_person_position || "",
         notifying_person_telephone: incidentData.notifying_person_telephone || "",
+        
+        // Worker details
         worker_id: incidentData.worker_id?.toString() || "",
-        employer_name: incidentData.employers?.employer_name || "",
+        
+        // Employment section
+        employer_name: incidentData.workers_employer || incidentData.employers?.employer_name || "",
         location_site: incidentData.site_id?.toString() || "",
         supervisor_contact: incidentData.sites?.supervisor_name || "",
         supervisor_phone: incidentData.sites?.supervisor_telephone || "",
-        employment_type: incidentData.employment_type || "full_time",
+        employment_type: "full_time" as const, // Default since not in DB
+        
+        // Injury details
         date_of_injury: incidentData.date_of_injury || "",
-        time_of_injury: incidentData.time_of_injury || "",
+        time_of_injury: incidentData.time_of_injury ? 
+          incidentData.time_of_injury.substring(0, 5) : "", // Extract HH:MM from time
         injury_type: incidentData.injury_type || "",
-        body_part: incidentData.body_part || "",
-        body_side: incidentData.body_side || "not_applicable",
+        body_part: incidentData.body_part_id?.toString() || "", // Use body_part_id
+        body_side: "not_applicable" as const, // Default since body_side_id in DB
         injury_description: incidentData.injury_description || "",
         witness: incidentData.witness || "",
-        type_of_first_aid: incidentData.type_of_first_aid || "",
-        referred_to: incidentData.referred_to || "none",
-        doctor_details: incidentData.doctor_details || "",
-        actions_taken: incidentData.actions_taken || [],
+        
+        // Treatment details - map from available fields
+        type_of_first_aid: incidentData.treatment_provided || "", // Use treatment_provided as first aid
+        referred_to: incidentData.referral || "none" as const,
+        doctor_details: incidentData.doctor_details || incidentData.doctor_notes || "",
+        
+        // Actions taken
+        actions_taken: incidentData.actions ? 
+          [incidentData.actions] : [], // Convert string to array
+        
+        // Case notes
         case_notes: incidentData.case_notes || "",
-        documents: [], // Documents will be loaded separately
-      });
+        
+        // Documents will be loaded separately
+        documents: [],
+      };
+      
+      console.log('Populating form with data:', formData);
+      form.reset(formData);
     }
   }, [incidentData, form]);
 
@@ -149,28 +170,32 @@ const IncidentEditPage = () => {
         throw new Error('Invalid site ID');
       }
 
-      // Update incident record
+      // Update incident record with correct database field mapping
       const { error: updateError } = await supabase
         .from('incidents')
         .update({
-          mend_client: data.mend_client,
+          // Note: mend_client doesn't exist in DB, skip it
           notifying_person_name: data.notifying_person_name,
           notifying_person_position: data.notifying_person_position,
           notifying_person_telephone: data.notifying_person_telephone,
           worker_id: workerId,
           site_id: siteId,
-          employment_type: data.employment_type,
+          // employment_type doesn't exist in DB, skip it
           date_of_injury: data.date_of_injury,
           time_of_injury: data.time_of_injury,
           injury_type: data.injury_type,
-          body_part: data.body_part,
-          body_side: data.body_side,
+          // Map body_part to body_part_id if it's a number
+          body_part_id: parseInt(data.body_part) || null,
+          // body_side maps to body_side_id, but we'll skip for now
           injury_description: data.injury_description,
           witness: data.witness,
-          type_of_first_aid: data.type_of_first_aid,
-          referred_to: data.referred_to,
+          // Map type_of_first_aid to treatment_provided
+          treatment_provided: data.type_of_first_aid,
+          // Map referred_to to referral  
+          referral: data.referred_to !== 'none' ? data.referred_to : null,
           doctor_details: data.doctor_details,
-          actions_taken: data.actions_taken,
+          // Map actions_taken array to actions string
+          actions: data.actions_taken.join('; '),
           case_notes: data.case_notes,
           updated_at: new Date().toISOString(),
         })

@@ -83,7 +83,7 @@ export function BodyInjuryDiagram({
   const renderSVGRegion = (
     id: string,
     shape: 'circle' | 'rect',
-    props: any,
+    props: React.SVGProps<SVGCircleElement | SVGRectElement>,
     title: string
   ) => {
     const isSelected = selectedRegions.includes(id);

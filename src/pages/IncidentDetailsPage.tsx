@@ -3,16 +3,110 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { MenuBar } from "@/components/MenuBar";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Clock, MapPin, User, AlertCircle, FileText, Calendar, Phone, Stethoscope, Activity, Map as MapIcon, UserX } from "lucide-react";
+import { ChevronLeft, Clock, MapPin, User, AlertCircle, FileText, Calendar, Phone, Stethoscope, Activity, Map as MapIcon } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import Map, { Marker } from 'react-map-gl/mapbox';
+import Map, { Marker } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { Tables } from "@/integrations/supabase/types";
-import { geocodeAndUpdateSite, geocodeCityFallback } from "@/lib/mapbox/geocoding";
+import { geocodeAndUpdateSite, geocodeCityFallback, updateSiteCoordinates } from "@/lib/mapbox/geocoding";
 import { useEffect, useState } from "react";
+import { BodyInjuryViewer } from "@/components/incident-report/BodyInjuryViewer";
+
+// Type for the incident with all joined relations
+type IncidentWithRelations = Tables<'incidents'> & {
+  site?: Partial<Tables<'sites'>> & {
+    longitude?: number;
+    latitude?: number;
+  };
+  worker?: Partial<Tables<'workers'>>;
+  department?: Partial<Tables<'departments'>>;
+  body_part?: Partial<Tables<'body_parts'>>;
+};
+
+// Helper function to map body part names to SVG regions
+const getBodyRegionsFromIncident = (incident: IncidentWithRelations | null | undefined): string[] => {
+  if (!incident?.body_part?.body_part_name) return [];
+  
+  const bodyPart = incident.body_part.body_part_name.toLowerCase();
+  const regions: string[] = [];
+  
+  // Map body part names to SVG region IDs
+  if (bodyPart.includes('chest')) {
+    regions.push('front-chest');
+  } else if (bodyPart.includes('head')) {
+    regions.push('front-head');
+  } else if (bodyPart.includes('neck')) {
+    regions.push('front-neck');
+  } else if (bodyPart.includes('shoulder')) {
+    if (bodyPart.includes('left')) {
+      regions.push('front-shoulder-left');
+    } else if (bodyPart.includes('right')) {
+      regions.push('front-shoulder-right');
+    } else {
+      regions.push('front-shoulder-left', 'front-shoulder-right');
+    }
+  } else if (bodyPart.includes('arm')) {
+    if (bodyPart.includes('left')) {
+      regions.push('front-upperarm-left', 'front-forearmhand-left');
+    } else if (bodyPart.includes('right')) {
+      regions.push('front-upperarm-right', 'front-forearmhand-right');
+    } else {
+      regions.push('front-upperarm-left', 'front-upperarm-right');
+    }
+  } else if (bodyPart.includes('back')) {
+    if (bodyPart.includes('lower')) {
+      regions.push('back-lowerback');
+    } else if (bodyPart.includes('upper')) {
+      regions.push('back-upperback');
+    } else {
+      regions.push('back-upperback', 'back-lowerback');
+    }
+  } else if (bodyPart.includes('abdomen') || bodyPart.includes('stomach')) {
+    regions.push('front-abdomen');
+  } else if (bodyPart.includes('leg') || bodyPart.includes('thigh')) {
+    if (bodyPart.includes('left')) {
+      regions.push('front-thigh-left');
+    } else if (bodyPart.includes('right')) {
+      regions.push('front-thigh-right');
+    } else {
+      regions.push('front-thigh-left', 'front-thigh-right');
+    }
+  } else if (bodyPart.includes('knee')) {
+    if (bodyPart.includes('left')) {
+      regions.push('front-knee-left');
+    } else if (bodyPart.includes('right')) {
+      regions.push('front-knee-right');
+    } else {
+      regions.push('front-knee-left', 'front-knee-right');
+    }
+  } else if (bodyPart.includes('foot') || bodyPart.includes('ankle')) {
+    if (bodyPart.includes('left')) {
+      regions.push('front-foot-left');
+    } else if (bodyPart.includes('right')) {
+      regions.push('front-foot-right');
+    } else {
+      regions.push('front-foot-left', 'front-foot-right');
+    }
+  } else if (bodyPart.includes('hand') || bodyPart.includes('wrist')) {
+    if (bodyPart.includes('left')) {
+      regions.push('front-forearmhand-left');
+    } else if (bodyPart.includes('right')) {
+      regions.push('front-forearmhand-right');
+    } else {
+      regions.push('front-forearmhand-left', 'front-forearmhand-right');
+    }
+  }
+  
+  // Default to chest if no specific region found
+  if (regions.length === 0) {
+    regions.push('front-chest');
+  }
+  
+  return regions;
+};
 
 const IncidentDetailsPage = () => {
   const { id } = useParams();
@@ -55,7 +149,7 @@ const IncidentDetailsPage = () => {
     const geocodeSite = async () => {
       if (!incident?.site) return;
       
-      const site = incident.site as any;
+      const site = incident.site;
       
       // Check if site already has coordinates
       if (site.longitude && site.latitude) {
@@ -63,16 +157,48 @@ const IncidentDetailsPage = () => {
         return;
       }
 
-      // Try to geocode the address
-      if (site.site_id) {
-        const result = await geocodeAndUpdateSite(site.site_id);
-        if (result) {
-          setCoordinates({ longitude: result.lng, latitude: result.lat });
-          return;
+      // Try to geocode the full address first
+      if (site.street_address && site.city && site.state) {
+        const token = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || import.meta.env.VITE_MAPBOX_TOKEN;
+        if (token) {
+          try {
+            // Build full address string
+            const addressParts = [
+              site.street_address,
+              site.city,
+              site.state,
+              site.post_code,
+              'Australia'
+            ].filter(Boolean).join(', ');
+            
+            const response = await fetch(
+              `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(addressParts)}.json?` +
+              `access_token=${token}&` +
+              `country=AU&` +
+              `types=address,locality&` +
+              `limit=1`
+            );
+            
+            if (response.ok) {
+              const data = await response.json();
+              if (data.features?.[0]) {
+                const [lng, lat] = data.features[0].center;
+                setCoordinates({ longitude: lng, latitude: lat });
+                
+                // Update site in database with coordinates
+                if (site.site_id) {
+                  await updateSiteCoordinates(site.site_id, { lng, lat });
+                }
+                return;
+              }
+            }
+          } catch (error) {
+            console.error('Error geocoding full address:', error);
+          }
         }
       }
 
-      // Fallback to city-level geocoding
+      // Fallback to city-level geocoding (especially for Newtown)
       if (site.city && site.state) {
         const result = await geocodeCityFallback(site.city, site.state);
         if (result) {
@@ -148,7 +274,10 @@ const IncidentDetailsPage = () => {
   };
 
   // Type for the site data from the query
-  type SiteData = Pick<Tables<'sites'>, 'site_id' | 'site_name' | 'city' | 'state' | 'post_code' | 'street_address'> | null | undefined;
+  type SiteData = Partial<Tables<'sites'>> & {
+    longitude?: number;
+    latitude?: number;
+  } | null | undefined;
 
   // Helper function to get coordinates for the site
   const getSiteCoordinates = (siteData: SiteData) => {
@@ -401,25 +530,25 @@ const IncidentDetailsPage = () => {
           </Card>
         </div>
 
-        {/* Map and Body Diagram - New Section */}
+        {/* Map and Body Diagram - Side by Side with Equal Heights */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
           {/* Site Location Map */}
-          <Card className="border-l-4 border-l-blue-500">
+          <Card className="border-l-4 border-l-blue-500 h-full flex flex-col">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <MapIcon className="h-5 w-5 text-blue-600" />
                 Site Location Map
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="relative">
-                <div className="aspect-video rounded-lg overflow-hidden border-2 border-border">
+            <CardContent className="flex-1 flex flex-col">
+              <div className="flex-1 relative min-h-[500px]">
+                <div className="absolute inset-0 rounded-lg overflow-hidden border-2 border-border">
                   <Map
                     mapboxAccessToken={import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || import.meta.env.VITE_MAPBOX_TOKEN}
                     initialViewState={{
                       longitude: coordinates?.longitude || 151.2093,
                       latitude: coordinates?.latitude || -33.8688,
-                      zoom: 14
+                      zoom: 15
                     }}
                     style={{ width: '100%', height: '100%' }}
                     mapStyle="mapbox://styles/mapbox/light-v11"
@@ -429,7 +558,7 @@ const IncidentDetailsPage = () => {
                         longitude={coordinates.longitude}
                         latitude={coordinates.latitude}
                         anchor="bottom"
-                    >
+                      >
                       <div className="bg-red-500 text-white p-2 rounded-full shadow-lg border-2 border-white">
                         <MapPin className="h-4 w-4" />
                       </div>
@@ -474,58 +603,11 @@ const IncidentDetailsPage = () => {
           </Card>
 
           {/* Body Injury Diagram */}
-          <Card className="border-l-4 border-l-red-500">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <UserX className="h-5 w-5 text-red-600" />
-                Injury Location Diagram
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="aspect-square bg-muted/20 rounded-lg border-2 border-dashed border-muted-foreground/25 flex flex-col items-center justify-center text-center p-6">
-                <div className="relative">
-                  {/* Simple body representation */}
-                  <div className="w-24 h-32 bg-gray-200 rounded-full relative mb-4 flex items-center justify-center">
-                    {/* Head */}
-                    <div className="absolute -top-6 w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center">
-                      <User className="h-8 w-8 text-gray-600" />
-                    </div>
-                    
-                    {/* Highlight injured area based on body part */}
-                    {incident?.body_part?.body_part_name?.toLowerCase().includes('chest') && (
-                      <div className="absolute top-8 left-1/2 transform -translate-x-1/2 w-12 h-8 bg-red-400 rounded-lg opacity-75 animate-pulse border-2 border-red-600" />
-                    )}
-                    {incident?.body_part?.body_part_name?.toLowerCase().includes('arm') && (
-                      <div className="absolute top-6 -left-4 w-6 h-16 bg-red-400 rounded-lg opacity-75 animate-pulse border-2 border-red-600" />
-                    )}
-                    {incident?.body_part?.body_part_name?.toLowerCase().includes('leg') && (
-                      <div className="absolute bottom-0 left-1/3 w-6 h-20 bg-red-400 rounded-lg opacity-75 animate-pulse border-2 border-red-600" />
-                    )}
-                    
-                    {/* Default highlight for other body parts */}
-                    {!incident?.body_part?.body_part_name?.toLowerCase().includes('chest') && 
-                     !incident?.body_part?.body_part_name?.toLowerCase().includes('arm') && 
-                     !incident?.body_part?.body_part_name?.toLowerCase().includes('leg') && (
-                      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-red-400 rounded-full opacity-75 animate-pulse border-2 border-red-600" />
-                    )}
-                  </div>
-                </div>
-                
-                <h3 className="font-semibold text-lg mb-2">
-                  {incident?.body_part?.body_part_name || 'Body Part'} Injury
-                </h3>
-                <p className="text-sm text-muted-foreground mb-2">
-                  <span className="font-medium">Injury Type:</span> {incident?.injury_type || 'Not specified'}
-                </p>
-                <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                  🩺 Visual Injury Assessment
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Anatomical diagram showing injury location and severity
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <BodyInjuryViewer 
+            selectedRegions={getBodyRegionsFromIncident(incident)}
+            injuryType={incident?.injury_type}
+            injuryDescription={incident?.injury_description}
+          />
         </div>
 
         {/* Case Notes & Reporting Information */}
