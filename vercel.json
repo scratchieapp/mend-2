@@ -1,8 +1,29 @@
 {
-  "rewrites": [
+  "version": 2,
+  "builds": [
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "apps/operations/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "../../dist/operations"
+      }
+    },
+    {
+      "src": "apps/marketing/package.json", 
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "../../dist/marketing"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/operations(.*)",
+      "dest": "/dist/operations/index.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/dist/marketing/index.html"
     }
   ],
   "headers": [

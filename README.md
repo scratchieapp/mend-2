@@ -1,69 +1,192 @@
-# Welcome to your Lovable project
+# Mend-2 Monorepo
 
-## Project info
+A comprehensive workplace safety management platform built with React, TypeScript, and Supabase, structured as a monorepo with separate operations and marketing applications.
 
-**URL**: https://lovable.dev/projects/f18c89df-0f29-4585-8fe4-eab26ebbbdd0
+## Quick Start
 
-## How can I edit this code?
+```bash
+# Install dependencies
+npm install
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/f18c89df-0f29-4585-8fe4-eab26ebbbdd0) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start all applications
 npm run dev
+
+# Start specific application
+npm run dev:ops          # Operations platform (port 5173)
+npm run dev:marketing    # Marketing website (port 5174)
 ```
 
-**Edit a file directly in GitHub**
+## Project Structure
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```
+mend-2/
+├── apps/
+│   ├── operations/      # Workplace safety management platform
+│   └── marketing/       # Public-facing marketing website
+├── packages/            # Shared components and utilities
+├── docs/               # Documentation
+├── supabase/           # Database migrations and configuration
+└── scripts/            # Build and deployment scripts
+```
 
-**Use GitHub Codespaces**
+## Applications
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### 🏗️ Operations Platform (`/apps/operations`)
+- **Purpose**: Authenticated workplace safety management system
+- **Features**: Incident reporting, dashboards, compliance tracking
+- **Tech Stack**: React, TypeScript, Supabase, Clerk Auth
+- **Access**: Requires authentication via Clerk
+- **URL**: `http://localhost:5173/operations` (dev)
 
-## What technologies are used for this project?
+### 🌐 Marketing Website (`/apps/marketing`)
+- **Purpose**: Public marketing site and lead generation
+- **Features**: Landing page, ROI calculator, case studies
+- **Tech Stack**: React, TypeScript, Tailwind CSS
+- **Access**: Public (no authentication required)
+- **URL**: `http://localhost:5174` (dev)
 
-This project is built with .
+## Architecture
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
+This monorepo is designed with future microservices architecture in mind:
+
+- **Clear Separation**: Operations and marketing are completely separate apps
+- **Independent Deployment**: Each app can be deployed independently
+- **Shared Resources**: Common utilities in shared packages
+- **Authentication Boundaries**: Public marketing vs. authenticated operations
+
+See [MONOREPO_ARCHITECTURE.md](./MONOREPO_ARCHITECTURE.md) for detailed architecture documentation.
+
+## Key Features
+
+### Operations Platform ✅
+- Multi-role user management (9 distinct roles)
+- Comprehensive incident reporting system
+- File upload with Supabase Storage integration
+- Real-time dashboards and analytics
+- Mobile-responsive design
+- Automated compliance tracking
+
+### Marketing Website 🆕
+- Modern landing page design
+- Lead generation forms
+- ROI calculator
+- Case studies and testimonials
+- SEO optimized
+- Mobile-first responsive design
+
+## Development Commands
+
+```bash
+# Development
+npm run dev                 # Start all apps
+npm run dev:ops            # Operations platform only
+npm run dev:marketing      # Marketing website only
+
+# Building
+npm run build              # Build all apps
+npm run build:ops          # Build operations platform
+npm run build:marketing    # Build marketing website
+
+# Utilities
+npm run lint               # Lint all workspaces
+npm run preview           # Preview built apps
+```
+
+## Deployment
+
+### Vercel (Recommended)
+The project is configured for Vercel deployment with automatic routing:
+- Marketing website serves from root domain
+- Operations platform serves from `/operations/*`
+- Independent builds and deployments supported
+
+### Environment Variables
+
+#### Operations Platform
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_CLERK_PUBLISHABLE_KEY=your_clerk_key
+```
+
+#### Marketing Website
+```env
+# Analytics and marketing tools (optional)
+```
+
+## Database
+
+- **Platform**: Supabase (PostgreSQL)
+- **Migrations**: Located in `/supabase/migrations/`
+- **Setup**: Run migrations in Supabase dashboard or CLI
+
+Key tables:
+- `incidents` - Core incident records
+- `users` - User accounts with role-based access
+- `employers`, `workers`, `sites` - Entity relationships
+
+## Security
+
+- **Operations**: Full authentication required (Clerk)
+- **Marketing**: Public access with optional login redirects
+- **Data Isolation**: No shared sensitive data between apps
+- **RBAC**: 9-role hierarchy in operations platform
+
+## Performance
+
+- **Operations**: ~1.1MB bundle (feature-rich platform)
+- **Marketing**: <500KB bundle (optimized for speed)
+- **Loading**: Independent loading strategies per app
+
+## Contributing
+
+1. **Operations Features**: Work in `apps/operations/`
+2. **Marketing Content**: Work in `apps/marketing/`
+3. **Shared Components**: Add to `packages/shared-*`
+4. **Testing**: Each app maintains its own test strategy
+
+## Tech Stack
+
+### Shared
+- React 18.3 + TypeScript
+- Vite (build tool)
 - Tailwind CSS
+- NPM Workspaces
 
-## How can I deploy this project?
+### Operations Specific
+- Supabase (database, auth, storage)
+- Clerk (authentication)
+- TanStack Query (state management)
+- React Hook Form + Zod (forms)
+- Recharts (analytics)
+- Mapbox (mapping)
 
-Simply open [Lovable](https://lovable.dev/projects/f18c89df-0f29-4585-8fe4-eab26ebbbdd0) and click on Share -> Publish.
+### Marketing Specific
+- Minimal dependencies
+- Focus on performance and SEO
+- Optimized for conversion
 
-## I want to use a custom domain - is that possible?
+## Project Status
 
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+- **Operations Platform**: ✅ Production ready (see CLAUDE.md for details)
+- **Marketing Website**: 🆕 Newly implemented structure
+- **Monorepo Setup**: ✅ Complete and tested
+
+## Documentation
+
+- [CLAUDE.md](./CLAUDE.md) - Detailed project status and technical details
+- [MONOREPO_ARCHITECTURE.md](./MONOREPO_ARCHITECTURE.md) - Architecture documentation
+- [Migration Instructions](./MIGRATION_INSTRUCTIONS.md) - Database setup
+- [API Documentation](./docs/) - Additional technical docs
+
+## Support
+
+For technical issues:
+1. Check the relevant app's documentation
+2. Review environment variable configuration
+3. Ensure database migrations are current
+4. Verify authentication setup (for operations app)
+
+---
+
+**Note**: This monorepo structure supports both current operational needs and future microservices architecture. Each application can be extracted into its own repository when ready for independent scaling.

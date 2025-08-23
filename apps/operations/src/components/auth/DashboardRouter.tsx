@@ -15,6 +15,8 @@ const ROLE_DASHBOARDS: Record<string, string> = {
   site_admin: "/site-admin",
   administrator: "/administrator",
   medical_professional: "/medical-dashboard",
+  // Worker and public roles
+  public: "/worker-portal",
   // Default roles
   employee: "/dashboard",
   contractor: "/dashboard",
@@ -23,7 +25,7 @@ const ROLE_DASHBOARDS: Record<string, string> = {
   manager: "/dashboard",
   supervisor: "/dashboard",
   vendor: "/dashboard",
-  client: "/dashboard",
+  client: "/worker-portal",  // Workers/clients use the worker portal
 };
 
 const DashboardRouter = () => {

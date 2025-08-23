@@ -139,6 +139,14 @@ export const isMendStaff = (userData?: UserData | null): boolean => {
 };
 
 /**
+ * Check if user is a worker (client or public role)
+ */
+export const isWorker = (userData?: UserData | null): boolean => {
+  const workerRoles = [ROLES.CLIENT, ROLES.PUBLIC];
+  return workerRoles.includes(userData?.role?.role_id || 0);
+};
+
+/**
  * Check if user has access to a specific employer
  */
 export const hasEmployerAccess = (userData: UserData | null, employerId?: number | null): boolean => {

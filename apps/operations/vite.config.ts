@@ -7,7 +7,7 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
-    port: 8080,
+    port: 5173,
   },
   plugins: [
     react(),
@@ -22,4 +22,8 @@ export default defineConfig(({ mode }) => ({
   optimizeDeps: {
     include: ['mapbox-gl']
   },
+  build: {
+    outDir: '../../dist/operations'
+  },
+  base: '/operations/'
 }));

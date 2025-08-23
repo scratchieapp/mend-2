@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /operations/
+
+# Sitemaps
+Sitemap: https://mend.com.au/sitemap.xml
+
+# Crawl-delay for respectful crawling
+Crawl-delay: 1

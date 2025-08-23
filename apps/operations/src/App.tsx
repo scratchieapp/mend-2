@@ -45,6 +45,7 @@ import IncidentEditPage from "./pages/IncidentEditPage";
 import LTIDetailsPage from "./pages/LTIDetailsPage";
 import InsuranceProviderDashboard from "./pages/InsuranceProviderDashboard";
 import GovernmentOfficialDashboard from "./pages/GovernmentOfficialDashboard";
+import WorkerPortal from "./pages/WorkerPortal";
 
 function App() {
   return (
@@ -98,6 +99,9 @@ function App() {
           <Route path="medical/patients" element={<MedicalPatientsPage />} />
           <Route path="insurance" element={<InsuranceProviderDashboard />} />
           <Route path="government" element={<GovernmentOfficialDashboard />} />
+          
+          {/* Worker Portal route */}
+          <Route path="worker-portal" element={<WorkerPortal />} />
 
           {/* Administrator route (requires you import Administrator above) */}
           <Route
