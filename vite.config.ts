@@ -19,4 +19,8 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  optimizeDeps: {
+    include: ['mapbox-gl'],
+    exclude: ['react-map-gl'],
+  },
 }));

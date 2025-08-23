@@ -3,11 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { MenuBar } from "@/components/MenuBar";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Clock, MapPin, User, AlertCircle, FileText, Calendar, Phone, Stethoscope, Activity, Map, UserX } from "lucide-react";
+import { ChevronLeft, Clock, MapPin, User, AlertCircle, FileText, Calendar, Phone, Stethoscope, Activity, Map as MapIcon, UserX } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import Map, { Marker } from 'react-map-gl/mapbox';
+import 'mapbox-gl/dist/mapbox-gl.css';
+import type { Tables } from "@/integrations/supabase/types";
 
 const IncidentDetailsPage = () => {
   const { id } = useParams();
@@ -92,6 +95,49 @@ const IncidentDetailsPage = () => {
       default:
         return 'border-l-gray-500';
     }
+  };
+
+  // Type for the site data from the query
+  type SiteData = Pick<Tables<'sites'>, 'site_id' | 'site_name' | 'city' | 'state' | 'post_code' | 'street_address'> | null | undefined;
+
+  // Helper function to get coordinates for the site
+  const getSiteCoordinates = (siteData: SiteData) => {
+    // Default to Sydney coordinates
+    let longitude = 151.2093;
+    let latitude = -33.8688;
+
+    // Enhanced logic: try to match city/state to approximate coordinates
+    if (siteData?.city && siteData?.state) {
+      const cityState = `${siteData.city.toLowerCase()}, ${siteData.state.toLowerCase()}`;
+      
+      // Basic Australian city coordinates mapping
+      const cityCoordinates: Record<string, { longitude: number; latitude: number }> = {
+        'sydney, nsw': { longitude: 151.2093, latitude: -33.8688 },
+        'sydney, new south wales': { longitude: 151.2093, latitude: -33.8688 },
+        'melbourne, vic': { longitude: 144.9631, latitude: -37.8136 },
+        'melbourne, victoria': { longitude: 144.9631, latitude: -37.8136 },
+        'brisbane, qld': { longitude: 153.0260, latitude: -27.4698 },
+        'brisbane, queensland': { longitude: 153.0260, latitude: -27.4698 },
+        'perth, wa': { longitude: 115.8605, latitude: -31.9505 },
+        'perth, western australia': { longitude: 115.8605, latitude: -31.9505 },
+        'adelaide, sa': { longitude: 138.6007, latitude: -34.9285 },
+        'adelaide, south australia': { longitude: 138.6007, latitude: -34.9285 },
+        'darwin, nt': { longitude: 130.8456, latitude: -12.4634 },
+        'darwin, northern territory': { longitude: 130.8456, latitude: -12.4634 },
+        'hobart, tas': { longitude: 147.3272, latitude: -42.8821 },
+        'hobart, tasmania': { longitude: 147.3272, latitude: -42.8821 },
+        'canberra, act': { longitude: 149.1300, latitude: -35.2809 },
+        'canberra, australian capital territory': { longitude: 149.1300, latitude: -35.2809 },
+      };
+
+      const coordinates = cityCoordinates[cityState];
+      if (coordinates) {
+        longitude = coordinates.longitude;
+        latitude = coordinates.latitude;
+      }
+    }
+
+    return { longitude, latitude };
   };
 
   return (
@@ -311,25 +357,66 @@ const IncidentDetailsPage = () => {
           <Card className="border-l-4 border-l-blue-500">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
-                <Map className="h-5 w-5 text-blue-600" />
+                <MapIcon className="h-5 w-5 text-blue-600" />
                 Site Location Map
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="aspect-video bg-muted/20 rounded-lg border-2 border-dashed border-muted-foreground/25 flex flex-col items-center justify-center text-center p-6">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                  <MapPin className="h-8 w-8 text-blue-600" />
+              <div className="relative">
+                <div className="aspect-video rounded-lg overflow-hidden border-2 border-border">
+                  <Map
+                    mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
+                    initialViewState={{
+                      longitude: getSiteCoordinates(incident?.site).longitude,
+                      latitude: getSiteCoordinates(incident?.site).latitude,
+                      zoom: 14
+                    }}
+                    style={{ width: '100%', height: '100%' }}
+                    mapStyle="mapbox://styles/mapbox/light-v11"
+                  >
+                    <Marker
+                      longitude={getSiteCoordinates(incident?.site).longitude}
+                      latitude={getSiteCoordinates(incident?.site).latitude}
+                      anchor="bottom"
+                    >
+                      <div className="bg-red-500 text-white p-2 rounded-full shadow-lg border-2 border-white">
+                        <MapPin className="h-4 w-4" />
+                      </div>
+                    </Marker>
+                  </Map>
                 </div>
-                <h3 className="font-semibold text-lg mb-2">{incident?.site?.site_name || 'Site Location'}</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {incident?.site?.site_name ? `Incident occurred at ${incident.site.site_name}` : 'Site location information not available'}
-                </p>
-                <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                  📍 Interactive Map Integration
+                
+                {/* Map Overlay with Site Info */}
+                <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg p-3 shadow-lg border max-w-xs">
+                  <h4 className="font-semibold text-sm mb-1">
+                    {incident?.site?.site_name || 'Site Location'}
+                  </h4>
+                  
+                  {/* Address Information */}
+                  {(incident?.site?.street_address || incident?.site?.city || incident?.site?.state) && (
+                    <div className="text-xs text-muted-foreground mb-2 space-y-0.5">
+                      {incident?.site?.street_address && (
+                        <div>{incident.site.street_address}</div>
+                      )}
+                      <div>
+                        {[incident?.site?.city, incident?.site?.state, incident?.site?.post_code]
+                          .filter(Boolean)
+                          .join(', ')}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {incident?.date_of_injury 
+                      ? `Incident on ${format(new Date(incident.date_of_injury), 'MMM dd, yyyy')}` 
+                      : 'Incident location'}
+                  </p>
+                  
+                  <div className="flex items-center gap-2 text-xs">
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                    <span className="text-muted-foreground font-medium">Incident Site</span>
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Map integration with site coordinates and incident markers
-                </p>
               </div>
             </CardContent>
           </Card>
