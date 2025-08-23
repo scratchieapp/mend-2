@@ -44,14 +44,25 @@ const IncidentEditPage = () => {
         .from('incidents')
         .select(`
           *,
-          workers(
+          workers:worker_id(
             worker_id,
             given_name,
             family_name,
             phone_number,
-            mobile_number
+            mobile_number,
+            employer_id,
+            employment_type,
+            employment_arrangement,
+            basis_of_employment
           ),
-          sites(
+          employers:employer_id(
+            employer_id,
+            employer_name,
+            employer_address,
+            employer_phone,
+            manager_name
+          ),
+          sites:site_id(
             site_id,
             site_name,
             street_address,
@@ -65,7 +76,12 @@ const IncidentEditPage = () => {
         .eq('incident_id', id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching incident data:', error);
+        throw error;
+      }
+      
+      console.log('Fetched incident data:', data);
       return data;
     },
     enabled: !!id,
@@ -104,6 +120,8 @@ const IncidentEditPage = () => {
   // Populate form with existing data
   useEffect(() => {
     if (incidentData) {
+      console.log('Raw incident data received:', incidentData);
+      
       // Map database fields to form fields properly
       const formData = {
         // Notification section - use placeholder for missing mend_client
@@ -120,7 +138,11 @@ const IncidentEditPage = () => {
         location_site: incidentData.site_id?.toString() || "",
         supervisor_contact: incidentData.sites?.supervisor_name || "",
         supervisor_phone: incidentData.sites?.supervisor_telephone || "",
-        employment_type: "full_time" as const, // Default since not in DB
+        employment_type: incidentData.workers?.basis_of_employment === "Full Time" ? "full_time" :
+                        incidentData.workers?.basis_of_employment === "Part Time" ? "part_time" :
+                        incidentData.workers?.basis_of_employment === "Casual" ? "casual" :
+                        incidentData.workers?.basis_of_employment === "Contract" ? "contractor" :
+                        "full_time" as const,
         
         // Injury details
         date_of_injury: incidentData.date_of_injury || "",
@@ -128,7 +150,10 @@ const IncidentEditPage = () => {
           incidentData.time_of_injury.substring(0, 5) : "", // Extract HH:MM from time
         injury_type: incidentData.injury_type || "",
         body_part: incidentData.body_part_id?.toString() || "", // Use body_part_id
-        body_side: "not_applicable" as const, // Default since body_side_id in DB
+        body_side: incidentData.body_side_id === 1 ? "left" :
+                   incidentData.body_side_id === 2 ? "right" :
+                   incidentData.body_side_id === 3 ? "both" :
+                   "not_applicable" as const,
         injury_description: incidentData.injury_description || "",
         witness: incidentData.witness || "",
         
@@ -139,7 +164,7 @@ const IncidentEditPage = () => {
         
         // Actions taken
         actions_taken: incidentData.actions ? 
-          [incidentData.actions] : [], // Convert string to array
+          incidentData.actions.split(';').map((action: string) => action.trim()).filter(Boolean) : [], // Split string into array
         
         // Case notes
         case_notes: incidentData.case_notes || "",
@@ -148,10 +173,16 @@ const IncidentEditPage = () => {
         documents: [],
       };
       
-      console.log('Populating form with data:', formData);
-      form.reset(formData);
+      console.log('Mapped form data:', formData);
+      console.log('Current form values before reset:', form.getValues());
+      
+      // Use setTimeout to ensure the form is ready before resetting
+      setTimeout(() => {
+        form.reset(formData);
+        console.log('Form values after reset:', form.getValues());
+      }, 0);
     }
-  }, [incidentData, form]);
+  }, [incidentData]);
 
   // Update mutation
   const updateMutation = useMutation({
