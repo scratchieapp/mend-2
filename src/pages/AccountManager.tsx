@@ -50,8 +50,14 @@ export default function AccountManager() {
     return data as UserRole[];
   };
 
-  const { data: fetchedUsers, isLoading: isLoadingUsers, error: usersError } = useQuery(['users'], fetchUsers);
-  const { data: fetchedRoles, isLoading: isLoadingRoles, error: rolesError } = useQuery(['roles'], fetchRoles);
+  const { data: fetchedUsers, isLoading: isLoadingUsers, error: usersError } = useQuery({
+    queryKey: ['users'],
+    queryFn: fetchUsers
+  });
+  const { data: fetchedRoles, isLoading: isLoadingRoles, error: rolesError } = useQuery({
+    queryKey: ['roles'],
+    queryFn: fetchRoles
+  });
 
   useEffect(() => {
     if (fetchedUsers) {
@@ -65,8 +71,8 @@ export default function AccountManager() {
   const queryClient = useQueryClient();
 
 // Create user mutation
-const createUserMutation = useMutation(
-  async ({ email, password, role }: { email: string; password: string; role: UserRoleName }) => {
+const createUserMutation = useMutation({
+  mutationFn: async ({ email, password, role }: { email: string; password: string; role: UserRoleName }) => {
     const { data, error } = await supabase.auth.admin.createUser({
       email,
       password,
@@ -80,32 +86,30 @@ const createUserMutation = useMutation(
     if (error) throw error;
     return data;
   },
-  {
-    onSuccess: () => {
-      queryClient.invalidateQueries(['users']);
-      toast({
-        title: "Success",
-        description: "User has been created successfully.",
-      });
-      setShowAddUserDialog(false);
-    },
-    onError: (error: Error) => {
-      let errorMessage = "Failed to create user. Please try again.";
-      if (error?.message?.includes('user_already_exists')) {
-        errorMessage = "This email is already registered. Please use a different email address.";
-      }
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    },
-  }
-);
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['users'] });
+    toast({
+      title: "Success",
+      description: "User has been created successfully.",
+    });
+    setShowAddUserDialog(false);
+  },
+  onError: (error: Error) => {
+    let errorMessage = "Failed to create user. Please try again.";
+    if (error?.message?.includes('user_already_exists')) {
+      errorMessage = "This email is already registered. Please use a different email address.";
+    }
+    toast({
+      title: "Error",
+      description: errorMessage,
+      variant: "destructive",
+    });
+  },
+});
 
   // Update user role mutation
-  const updateUserRoleMutation = useMutation(
-    async ({ userId, role }: { userId: string; role: UserRoleName }) => {
+  const updateUserRoleMutation = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: UserRoleName }) => {
       const roleId = roles.find(r => r.role_name === role)?.role_id;
       if (!roleId) throw new Error("Role not found.");
 
@@ -117,50 +121,46 @@ const createUserMutation = useMutation(
       if (error) throw error;
       return { userId, roleId };
     },
-    {
-      onSuccess: ({ userId, roleId }) => {
-        setUsers(users.map(user =>
-          user.user_id === userId ? { ...user, role_id: roleId } : user
-        ));
-        toast({
-          title: "Success",
-          description: "User role has been updated successfully.",
-        });
-      },
-      onError: () => {
-        toast({
-          title: "Error",
-          description: "Failed to update user role. Please try again.",
-          variant: "destructive",
-        });
-      },
-    }
-  );
+    onSuccess: ({ userId, roleId }) => {
+      setUsers(users.map(user =>
+        user.user_id === userId ? { ...user, role_id: roleId } : user
+      ));
+      toast({
+        title: "Success",
+        description: "User role has been updated successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update user role. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Deactivate user mutation (placeholder for actual deactivation logic)
-  const deactivateUserMutation = useMutation(
-    async (userId: string) => {
+  const deactivateUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
       // Replace this with your actual user deactivation logic
       // Deactivating user
       return userId;
     },
-    {
-      onSuccess: (userId) => {
-        setUsers(users.filter(user => user.user_id !== userId));
-        toast({
-          title: "Success",
-          description: "User has been deactivated successfully.",
-        });
-      },
-      onError: () => {
-        toast({
-          title: "Error",
-          description: "Failed to deactivate user. Please try again.",
-          variant: "destructive",
-        });
-      },
-    }
-  );
+    onSuccess: (userId) => {
+      setUsers(users.filter(user => user.user_id !== userId));
+      toast({
+        title: "Success",
+        description: "User has been deactivated successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to deactivate user. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleEditUser = (user: UserData) => {
     setSelectedUser(user);
@@ -233,10 +233,14 @@ const createUserMutation = useMutation(
       </div>
 
       {/* Add User Dialog */}
-      <AddUserDialog
+      {showAddUserDialog && (
+        <AddUserDialog
           createUserMutation={createUserMutation}
           availableRoles={availableRoles}
+          open={showAddUserDialog}
+          onClose={handleCloseAddUser}
         />
+      )}
 
       {/* Edit User Dialog */}
       <Dialog open={selectedUser !== null} onOpenChange={handleCloseEdit}>
