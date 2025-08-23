@@ -23,6 +23,9 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import UserManagementPage from "./pages/UserManagementPage";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import BuilderSeniorDashboard from "./pages/BuilderSeniorDashboard";
+import SiteAdmin from "./pages/roles/SiteAdmin";
+import MedicalDashboard from "./pages/MedicalDashboard";
 import StorageSetupAdmin from "./pages/StorageSetupAdmin";
 import DataAdmin from "./pages/DataAdmin";
 import DataImportAdmin from "./pages/DataImportAdmin";
@@ -73,12 +76,16 @@ function App() {
             </ProtectedRoute>
           }
         >
-          {/* Default route - show dashboard at root */}
+          {/* Default route - role-based routing handled by DashboardRouter */}
           <Route index element={<Dashboard />} />
           
-          {/* Example routes inside the protected area */}
+          {/* Role-specific dashboard routes */}
+          <Route path="dashboard" element={<Dashboard />} />
           <Route path="account-manager" element={<AccountManager />} />
           <Route path="user-management" element={<UserManagementPage />} />
+          <Route path="builder-senior" element={<BuilderSeniorDashboard />} />
+          <Route path="site-admin" element={<SiteAdmin />} />
+          <Route path="medical-dashboard" element={<MedicalDashboard />} />
 
           {/* Administrator route (requires you import Administrator above) */}
           <Route

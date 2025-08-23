@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import mapboxgl from 'mapbox-gl';
-import { supabase } from '@/lib/supabase';
 
 interface MapboxHookReturn {
   map: mapboxgl.Map | null;
@@ -9,26 +8,16 @@ interface MapboxHookReturn {
 
 export const useMapbox = (): MapboxHookReturn => {
   const [map, setMapState] = useState<mapboxgl.Map | null>(null);
-  const tokenRef = useRef<string>('');
 
   useEffect(() => {
-    const fetchMapboxToken = async () => {
-      const { data: { MAPBOX_PUBLIC_TOKEN }, error } = await supabase.functions.invoke('get-config', {
-        body: { key: 'MAPBOX_PUBLIC_TOKEN' }
-      });
-      
-      if (error) {
-        console.error('Error fetching Mapbox token:', error);
-        return;
-      }
-      
-      if (MAPBOX_PUBLIC_TOKEN) {
-        tokenRef.current = MAPBOX_PUBLIC_TOKEN;
-        mapboxgl.accessToken = MAPBOX_PUBLIC_TOKEN;
-      }
-    };
-
-    fetchMapboxToken();
+    // Use the environment variable directly
+    const mapboxToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+    
+    if (mapboxToken) {
+      mapboxgl.accessToken = mapboxToken;
+    } else {
+      console.error('Mapbox access token is not configured. Please add VITE_MAPBOX_ACCESS_TOKEN to your .env file.');
+    }
   }, []);
 
   const setMap = (newMap: mapboxgl.Map) => {

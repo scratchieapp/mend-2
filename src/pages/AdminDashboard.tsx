@@ -60,10 +60,10 @@ export default function AdminDashboard() {
   const { user } = useClerkAuthContext();
 
   // Check if user has any admin role
-  const hasAdminAccess = userData && (
-    isSuperAdmin(userData.role_id) || 
-    isBuilderAdmin(userData.role_id) || 
-    isAdministrator(userData.role_id)
+  const hasAdminAccess = user && (
+    isSuperAdmin(user.role_id) || 
+    isBuilderAdmin(user.role_id) || 
+    isAdministrator(user.role_id)
   );
 
   if (!hasAdminAccess) {
@@ -146,7 +146,7 @@ export default function AdminDashboard() {
         <div className="flex items-center gap-2 mt-4">
           <Shield className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">
-            Your role: {userData?.role?.role_name || 'Unknown'}
+            Your role: {user?.role?.role_name || 'Unknown'}
           </span>
         </div>
       </div>
