@@ -35,6 +35,7 @@ import UserManagementAdmin from "./pages/UserManagementAdmin";
 import IncidentReport from "./pages/IncidentReport";
 import IncidentReportDev from "./pages/IncidentReportDev";
 import IncidentDetailsPage from "./pages/IncidentDetailsPage";
+import IncidentEditPage from "./pages/IncidentEditPage";
 
 function App() {
   return (
@@ -98,6 +99,7 @@ function App() {
           />
           <Route path="incident-report" element={<IncidentReport />} />
           <Route path="incident/:id" element={<IncidentDetailsPage />} />
+          <Route path="incident/:id/edit" element={<IncidentEditPage />} />
           
           {/* Admin routes */}
           <Route

@@ -11,10 +11,13 @@ import { Separator } from "@/components/ui/separator";
 import Map, { Marker } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { Tables } from "@/integrations/supabase/types";
+import { geocodeAndUpdateSite, geocodeCityFallback } from "@/lib/mapbox/geocoding";
+import { useEffect, useState } from "react";
 
 const IncidentDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [coordinates, setCoordinates] = useState<{ longitude: number; latitude: number } | null>(null);
 
   const { data: incident, isLoading, error } = useQuery({
     queryKey: ['incident', id],
@@ -23,7 +26,16 @@ const IncidentDetailsPage = () => {
         .from('incidents')
         .select(`
           *,
-          site:sites(site_id, site_name),
+          site:sites(
+            site_id, 
+            site_name,
+            street_address,
+            city,
+            post_code,
+            state,
+            longitude,
+            latitude
+          ),
           worker:workers(worker_id, given_name, family_name, occupation),
           department:departments(department_name),
           body_part:body_parts(body_part_name)
@@ -37,6 +49,44 @@ const IncidentDetailsPage = () => {
     },
     enabled: !!id
   });
+
+  // Geocode the site if coordinates are missing
+  useEffect(() => {
+    const geocodeSite = async () => {
+      if (!incident?.site) return;
+      
+      const site = incident.site as any;
+      
+      // Check if site already has coordinates
+      if (site.longitude && site.latitude) {
+        setCoordinates({ longitude: site.longitude, latitude: site.latitude });
+        return;
+      }
+
+      // Try to geocode the address
+      if (site.site_id) {
+        const result = await geocodeAndUpdateSite(site.site_id);
+        if (result) {
+          setCoordinates({ longitude: result.lng, latitude: result.lat });
+          return;
+        }
+      }
+
+      // Fallback to city-level geocoding
+      if (site.city && site.state) {
+        const result = await geocodeCityFallback(site.city, site.state);
+        if (result) {
+          setCoordinates({ longitude: result.lng, latitude: result.lat });
+          return;
+        }
+      }
+
+      // Default to Sydney if all else fails
+      setCoordinates({ longitude: 151.2093, latitude: -33.8688 });
+    };
+
+    geocodeSite();
+  }, [incident]);
 
   if (isLoading) {
     return (
@@ -365,24 +415,26 @@ const IncidentDetailsPage = () => {
               <div className="relative">
                 <div className="aspect-video rounded-lg overflow-hidden border-2 border-border">
                   <Map
-                    mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
+                    mapboxAccessToken={import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || import.meta.env.VITE_MAPBOX_TOKEN}
                     initialViewState={{
-                      longitude: getSiteCoordinates(incident?.site).longitude,
-                      latitude: getSiteCoordinates(incident?.site).latitude,
+                      longitude: coordinates?.longitude || 151.2093,
+                      latitude: coordinates?.latitude || -33.8688,
                       zoom: 14
                     }}
                     style={{ width: '100%', height: '100%' }}
                     mapStyle="mapbox://styles/mapbox/light-v11"
                   >
-                    <Marker
-                      longitude={getSiteCoordinates(incident?.site).longitude}
-                      latitude={getSiteCoordinates(incident?.site).latitude}
-                      anchor="bottom"
+                    {coordinates && (
+                      <Marker
+                        longitude={coordinates.longitude}
+                        latitude={coordinates.latitude}
+                        anchor="bottom"
                     >
                       <div className="bg-red-500 text-white p-2 rounded-full shadow-lg border-2 border-white">
                         <MapPin className="h-4 w-4" />
                       </div>
-                    </Marker>
+                      </Marker>
+                    )}
                   </Map>
                 </div>
                 

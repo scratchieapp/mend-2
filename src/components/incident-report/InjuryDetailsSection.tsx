@@ -4,11 +4,13 @@ import { Label } from "@/components/ui/label";
 import { FormField, FormItem } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { UseFormReturn } from "react-hook-form";
-import type { IncidentReportFormData } from "@/lib/validations/incident";import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { IncidentReportFormData } from "@/lib/validations/incident";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ExpandedInjuryDetails } from "./injury/ExpandedInjuryDetails";
+import { BodyInjuryDiagram } from "./BodyInjuryDiagram";
 
 interface InjuryDetailsSectionProps {
   form: UseFormReturn<IncidentReportFormData>;
@@ -29,6 +31,7 @@ export function InjuryDetailsSection({ form }: InjuryDetailsSectionProps) {
   const [injuryTypes, setInjuryTypes] = useState<InjuryType[]>([]);
   const [bodyParts, setBodyParts] = useState<BodyPart[]>([]);
   const [selectedBodyPart, setSelectedBodyPart] = useState<string>("");
+  const [selectedBodyRegions, setSelectedBodyRegions] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -155,6 +158,13 @@ export function InjuryDetailsSection({ form }: InjuryDetailsSectionProps) {
             </FormItem>
           )}
         />
+        
+        <div className="col-span-full">
+          <BodyInjuryDiagram
+            selectedRegions={selectedBodyRegions}
+            onRegionsChange={setSelectedBodyRegions}
+          />
+        </div>
 
         <div className="col-span-full">
           <Button

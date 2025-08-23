@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Human Body – Front & Back SVG Map</title>
+  <style>
+    :root {
+      --base: #f3f4f6;      /* neutral fill */
+      --stroke: #9ca3af;    /* outline */
+      --hover: #e0f2fe;     /* hover */
+      --selected: #bfdbfe;  /* active */
+      --focus: #2563eb;     /* focus ring */
+    }
+
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; margin: 0; padding: 24px; background:#fff; color:#111827; }
+    h1 { font-size: 18px; margin: 0 0 8px; }
+    p  { margin: 0 0 16px; color:#374151; }
+
+    .wrap { display: grid; gap: 24px; grid-template-columns: 1fr; }
+    @media (min-width: 900px) { .wrap { grid-template-columns: 1fr 1fr; } }
+
+    .panel { border:1px solid #e5e7eb; border-radius: 16px; padding:16px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+    .title { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .title span { font-weight:600; letter-spacing:.2px; }
+
+    svg { width: 100%; height: auto; display:block; }
+
+    /* Regions */
+    .region { fill: var(--base); stroke: var(--stroke); stroke-width: 2; cursor: pointer; transition: fill .15s ease, transform .08s ease; outline: none; }
+    .region:hover { fill: var(--hover); }
+    .region.selected { fill: var(--selected); }
+    .region:focus-visible { stroke: var(--focus); stroke-width: 3; }
+
+    .legend { font-size: 12px; color:#4b5563; }
+    .badge { display:inline-block; padding:2px 8px; border-radius:999px; background:#eef2ff; color:#3730a3; font-size:11px; margin-left:8px; }
+
+    .output { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; background:#0b1020; color:#e5e7eb; padding:12px; border-radius:12px; font-size:12px; min-height:44px; overflow:auto; }
+
+    .controls { display:flex; gap:8px; flex-wrap:wrap; }
+    button { border:1px solid #e5e7eb; background:#fff; padding:8px 12px; border-radius:10px; cursor:pointer; }
+    button:hover { background:#f9fafb; }
+  </style>
+</head>
+<body>
+  <h1>Human Body – Front & Back SVG (Clickable Regions)</h1>
+  <p class="legend">Lightweight, accessible SVG maps of a human body (front & back). Each region is a labeled SVG shape with an <code>id</code> and <code>data-*</code> attributes you can map to your ~20 injury locations.
+    <span class="badge">No external dependencies</span>
+  </p>
+
+  <div class="wrap">
+    <!-- FRONT VIEW -->
+    <section class="panel" aria-labelledby="front-title">
+      <div class="title"><span id="front-title">Front</span></div>
+      <svg viewBox="0 0 320 720" role="img" aria-labelledby="front-desc">
+        <title id="front-desc">Front view body map with clickable regions</title>
+
+        <!-- Head & Neck -->
+        <circle class="region" id="front-head" cx="160" cy="60" r="38" data-view="front" data-region="head" data-side="center" tabindex="0" role="button">
+          <title>Head (front)</title>
+        </circle>
+        <rect class="region" id="front-neck" x="142" y="98" width="36" height="22" rx="6" data-view="front" data-region="neck" data-side="center" tabindex="0" role="button">
+          <title>Neck (front)</title>
+        </rect>
+
+        <!-- Torso -->
+        <rect class="region" id="front-chest" x="105" y="122" width="110" height="96" rx="28" data-view="front" data-region="chest" data-side="center" tabindex="0" role="button">
+          <title>Chest</title>
+        </rect>
+        <rect class="region" id="front-abdomen" x="118" y="220" width="84" height="78" rx="18" data-view="front" data-region="abdomen" data-side="center" tabindex="0" role="button">
+          <title>Abdomen</title>
+        </rect>
+        <rect class="region" id="front-pelvis" x="118" y="302" width="84" height="52" rx="22" data-view="front" data-region="pelvis" data-side="center" tabindex="0" role="button">
+          <title>Pelvis / Groin</title>
+        </rect>
+
+        <!-- Arms (Left) -->
+        <circle class="region" id="front-shoulder-left" cx="100" cy="155" r="18" data-view="front" data-region="shoulder" data-side="left" tabindex="0" role="button">
+          <title>Left Shoulder</title>
+        </circle>
+        <rect class="region" id="front-upperarm-left" x="86" y="172" width="24" height="72" rx="12" data-view="front" data-region="upper-arm" data-side="left" tabindex="0" role="button">
+          <title>Left Upper Arm</title>
+        </rect>
+        <rect class="region" id="front-forearmhand-left" x="84" y="246" width="28" height="112" rx="12" data-view="front" data-region="forearm-hand" data-side="left" tabindex="0" role="button">
+          <title>Left Forearm & Hand</title>
+        </rect>
+
+        <!-- Arms (Right) -->
+        <circle class="region" id="front-shoulder-right" cx="220" cy="155" r="18" data-view="front" data-region="shoulder" data-side="right" tabindex="0" role="button">
+          <title>Right Shoulder</title>
+        </circle>
+        <rect class="region" id="front-upperarm-right" x="210" y="172" width="24" height="72" rx="12" data-view="front" data-region="upper-arm" data-side="right" tabindex="0" role="button">
+          <title>Right Upper Arm</title>
+        </rect>
+        <rect class="region" id="front-forearmhand-right" x="208" y="246" width="28" height="112" rx="12" data-view="front" data-region="forearm-hand" data-side="right" tabindex="0" role="button">
+          <title>Right Forearm & Hand</title>
+        </rect>
+
+        <!-- Legs (Left) -->
+        <rect class="region" id="front-thigh-left" x="130" y="356" width="34" height="116" rx="14" data-view="front" data-region="thigh" data-side="left" tabindex="0" role="button">
+          <title>Left Thigh</title>
+        </rect>
+        <rect class="region" id="front-knee-left" x="132" y="476" width="30" height="26" rx="10" data-view="front" data-region="knee" data-side="left" tabindex="0" role="button">
+          <title>Left Knee</title>
+        </rect>
+        <rect class="region" id="front-shin-left" x="134" y="506" width="28" height="104" rx="10" data-view="front" data-region="shin" data-side="left" tabindex="0" role="button">
+          <title>Left Shin</title>
+        </rect>
+        <rect class="region" id="front-foot-left" x="118" y="614" width="54" height="24" rx="10" data-view="front" data-region="foot" data-side="left" tabindex="0" role="button">
+          <title>Left Foot</title>
+        </rect>
+
+        <!-- Legs (Right) -->
+        <rect class="region" id="front-thigh-right" x="156" y="356" width="34" height="116" rx="14" data-view="front" data-region="thigh" data-side="right" tabindex="0" role="button">
+          <title>Right Thigh</title>
+        </rect>
+        <rect class="region" id="front-knee-right" x="158" y="476" width="30" height="26" rx="10" data-view="front" data-region="knee" data-side="right" tabindex="0" role="button">
+          <title>Right Knee</title>
+        </rect>
+        <rect class="region" id="front-shin-right" x="160" y="506" width="28" height="104" rx="10" data-view="front" data-region="shin" data-side="right" tabindex="0" role="button">
+          <title>Right Shin</title>
+        </rect>
+        <rect class="region" id="front-foot-right" x="148" y="614" width="54" height="24" rx="10" data-view="front" data-region="foot" data-side="right" tabindex="0" role="button">
+          <title>Right Foot</title>
+        </rect>
+      </svg>
+    </section>
+
+    <!-- BACK VIEW -->
+    <section class="panel" aria-labelledby="back-title">
+      <div class="title"><span id="back-title">Back</span></div>
+      <svg viewBox="0 0 320 720" role="img" aria-labelledby="back-desc">
+        <title id="back-desc">Back view body map with clickable regions</title>
+
+        <!-- Head & Neck (back) -->
+        <circle class="region" id="back-head" cx="160" cy="60" r="38" data-view="back" data-region="head" data-side="center" tabindex="0" role="button">
+          <title>Head (back)</title>
+        </circle>
+        <rect class="region" id="back-neck" x="142" y="98" width="36" height="22" rx="6" data-view="back" data-region="neck" data-side="center" tabindex="0" role="button">
+          <title>Neck (back)</title>
+        </rect>
+
+        <!-- Back torso segments: upper (thoracic), lower (lumbar), sacral/pelvis -->
+        <rect class="region" id="back-upper-back" x="105" y="122" width="110" height="90" rx="26" data-view="back" data-region="upper-back" data-side="center" tabindex="0" role="button">
+          <title>Upper Back (Thoracic)</title>
+        </rect>
+        <rect class="region" id="back-lower-back" x="118" y="214" width="84" height="74" rx="16" data-view="back" data-region="lower-back" data-side="center" tabindex="0" role="button">
+          <title>Lower Back (Lumbar)</title>
+        </rect>
+        <rect class="region" id="back-sacrum" x="118" y="290" width="84" height="48" rx="20" data-view="back" data-region="sacrum-pelvis" data-side="center" tabindex="0" role="button">
+          <title>Sacrum / Pelvis (back)</title>
+        </rect>
+
+        <!-- Shoulders / Scapulae -->
+        <circle class="region" id="back-shoulder-left" cx="100" cy="155" r="18" data-view="back" data-region="shoulder" data-side="left" tabindex="0" role="button">
+          <title>Left Shoulder (back)</title>
+        </circle>
+        <circle class="region" id="back-shoulder-right" cx="220" cy="155" r="18" data-view="back" data-region="shoulder" data-side="right" tabindex="0" role="button">
+          <title>Right Shoulder (back)</title>
+        </circle>
+        <rect class="region" id="back-scapula-left" x="108" y="150" width="34" height="42" rx="10" data-view="back" data-region="scapula" data-side="left" tabindex="0" role="button">
+          <title>Left Scapula (shoulder blade)</title>
+        </rect>
+        <rect class="region" id="back-scapula-right" x="178" y="150" width="34" height="42" rx="10" data-view="back" data-region="scapula" data-side="right" tabindex="0" role="button">
+          <title>Right Scapula (shoulder blade)</title>
+        </rect>
+
+        <!-- Arms (Back) -->
+        <rect class="region" id="back-upperarm-left" x="86" y="172" width="24" height="72" rx="12" data-view="back" data-region="upper-arm" data-side="left" tabindex="0" role="button">
+          <title>Left Upper Arm (back)</title>
+        </rect>
+        <rect class="region" id="back-forearmhand-left" x="84" y="246" width="28" height="112" rx="12" data-view="back" data-region="forearm-hand" data-side="left" tabindex="0" role="button">
+          <title>Left Forearm & Hand (back)</title>
+        </rect>
+        <rect class="region" id="back-upperarm-right" x="210" y="172" width="24" height="72" rx="12" data-view="back" data-region="upper-arm" data-side="right" tabindex="0" role="button">
+          <title>Right Upper Arm (back)</title>
+        </rect>
+        <rect class="region" id="back-forearmhand-right" x="208" y="246" width="28" height="112" rx="12" data-view="back" data-region="forearm-hand" data-side="right" tabindex="0" role="button">
+          <title>Right Forearm & Hand (back)</title>
+        </rect>
+
+        <!-- Legs (Back) -->
+        <rect class="region" id="back-thigh-left" x="130" y="356" width="34" height="116" rx="14" data-view="back" data-region="thigh" data-side="left" tabindex="0" role="button">
+          <title>Left Thigh (back)</title>
+        </rect>
+        <rect class="region" id="back-knee-left" x="132" y="476" width="30" height="26" rx="10" data-view="back" data-region="knee" data-side="left" tabindex="0" role="button">
+          <title>Left Knee (back)</title>
+        </rect>
+        <rect class="region" id="back-shin-left" x="134" y="506" width="28" height="104" rx="10" data-view="back" data-region="calf" data-side="left" tabindex="0" role="button">
+          <title>Left Calf / Shin (back)</title>
+        </rect>
+        <rect class="region" id="back-foot-left" x="118" y="614" width="54" height="24" rx="10" data-view="back" data-region="foot" data-side="left" tabindex="0" role="button">
+          <title>Left Foot (back)</title>
+        </rect>
+
+        <rect class="region" id="back-thigh-right" x="156" y="356" width="34" height="116" rx="14" data-view="back" data-region="thigh" data-side="right" tabindex="0" role="button">
+          <title>Right Thigh (back)</title>
+        </rect>
+        <rect class="region" id="back-knee-right" x="158" y="476" width="30" height="26" rx="10" data-view="back" data-region="knee" data-side="right" tabindex="0" role="button">
+          <title>Right Knee (back)</title>
+        </rect>
+        <rect class="region" id="back-shin-right" x="160" y="506" width="28" height="104" rx="10" data-view="back" data-region="calf" data-side="right" tabindex="0" role="button">
+          <title>Right Calf / Shin (back)</title>
+        </rect>
+        <rect class="region" id="back-foot-right" x="148" y="614" width="54" height="24" rx="10" data-view="back" data-region="foot" data-side="right" tabindex="0" role="button">
+          <title>Right Foot (back)</title>
+        </rect>
+      </svg>
+    </section>
+  </div>
+
+  <div style="margin-top:16px;" class="panel">
+    <div class="title"><span>Interaction & Data</span></div>
+    <div class="controls">
+      <button id="clear">Clear selections</button>
+      <button id="dump">Log selections</button>
+    </div>
+    <div id="out" class="output" aria-live="polite"></div>
+  </div>
+
+  <script>
+    // Small helper to make regions toggleable + emit events you can listen for
+    const selections = new Set();
+
+    function regionMeta(el){
+      return {
+        id: el.id,
+        label: (el.querySelector('title')?.textContent || el.id),
+        region: el.dataset.region,
+        side: el.dataset.side,
+        view: el.dataset.view,
+      };
+    }
+
+    function toggleRegion(el){
+      const id = el.id;
+      if (selections.has(id)) {
+        selections.delete(id);
+        el.classList.remove('selected');
+        window.dispatchEvent(new CustomEvent('region-unselected', { detail: regionMeta(el) }));
+      } else {
+        selections.add(id);
+        el.classList.add('selected');
+        window.dispatchEvent(new CustomEvent('region-selected', { detail: regionMeta(el) }));
+      }
+      renderOut();
+    }
+
+    function renderOut(){
+      const out = document.getElementById('out');
+      const items = [...selections].map(id => {
+        const el = document.getElementById(id);
+        const m = regionMeta(el);
+        return `${m.id} { view:${m.view}, region:${m.region}, side:${m.side} }`;
+      });
+      out.textContent = items.length ? items.join('
+') : 'No regions selected';
+    }
+
+    // Click + keyboard (Enter/Space) support
+    document.querySelectorAll('.region').forEach(el => {
+      el.addEventListener('click', () => toggleRegion(el));
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRegion(el); }
+      });
+    });
+
+    document.getElementById('clear').addEventListener('click', () => {
+      selections.forEach(id => document.getElementById(id)?.classList.remove('selected'));
+      selections.clear();
+      renderOut();
+    });
+
+    document.getElementById('dump').addEventListener('click', () => {
+      console.log('Selected regions:', [...selections]);
+      alert('Selections logged to console.');
+    });
+
+    // Example: listen for selection events (wire this to your app state)
+    window.addEventListener('region-selected', (e) => console.debug('Selected:', e.detail));
+    window.addEventListener('region-unselected', (e) => console.debug('Unselected:', e.detail));
+
+    renderOut();
+  </script>
+</body>
+</html>
