@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { MenuBar } from "@/components/MenuBar";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Clock, MapPin, User, AlertCircle, FileText, Calendar, Phone, Stethoscope, Activity } from "lucide-react";
+import { ChevronLeft, Clock, MapPin, User, AlertCircle, FileText, Calendar, Phone, Stethoscope, Activity, Map, UserX } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -300,6 +300,90 @@ const IncidentDetailsPage = () => {
                     </p>
                   </div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Map and Body Diagram - New Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          {/* Site Location Map */}
+          <Card className="border-l-4 border-l-blue-500">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Map className="h-5 w-5 text-blue-600" />
+                Site Location Map
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="aspect-video bg-muted/20 rounded-lg border-2 border-dashed border-muted-foreground/25 flex flex-col items-center justify-center text-center p-6">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                  <MapPin className="h-8 w-8 text-blue-600" />
+                </div>
+                <h3 className="font-semibold text-lg mb-2">{incident?.site?.site_name || 'Site Location'}</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {incident?.site?.site_name ? `Incident occurred at ${incident.site.site_name}` : 'Site location information not available'}
+                </p>
+                <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                  📍 Interactive Map Integration
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Map integration with site coordinates and incident markers
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Body Injury Diagram */}
+          <Card className="border-l-4 border-l-red-500">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <UserX className="h-5 w-5 text-red-600" />
+                Injury Location Diagram
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="aspect-square bg-muted/20 rounded-lg border-2 border-dashed border-muted-foreground/25 flex flex-col items-center justify-center text-center p-6">
+                <div className="relative">
+                  {/* Simple body representation */}
+                  <div className="w-24 h-32 bg-gray-200 rounded-full relative mb-4 flex items-center justify-center">
+                    {/* Head */}
+                    <div className="absolute -top-6 w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center">
+                      <User className="h-8 w-8 text-gray-600" />
+                    </div>
+                    
+                    {/* Highlight injured area based on body part */}
+                    {incident?.body_part?.body_part_name?.toLowerCase().includes('chest') && (
+                      <div className="absolute top-8 left-1/2 transform -translate-x-1/2 w-12 h-8 bg-red-400 rounded-lg opacity-75 animate-pulse border-2 border-red-600" />
+                    )}
+                    {incident?.body_part?.body_part_name?.toLowerCase().includes('arm') && (
+                      <div className="absolute top-6 -left-4 w-6 h-16 bg-red-400 rounded-lg opacity-75 animate-pulse border-2 border-red-600" />
+                    )}
+                    {incident?.body_part?.body_part_name?.toLowerCase().includes('leg') && (
+                      <div className="absolute bottom-0 left-1/3 w-6 h-20 bg-red-400 rounded-lg opacity-75 animate-pulse border-2 border-red-600" />
+                    )}
+                    
+                    {/* Default highlight for other body parts */}
+                    {!incident?.body_part?.body_part_name?.toLowerCase().includes('chest') && 
+                     !incident?.body_part?.body_part_name?.toLowerCase().includes('arm') && 
+                     !incident?.body_part?.body_part_name?.toLowerCase().includes('leg') && (
+                      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-red-400 rounded-full opacity-75 animate-pulse border-2 border-red-600" />
+                    )}
+                  </div>
+                </div>
+                
+                <h3 className="font-semibold text-lg mb-2">
+                  {incident?.body_part?.body_part_name || 'Body Part'} Injury
+                </h3>
+                <p className="text-sm text-muted-foreground mb-2">
+                  <span className="font-medium">Injury Type:</span> {incident?.injury_type || 'Not specified'}
+                </p>
+                <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                  🩺 Visual Injury Assessment
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Anatomical diagram showing injury location and severity
+                </p>
               </div>
             </CardContent>
           </Card>

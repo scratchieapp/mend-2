@@ -7,8 +7,9 @@ export const useIncidentData = () => {
   return useQuery({
     queryKey: ['incident-distribution'],
     queryFn: async () => {
-      const endDate = startOfMonth(new Date());
-      const startDate = subMonths(endDate, 5); // Last 6 months inclusive
+      // Use current date as end date, and go back 12 months to capture more data
+      const endDate = new Date();
+      const startDate = subMonths(endDate, 11); // Last 12 months inclusive
 
       // Get all employers
       const { data: employers } = await supabase
@@ -32,6 +33,10 @@ export const useIncidentData = () => {
         console.error('Error fetching incident data:', error);
         throw error;
       }
+
+      console.log('Raw incidents from DB:', incidents);
+      console.log('Raw employers from DB:', employers);
+      console.log('Date range:', { startDate: startDate.toISOString(), endDate: endDate.toISOString() });
 
       return transformIncidentData(incidents, employers);
     }

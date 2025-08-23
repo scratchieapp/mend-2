@@ -22,6 +22,18 @@ export const IncidentAnalytics = () => {
     </ChartContainer>;
   }
 
+  // Debug logging
+  console.log("Chart data:", chartData);
+
+  // Show message if no data
+  if (!chartData.data.length) {
+    return <ChartContainer title="Incident Distribution by Employer">
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">No incident data available for the selected period</p>
+      </div>
+    </ChartContainer>;
+  }
+
   return (
     <ChartContainer title="Incident Distribution by Employer">
       <StackedBarChart
