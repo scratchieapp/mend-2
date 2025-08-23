@@ -2,12 +2,21 @@
 ALTER TABLE public.incidents 
 ADD COLUMN IF NOT EXISTS medical_professional_id INTEGER;
 
--- Add foreign key constraint
-ALTER TABLE public.incidents
-ADD CONSTRAINT fk_medical_professional
-  FOREIGN KEY (medical_professional_id)
-  REFERENCES public.medical_professionals(doctor_id)
-  ON DELETE SET NULL;
+-- Add foreign key constraint if it doesn't exist
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conname = 'fk_medical_professional' 
+    AND conrelid = 'public.incidents'::regclass
+  ) THEN
+    ALTER TABLE public.incidents
+    ADD CONSTRAINT fk_medical_professional
+      FOREIGN KEY (medical_professional_id)
+      REFERENCES public.medical_professionals(doctor_id)
+      ON DELETE SET NULL;
+  END IF;
+END $$;
 
 -- Create index for better query performance
 CREATE INDEX IF NOT EXISTS idx_incidents_medical_professional_id 

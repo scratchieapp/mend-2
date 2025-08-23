@@ -32,6 +32,12 @@ ON CONFLICT (id) DO UPDATE SET
 -- Create RLS policies for the storage bucket
 -- These policies control who can access files in the bucket
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Authenticated users can upload incident documents" ON storage.objects;
+DROP POLICY IF EXISTS "Users can view incident documents" ON storage.objects;
+DROP POLICY IF EXISTS "Users can update their uploaded documents" ON storage.objects;
+DROP POLICY IF EXISTS "Admins can delete incident documents" ON storage.objects;
+
 -- Policy: Authenticated users can upload files to incident-documents bucket
 CREATE POLICY "Authenticated users can upload incident documents"
 ON storage.objects FOR INSERT

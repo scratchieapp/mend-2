@@ -106,16 +106,22 @@ CREATE TABLE IF NOT EXISTS public.notifications (
     ON DELETE CASCADE
 );
 
--- Create indexes for notifications
-CREATE INDEX idx_notifications_user_id ON public.notifications(user_id);
-CREATE INDEX idx_notifications_read ON public.notifications(read);
-CREATE INDEX idx_notifications_created_at ON public.notifications(created_at);
-CREATE INDEX idx_notifications_type ON public.notifications(type);
+-- Create indexes for notifications (if they don't exist)
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON public.notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_read ON public.notifications(read);
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON public.notifications(created_at);
+CREATE INDEX IF NOT EXISTS idx_notifications_type ON public.notifications(type);
 
 -- Enable Row Level Security for notifications
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for notifications
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view own notifications" ON public.notifications;
+DROP POLICY IF EXISTS "Users can update own notifications" ON public.notifications;
+DROP POLICY IF EXISTS "Users can delete own notifications" ON public.notifications;
+DROP POLICY IF EXISTS "Admins can create notifications" ON public.notifications;
+
 -- Users can only see their own notifications
 CREATE POLICY "Users can view own notifications" ON public.notifications
   FOR SELECT
@@ -154,6 +160,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create trigger for notifications updated_at
+DROP TRIGGER IF EXISTS update_notifications_updated_at_trigger ON public.notifications;
 CREATE TRIGGER update_notifications_updated_at_trigger
   BEFORE UPDATE ON public.notifications
   FOR EACH ROW

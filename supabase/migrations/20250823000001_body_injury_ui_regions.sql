@@ -82,12 +82,28 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- 6) Add uniqueness constraints on existing tables
-DO $$ BEGIN
-  -- codes unique
+-- 6) Add uniqueness constraints on existing tables (skip if duplicates exist)
+DO $$ 
+DECLARE
+  duplicate_count INTEGER;
+BEGIN
+  -- Check for duplicates before creating unique index on bl_code_main
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='bodily_location_codes' AND column_name='bl_code_main') THEN
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_bodily_location_codes_code_unique ON bodily_location_codes (bl_code_main);
+    SELECT COUNT(*) INTO duplicate_count
+    FROM (
+      SELECT bl_code_main, COUNT(*) as cnt
+      FROM bodily_location_codes
+      GROUP BY bl_code_main
+      HAVING COUNT(*) > 1
+    ) dups;
+    
+    IF duplicate_count = 0 THEN
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_bodily_location_codes_code_unique ON bodily_location_codes (bl_code_main);
+    ELSE
+      RAISE NOTICE 'Skipping unique index on bl_code_main due to % duplicate values', duplicate_count;
+    END IF;
   END IF;
+  
   -- join uniqueness
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='body_parts_bodily_codes') THEN
     CREATE UNIQUE INDEX IF NOT EXISTS idx_bp_bc_unique ON body_parts_bodily_codes (body_part_id, bl_code_id);
