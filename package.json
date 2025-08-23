@@ -16,7 +16,8 @@
     "build:marketing": "npm run build --workspace=@mend/marketing",
     "lint": "npm run lint --workspace=@mend/operations && npm run lint --workspace=@mend/marketing",
     "preview": "vite preview",
-    "create-demo-users": "node scripts/create-demo-users.js"
+    "create-demo-users": "node scripts/create-demo-users.js",
+    "vercel-build": "npm run build"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",

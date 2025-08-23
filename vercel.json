@@ -2,28 +2,21 @@
   "version": 2,
   "builds": [
     {
-      "src": "apps/operations/package.json",
+      "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "../../dist/operations"
-      }
-    },
-    {
-      "src": "apps/marketing/package.json", 
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "../../dist/marketing"
+        "distDir": "dist"
       }
     }
   ],
   "routes": [
     {
       "src": "/operations(.*)",
-      "dest": "/dist/operations/index.html"
+      "dest": "/operations/index.html"
     },
     {
       "src": "/(.*)",
-      "dest": "/dist/marketing/index.html"
+      "dest": "/marketing/index.html"
     }
   ],
   "headers": [
