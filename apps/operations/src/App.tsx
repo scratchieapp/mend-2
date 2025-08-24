@@ -151,15 +151,7 @@ function App() {
             }
           />
 
-          {/* Admin routes */}
-          <Route
-            path="admin"
-            element={
-              <ProtectedRoute allowedRoles={["mend_super_admin", "builder_admin", "administrator"]}>
-                <AdminDashboard />
-              </ProtectedRoute>
-            }
-          />
+          {/* Admin routes - main admin route is handled by DashboardRouter above */}
           <Route
             path="admin/storage-setup"
             element={

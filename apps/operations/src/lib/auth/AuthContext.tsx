@@ -148,7 +148,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             created_at,
             updated_at,
             last_seen_at,
-            role:user_roles (
+            role:user_roles!role_id (
               role_id,
               role_name,
               role_label
@@ -206,7 +206,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           created_at,
           updated_at,
           last_seen_at,
-          role:user_roles (
+          role:user_roles!role_id (
             role_id,
             role_name,
             role_label

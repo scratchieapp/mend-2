@@ -69,7 +69,7 @@ function ClerkAuthSync({ children }: { children: React.ReactNode }) {
             .from('users')
             .select(`
               *,
-              role:user_roles!inner(*)
+              role:user_roles!role_id(*)
             `)
             .eq('email', clerkUser.primaryEmailAddress?.emailAddress)
             .single();
@@ -107,7 +107,7 @@ function ClerkAuthSync({ children }: { children: React.ReactNode }) {
               })
               .select(`
                 *,
-                role:user_roles!inner(*)
+                role:user_roles!role_id(*)
               `)
               .single();
 
@@ -133,7 +133,7 @@ function ClerkAuthSync({ children }: { children: React.ReactNode }) {
                 .eq('email', clerkUser.primaryEmailAddress?.emailAddress)
                 .select(`
                   *,
-                  role:user_roles!inner(*)
+                  role:user_roles!role_id(*)
                 `)
                 .single();
 
