@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useUser } from '@clerk/clerk-react';
 import { supabase } from '@/integrations/supabase/client';
 import { isSuperAdmin, isBuilderAdmin, isMendDataEntry } from '@/lib/auth/roles';
+import { DashboardHeader } from '@/components/layout/DashboardHeader';
 import { 
   Database, 
   Users, 
@@ -171,20 +172,30 @@ export default function AdminDashboard() {
     }
   ];
 
+  const breadcrumbItems = [
+    { label: 'Home', href: '/' },
+    { label: 'Admin Dashboard' }
+  ];
+
+  const customActions = (
+    <div className="flex items-center gap-2">
+      <Shield className="h-4 w-4 text-muted-foreground" />
+      <span className="text-sm text-muted-foreground">
+        Role ID: {userRoleId}
+      </span>
+    </div>
+  );
+
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
-        <p className="text-muted-foreground">
-          Manage system settings, users, and data
-        </p>
-        <div className="flex items-center gap-2 mt-4">
-          <Shield className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">
-            Role ID: {userRoleId}
-          </span>
-        </div>
-      </div>
+    <div className="min-h-screen bg-background">
+      <DashboardHeader
+        title="Admin Dashboard"
+        description="Manage system settings, users, and data"
+        breadcrumbItems={breadcrumbItems}
+        customActions={customActions}
+      />
+      
+      <div className="container mx-auto py-8 px-4">
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {adminSections.map((section) => (
@@ -214,6 +225,7 @@ export default function AdminDashboard() {
           </Link>
         </div>
       </div>
+    </div>
     </div>
   );
 }

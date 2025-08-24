@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { DashboardHeader } from '@/components/layout/DashboardHeader';
 import { 
   FileText, 
   TrendingUp, 
@@ -169,14 +170,34 @@ export default function GovernmentOfficialDashboard() {
     return "text-red-600";
   };
 
+  const breadcrumbItems = [
+    { label: 'Home', href: '/' },
+    { label: 'Government Dashboard' }
+  ];
+
+  const customActions = (
+    <div className="flex gap-4">
+      <Button variant="outline" onClick={() => navigate("/compliance-reports")}>
+        <FileSearch className="mr-2 h-4 w-4" />
+        Compliance Reports
+      </Button>
+      <Button onClick={() => navigate("/investigations")}>
+        <Gavel className="mr-2 h-4 w-4" />
+        Investigations
+      </Button>
+    </div>
+  );
+
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Government Regulatory Dashboard</h1>
-        <p className="text-muted-foreground mt-2">
-          Monitor workplace safety compliance and investigate incidents
-        </p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <DashboardHeader
+        title="Government Regulatory Dashboard"
+        description="Monitor workplace safety compliance and investigate incidents"
+        breadcrumbItems={breadcrumbItems}
+        customActions={customActions}
+      />
+      
+      <div className="container mx-auto p-6 space-y-6">
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -441,6 +462,7 @@ export default function GovernmentOfficialDashboard() {
           </Table>
         </CardContent>
       </Card>
+    </div>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { useEmployerSelection } from "@/hooks/useEmployerSelection";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { DashboardHeader } from '@/components/layout/DashboardHeader';
 
 export default function BuilderDashboard() {
   const { selectedEmployerId } = useEmployerSelection();
@@ -57,14 +58,20 @@ export default function BuilderDashboard() {
     );
   }
 
+  const breadcrumbItems = [
+    { label: 'Home', href: '/' },
+    { label: 'Builder Dashboard' }
+  ];
+
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Builder Dashboard</h1>
-        <p className="text-muted-foreground mt-2">
-          Manage workplace safety and incidents for your organization
-        </p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <DashboardHeader
+        title="Builder Dashboard"
+        description="Manage workplace safety and incidents for your organization"
+        breadcrumbItems={breadcrumbItems}
+      />
+      
+      <div className="container mx-auto p-6 space-y-6">
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -258,6 +265,7 @@ export default function BuilderDashboard() {
           </div>
         </CardContent>
       </Card>
+    </div>
     </div>
   );
 }

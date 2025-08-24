@@ -2,41 +2,43 @@ import { MedicalProfessionalDashboard } from "@/components/dashboard/MedicalProf
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MenuBar } from "@/components/MenuBar";
 import { DataErrorBoundary } from "@/components/DataErrorBoundary";
+import { DashboardHeader } from '@/components/layout/DashboardHeader';
 import { Stethoscope, FileText, Calendar, Activity } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function MedicalDashboard() {
   const navigate = useNavigate();
 
+  const breadcrumbItems = [
+    { label: 'Home', href: '/' },
+    { label: 'Medical Dashboard' }
+  ];
+
+  const customActions = (
+    <div className="flex gap-4">
+      <Button variant="outline" onClick={() => navigate("/medical-reports")}>
+        <FileText className="mr-2 h-4 w-4" />
+        Medical Reports
+      </Button>
+      <Button onClick={() => navigate("/incident-report")}>
+        <Activity className="mr-2 h-4 w-4" />
+        New Assessment
+      </Button>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-background">
-      <MenuBar />
-      <div className="pt-16 p-8">
+      <DashboardHeader
+        title="Medical Professional Dashboard"
+        description="Manage patient cases, review incident reports, and track medical assessments"
+        breadcrumbItems={breadcrumbItems}
+        customActions={customActions}
+      />
+      
+      <div className="p-8">
         <div className="max-w-7xl mx-auto space-y-8">
-          {/* Header */}
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-4xl font-bold flex items-center gap-3">
-                <Stethoscope className="h-10 w-10 text-primary" />
-                Medical Professional Dashboard
-              </h1>
-              <p className="mt-2 text-muted-foreground">
-                Manage patient cases, review incident reports, and track medical assessments
-              </p>
-            </div>
-            <div className="flex gap-4">
-              <Button variant="outline" onClick={() => navigate("/medical-reports")}>
-                <FileText className="mr-2 h-4 w-4" />
-                Medical Reports
-              </Button>
-              <Button onClick={() => navigate("/incident-report")}>
-                <Activity className="mr-2 h-4 w-4" />
-                New Assessment
-              </Button>
-            </div>
-          </div>
 
           {/* Quick Stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -115,6 +117,7 @@ export default function MedicalDashboard() {
           </Card>
         </div>
       </div>
+    </div>
     </div>
   );
 }

@@ -6,7 +6,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2 } from "lucide-react";
+import { Loader2, Shield } from "lucide-react";
 import { User } from "@/types/user";
 import { UserActionsDropdown } from "./UserActionsDropdown";
 import { UseMutationResult } from "@tanstack/react-query";
