@@ -10,18 +10,20 @@ export default function AuthStateHandler() {
 
   useEffect(() => {
     if (!isLoading) {
-      const isAuthRoute = location.pathname.startsWith('/auth/');
+      const isAuthRoute = location.pathname.startsWith('/auth/') || 
+                         location.pathname === '/sign-in' || 
+                         location.pathname === '/sign-up';
       const isDevRoute = location.pathname.startsWith('/dev/');
       
       if (!user && !isAuthRoute && !isDevRoute) {
         // Redirect to Clerk login page which handles auth properly
         navigate('/sign-in');
-      } else if (user && isAuthRoute && !location.pathname.includes('clear-session')) {
-        // Redirect authenticated users away from auth pages to root 
-        // Let DashboardRouter handle role-based routing
+      } else if (user && (isAuthRoute || location.pathname === '/sign-in' || location.pathname === '/sign-up')) {
+        // Redirect authenticated users away from auth pages directly to root
+        // DashboardRouter will immediately redirect them to their role-specific dashboard
         navigate('/', { replace: true });
       }
-      // If user is at "/" and authenticated, let DashboardRouter handle the routing
+      // If user is at "/" and authenticated, DashboardRouter will handle the redirect
       // Development routes are allowed without authentication
     }
   }, [user, isLoading, navigate, location]);

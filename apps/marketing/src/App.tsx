@@ -3,6 +3,7 @@ import HomePage from './pages/HomePage'
 import NotFound from './pages/NotFound'
 import ScrollToTop from './components/ScrollToTop'
 import { AnalyticsProvider } from './lib/analytics/useAnalytics'
+import { getOperationsUrl } from './lib/config/environment'
 import './App.css'
 
 function App() {
@@ -27,7 +28,7 @@ function App() {
               <div className="space-y-3">
                 <button 
                   onClick={() => {
-                    const operationsUrl = import.meta.env.VITE_OPERATIONS_URL || 'http://localhost:5173';
+                    const operationsUrl = getOperationsUrl();
                     window.location.href = `${operationsUrl}/sign-in`;
                   }}
                   className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
@@ -42,7 +43,7 @@ function App() {
                 </a>
               </div>
               <p className="text-xs text-gray-500 mt-4">
-                Note: In production, this redirects to operations.mend.com.au
+                Note: In production, this redirects to accounts.mendplatform.au
               </p>
             </div>
           </div>

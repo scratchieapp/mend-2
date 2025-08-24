@@ -1,6 +1,7 @@
 import { ClerkProvider as ClerkReactProvider, useUser, useAuth } from '@clerk/clerk-react';
 import { ReactNode, createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getOperationsUrl } from '@/lib/config/environment';
 
 // Shared Clerk configuration
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -71,7 +72,7 @@ const ClerkAuthContextProvider = ({ children }: { children: ReactNode }) => {
       },
       openSignIn: () => {
         // Redirect to operations app login
-        const operationsUrl = import.meta.env.VITE_OPERATIONS_URL || 'http://localhost:5173';
+        const operationsUrl = getOperationsUrl();
         window.location.href = `${operationsUrl}/sign-in`;
       },
     });

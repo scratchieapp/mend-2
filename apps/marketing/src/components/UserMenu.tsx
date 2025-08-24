@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { User, LogOut, LayoutDashboard, Settings } from 'lucide-react';
+import { getOperationsUrl } from '@/lib/config/environment';
 
 export const UserMenu = () => {
   const { isLoaded, isSignedIn, user, signOut, openSignIn } = useClerkAuth();
@@ -51,7 +52,7 @@ export const UserMenu = () => {
         <DropdownMenuItem 
           onClick={() => {
             // Navigate to operations dashboard
-            window.location.href = import.meta.env.VITE_OPERATIONS_URL || 'http://localhost:5173';
+            window.location.href = getOperationsUrl();
           }}
         >
           <LayoutDashboard className="mr-2 h-4 w-4" />
@@ -60,7 +61,7 @@ export const UserMenu = () => {
         <DropdownMenuItem 
           onClick={() => {
             // Navigate to account settings in operations app
-            window.location.href = `${import.meta.env.VITE_OPERATIONS_URL || 'http://localhost:5173'}/settings`;
+            window.location.href = `${getOperationsUrl()}/settings`;
           }}
         >
           <Settings className="mr-2 h-4 w-4" />

@@ -7,14 +7,15 @@ import { getClerkRedirectUrl } from '@/lib/config';
 
 export default function ClerkLogin() {
   const navigate = useNavigate();
-  const { isAuthenticated } = useClerkAuthContext();
+  const { isAuthenticated, user } = useClerkAuthContext();
 
   useEffect(() => {
-    if (isAuthenticated) {
-      // Redirect to root to let DashboardRouter handle role-based routing
+    if (isAuthenticated && user) {
+      // Redirect immediately to root to let DashboardRouter handle role-based routing
+      // This ensures users go directly to their dashboard after login
       navigate('/', { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, user, navigate]);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -48,8 +49,10 @@ export default function ClerkLogin() {
                 footerActionLink: 'text-primary hover:text-primary/90',
               },
             }}
+            // After successful sign-in, redirect to root which will trigger DashboardRouter
+            afterSignInUrl={getClerkRedirectUrl('/')}
             fallbackRedirectUrl={getClerkRedirectUrl('/')}
-            signUpFallbackRedirectUrl={getClerkRedirectUrl('/sign-in')}
+            signUpFallbackRedirectUrl={getClerkRedirectUrl('/sign-up')}
           />
         </CardContent>
       </Card>
