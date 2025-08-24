@@ -246,8 +246,6 @@ export function ClerkAuthProvider({ children }: ClerkAuthProviderProps) {
           rootBox: "mx-auto",
         },
       }}
-      // Configure for cross-domain authentication
-      domain={isProduction() ? 'mendplatform.au' : undefined}
     >
       <ClerkAuthSync>{children}</ClerkAuthSync>
     </ClerkProvider>

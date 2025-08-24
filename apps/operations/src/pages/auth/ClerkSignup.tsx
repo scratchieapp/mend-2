@@ -2,6 +2,7 @@ import { SignUp } from '@clerk/clerk-react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { useClerkAuthContext } from '@/lib/clerk/ClerkAuthProvider';
 import { Shield } from 'lucide-react';
+import { getOperationsUrl, isProduction } from '@/lib/config';
 
 export default function ClerkSignup() {
   const { isAuthenticated, isLoading } = useClerkAuthContext();
@@ -49,7 +50,8 @@ export default function ClerkSignup() {
                 footerActionLink: 'text-blue-600 hover:text-blue-700',
               },
             }}
-            afterSignUpUrl="/"
+            afterSignUpUrl={isProduction() ? `${getOperationsUrl()}/` : '/'}
+            fallbackRedirectUrl={isProduction() ? `${getOperationsUrl()}/` : '/'}
             signInUrl="/sign-in"
           />
         </div>

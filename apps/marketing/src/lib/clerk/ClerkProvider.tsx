@@ -1,7 +1,7 @@
 import { ClerkProvider as ClerkReactProvider, useUser, useAuth } from '@clerk/clerk-react';
 import { ReactNode, createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getOperationsUrl, getEnvironment } from '@/lib/config/environment';
+import { getOperationsUrl } from '@/lib/config/environment';
 
 // Shared Clerk configuration
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -102,8 +102,6 @@ export const ClerkAuthProvider = ({ children }: ClerkAuthProviderProps) => {
           headerSubtitle: 'text-gray-600',
         },
       }}
-      // Configure for cross-domain authentication
-      domain={getEnvironment() === 'production' ? 'mendplatform.au' : undefined}
     >
       <ClerkAuthContextProvider>
         {children}

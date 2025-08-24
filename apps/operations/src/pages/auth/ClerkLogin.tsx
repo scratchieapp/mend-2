@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useClerkAuthContext } from '@/lib/clerk/ClerkAuthProvider';
-import { getClerkRedirectUrl } from '@/lib/config';
+import { getOperationsUrl, isProduction } from '@/lib/config';
 
 // Simple role-based dashboard mapping
 const ROLE_DASHBOARDS: Record<number, string> = {
@@ -81,10 +81,10 @@ export default function ClerkLogin() {
                 footerActionLink: 'text-primary hover:text-primary/90',
               },
             }}
-            // Let our useEffect handle redirects to avoid conflicts
-            // Removed afterSignInUrl and fallbackRedirectUrl to prevent double redirects
-            // Only keep signup redirect for new user registration flow
-            signUpUrl={getClerkRedirectUrl('/sign-up')}
+            // In production, use absolute URL to ensure proper cross-domain redirect
+            afterSignInUrl={isProduction() ? `${getOperationsUrl()}/` : '/'}
+            fallbackRedirectUrl={isProduction() ? `${getOperationsUrl()}/` : '/'}
+            signUpUrl={'/sign-up'}
           />
         </CardContent>
       </Card>

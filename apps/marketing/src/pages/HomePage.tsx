@@ -27,12 +27,13 @@ import {
   getLoginUrl, 
   getSignupUrl, 
   logEnvironmentConfig, 
-  getEnvironment 
+  getEnvironment,
+  getOperationsUrl 
 } from '../lib/config/environment';
 
 const HomePage = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { isSignedIn } = useClerkAuth();
+  const { isSignedIn, isLoaded } = useClerkAuth();
   
   // Log environment configuration in development
   useEffect(() => {
@@ -40,6 +41,16 @@ const HomePage = () => {
       logEnvironmentConfig();
     }
   }, []);
+  
+  // Automatically redirect signed-in users to operations dashboard
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      console.log('🔄 HomePage: User is signed in, redirecting to operations dashboard');
+      // Use getOperationsUrl to properly handle cross-domain navigation
+      const operationsUrl = getOperationsUrl();
+      window.location.href = operationsUrl;
+    }
+  }, [isLoaded, isSignedIn]);
   
   const handleBookDemo = () => {
     trackConversion.demoBookingStarted();

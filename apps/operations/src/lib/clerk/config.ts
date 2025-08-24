@@ -1,13 +1,16 @@
+import { getOperationsUrl, isProduction } from '../config/environment';
+
 // Clerk configuration
 export const clerkConfig = {
   // Clerk publishable key will be added to .env
   publishableKey: import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || '',
   
   // Sign in/up URLs
-  signInUrl: '/auth/login',
-  signUpUrl: '/auth/signup',
-  afterSignInUrl: '/dashboard',
-  afterSignUpUrl: '/dashboard',
+  signInUrl: '/sign-in',
+  signUpUrl: '/sign-up',
+  // Use absolute URLs in production to ensure proper cross-domain handling
+  afterSignInUrl: isProduction() ? `${getOperationsUrl()}/` : '/',
+  afterSignUpUrl: isProduction() ? `${getOperationsUrl()}/` : '/',
   
   // Appearance customization
   appearance: {
