@@ -42,15 +42,8 @@ const HomePage = () => {
     }
   }, []);
   
-  // Automatically redirect signed-in users to operations dashboard
-  useEffect(() => {
-    if (isLoaded && isSignedIn) {
-      console.log('🔄 HomePage: User is signed in, redirecting to operations dashboard');
-      // Use getOperationsUrl to properly handle cross-domain navigation
-      const operationsUrl = getOperationsUrl();
-      window.location.href = operationsUrl;
-    }
-  }, [isLoaded, isSignedIn]);
+  // Remove auto-redirect to prevent infinite loop
+  // Users can use the "Go to dashboard" button in UserMenu instead
   
   const handleBookDemo = () => {
     trackConversion.demoBookingStarted();

@@ -81,9 +81,8 @@ export default function ClerkLogin() {
                 footerActionLink: 'text-primary hover:text-primary/90',
               },
             }}
-            // In production, use absolute URL to ensure proper cross-domain redirect
-            afterSignInUrl={isProduction() ? `${getOperationsUrl()}/` : '/'}
-            fallbackRedirectUrl={isProduction() ? `${getOperationsUrl()}/` : '/'}
+            // Remove afterSignInUrl to let useEffect handle redirects
+            // This prevents conflicting redirect logic
             signUpUrl={'/sign-up'}
           />
         </CardContent>
