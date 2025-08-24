@@ -51,6 +51,7 @@ import InsuranceProviderDashboard from "./pages/InsuranceProviderDashboard";
 import GovernmentOfficialDashboard from "./pages/GovernmentOfficialDashboard";
 import WorkerPortal from "./pages/WorkerPortal";
 import TestRoleQuery from "./pages/TestRoleQuery";
+import DebugAuth from "./pages/DebugAuth";
 
 function App() {
   return (
@@ -84,6 +85,7 @@ function App() {
         {/* Development routes (unprotected for UX testing) */}
         <Route path="/dev/incident-report" element={<IncidentReportDev />} />
         <Route path="/test-role-query" element={<TestRoleQuery />} />
+        <Route path="/debug-auth" element={<DebugAuth />} />
 
         {/* Protected routes go inside a parent route guarded by <ProtectedRoute> */}
         <Route
