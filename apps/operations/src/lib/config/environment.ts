@@ -13,16 +13,18 @@ export const getEnvironment = (): 'development' | 'production' => {
  */
 const environments = {
   development: {
-    operationsUrl: import.meta.env.VITE_PUBLIC_URL || 'http://localhost:5173/operations',
+    operationsUrl: import.meta.env.VITE_PUBLIC_URL || 'http://localhost:5173',
     marketingUrl: import.meta.env.VITE_MARKETING_URL || 'http://localhost:5174',
+    clerkAuthUrl: import.meta.env.VITE_CLERK_AUTH_URL || 'http://localhost:5173',
     authPaths: {
       login: '/sign-in',
       signup: '/sign-up',
     },
   },
   production: {
-    operationsUrl: import.meta.env.VITE_PUBLIC_URL || 'https://accounts.mendplatform.au',
+    operationsUrl: import.meta.env.VITE_PUBLIC_URL || 'https://mendplatform.au',
     marketingUrl: import.meta.env.VITE_MARKETING_URL || 'https://mendplatform.au',
+    clerkAuthUrl: import.meta.env.VITE_CLERK_AUTH_URL || 'https://accounts.mendplatform.au',
     authPaths: {
       login: '/sign-in',
       signup: '/sign-up',
@@ -46,6 +48,13 @@ export const getOperationsUrl = (): string => {
 };
 
 /**
+ * Get the Clerk auth URL for the current environment
+ */
+export const getClerkAuthUrl = (): string => {
+  return getEnvironmentConfig().clerkAuthUrl;
+};
+
+/**
  * Get the marketing URL for the current environment
  */
 export const getMarketingUrl = (): string => {
@@ -57,13 +66,8 @@ export const getMarketingUrl = (): string => {
  */
 export const getBaseUrl = (): string => {
   if (typeof window !== 'undefined') {
-    // For production, ensure we use the correct subdomain
-    if (getEnvironment() === 'production') {
-      return getOperationsUrl();
-    }
-    // For development, use the current origin with base path
-    const origin = window.location.origin;
-    return origin.includes('localhost:5173') ? `${origin}/operations` : origin;
+    // Always use the operations URL for consistency
+    return getOperationsUrl();
   }
   return getOperationsUrl();
 };
@@ -95,7 +99,9 @@ export const buildMarketingUrl = (path: string): string => {
  * @param path Path to redirect to after authentication
  */
 export const getClerkRedirectUrl = (path: string = '/'): string => {
-  return buildOperationsUrl(path);
+  // Always redirect to the operations app root after authentication
+  // The DashboardRouter will handle role-based redirects
+  return getOperationsUrl() + path;
 };
 
 /**
@@ -115,6 +121,7 @@ export const logEnvironmentConfig = () => {
     console.log('Environment:', getEnvironment());
     console.log('Operations URL:', config.operationsUrl);
     console.log('Marketing URL:', config.marketingUrl);
+    console.log('Clerk Auth URL:', config.clerkAuthUrl);
     console.log('Base URL:', getBaseUrl());
     console.log('Is Production:', isProduction());
     console.groupEnd();

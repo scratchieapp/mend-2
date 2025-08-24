@@ -13,16 +13,18 @@ export const getEnvironment = (): 'development' | 'production' => {
  */
 const environments = {
   development: {
-    operationsUrl: import.meta.env.VITE_OPERATIONS_URL || 'http://localhost:5173/operations',
+    operationsUrl: import.meta.env.VITE_OPERATIONS_URL || 'http://localhost:5173',
     marketingUrl: import.meta.env.VITE_PUBLIC_URL || 'http://localhost:5174',
+    clerkAuthUrl: import.meta.env.VITE_CLERK_AUTH_URL || 'http://localhost:5173',
     authPaths: {
       login: '/sign-in',
       signup: '/sign-up',
     },
   },
   production: {
-    operationsUrl: import.meta.env.VITE_OPERATIONS_URL || 'https://accounts.mendplatform.au',
+    operationsUrl: import.meta.env.VITE_OPERATIONS_URL || 'https://mendplatform.au',
     marketingUrl: import.meta.env.VITE_PUBLIC_URL || 'https://mendplatform.au',
+    clerkAuthUrl: import.meta.env.VITE_CLERK_AUTH_URL || 'https://accounts.mendplatform.au',
     authPaths: {
       login: '/sign-in',
       signup: '/sign-up',
@@ -46,6 +48,13 @@ export const getOperationsUrl = (): string => {
 };
 
 /**
+ * Get the Clerk auth URL for the current environment
+ */
+export const getClerkAuthUrl = (): string => {
+  return getEnvironmentConfig().clerkAuthUrl;
+};
+
+/**
  * Get the marketing URL for the current environment
  */
 export const getMarketingUrl = (): string => {
@@ -58,7 +67,7 @@ export const getMarketingUrl = (): string => {
  */
 export const getLoginUrl = (returnUrl?: string): string => {
   const config = getEnvironmentConfig();
-  const baseUrl = config.operationsUrl;
+  const baseUrl = config.clerkAuthUrl;
   const path = config.authPaths.login;
   
   // Construct the full URL string to preserve the base path
@@ -66,11 +75,16 @@ export const getLoginUrl = (returnUrl?: string): string => {
   
   if (returnUrl) {
     const url = new URL(fullUrl);
-    url.searchParams.set('returnUrl', returnUrl);
+    // Set redirect URL to operations app after authentication
+    const redirectTo = config.operationsUrl + (returnUrl || '/');
+    url.searchParams.set('redirect_url', redirectTo);
     return url.toString();
   }
   
-  return fullUrl;
+  // Default redirect to operations root
+  const url = new URL(fullUrl);
+  url.searchParams.set('redirect_url', config.operationsUrl);
+  return url.toString();
 };
 
 /**
@@ -79,7 +93,7 @@ export const getLoginUrl = (returnUrl?: string): string => {
  */
 export const getSignupUrl = (returnUrl?: string): string => {
   const config = getEnvironmentConfig();
-  const baseUrl = config.operationsUrl;
+  const baseUrl = config.clerkAuthUrl;
   const path = config.authPaths.signup;
   
   // Construct the full URL string to preserve the base path
@@ -87,11 +101,16 @@ export const getSignupUrl = (returnUrl?: string): string => {
   
   if (returnUrl) {
     const url = new URL(fullUrl);
-    url.searchParams.set('returnUrl', returnUrl);
+    // Set redirect URL to operations app after authentication
+    const redirectTo = config.operationsUrl + (returnUrl || '/');
+    url.searchParams.set('redirect_url', redirectTo);
     return url.toString();
   }
   
-  return fullUrl;
+  // Default redirect to operations root
+  const url = new URL(fullUrl);
+  url.searchParams.set('redirect_url', config.operationsUrl);
+  return url.toString();
 };
 
 /**
@@ -104,6 +123,7 @@ export const logEnvironmentConfig = () => {
     console.log('Environment:', getEnvironment());
     console.log('Operations URL:', config.operationsUrl);
     console.log('Marketing URL:', config.marketingUrl);
+    console.log('Clerk Auth URL:', config.clerkAuthUrl);
     console.log('Login URL:', getLoginUrl());
     console.log('Signup URL:', getSignupUrl());
     console.groupEnd();

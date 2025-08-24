@@ -5,34 +5,84 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/operations/(.*)",
-      "destination": "/operations/$1",
-      "has": [
-        {
-          "type": "host",
-          "value": "(?<host>accounts\\.mendplatform\\.au|localhost)"
-        }
-      ]
+      "source": "/admin/(.*)",
+      "destination": "/operations/admin/$1"
     },
     {
-      "source": "/operations",
-      "destination": "/operations/index.html",
-      "has": [
-        {
-          "type": "host",
-          "value": "(?<host>accounts\\.mendplatform\\.au|localhost)"
-        }
-      ]
+      "source": "/admin",
+      "destination": "/operations/index.html"
     },
     {
-      "source": "/(.*)",
-      "destination": "/operations/$1",
-      "has": [
-        {
-          "type": "host",
-          "value": "accounts.mendplatform.au"
-        }
-      ]
+      "source": "/dashboard/(.*)",
+      "destination": "/operations/dashboard/$1"
+    },
+    {
+      "source": "/dashboard",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/account-manager/(.*)",
+      "destination": "/operations/account-manager/$1"
+    },
+    {
+      "source": "/account-manager",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/builder-senior/(.*)",
+      "destination": "/operations/builder-senior/$1"
+    },
+    {
+      "source": "/builder-senior",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/site-admin/(.*)",
+      "destination": "/operations/site-admin/$1"
+    },
+    {
+      "source": "/site-admin",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/worker-portal/(.*)",
+      "destination": "/operations/worker-portal/$1"
+    },
+    {
+      "source": "/worker-portal",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/medical-dashboard/(.*)",
+      "destination": "/operations/medical-dashboard/$1"
+    },
+    {
+      "source": "/medical-dashboard",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/sign-in",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/sign-up",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/user/(.*)",
+      "destination": "/operations/user/$1"
+    },
+    {
+      "source": "/user",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/incident-report/(.*)",
+      "destination": "/operations/incident-report/$1"
+    },
+    {
+      "source": "/incident-report",
+      "destination": "/operations/index.html"
     },
     {
       "source": "/(.*)",
