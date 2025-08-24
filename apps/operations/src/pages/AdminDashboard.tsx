@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useAuthContext } from '@/lib/auth/authConfig';
+import { useUser } from '@clerk/clerk-react';
+import { supabase } from '@/integrations/supabase/client';
 import { isSuperAdmin, isBuilderAdmin, isMendDataEntry } from '@/lib/auth/roles';
 import { 
   Database, 
@@ -23,16 +25,15 @@ interface AdminCardProps {
   icon: React.ReactNode;
   link: string;
   requiredRole?: 'super' | 'builder' | 'admin';
+  userRoleId?: number;
 }
 
-function AdminCard({ title, description, icon, link, requiredRole }: AdminCardProps) {
-  const { user } = useAuthContext();
-  
+function AdminCard({ title, description, icon, link, requiredRole, userRoleId }: AdminCardProps) {
   // Check if user has required role
-  if (requiredRole === 'super' && !isSuperAdmin(user?.role_id)) {
+  if (requiredRole === 'super' && !isSuperAdmin(userRoleId)) {
     return null;
   }
-  if (requiredRole === 'builder' && !isBuilderAdmin(user?.role_id) && !isSuperAdmin(user?.role_id)) {
+  if (requiredRole === 'builder' && !isBuilderAdmin(userRoleId) && !isSuperAdmin(userRoleId)) {
     return null;
   }
   
@@ -57,13 +58,47 @@ function AdminCard({ title, description, icon, link, requiredRole }: AdminCardPr
 }
 
 export default function AdminDashboard() {
-  const { user } = useAuthContext();
+  const { user, isLoaded } = useUser();
+  const [userRoleId, setUserRoleId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (!user?.primaryEmailAddress?.emailAddress) {
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('role_id')
+        .eq('email', user.primaryEmailAddress.emailAddress)
+        .single();
+
+      if (data?.role_id) {
+        setUserRoleId(data.role_id);
+      }
+      setLoading(false);
+    };
+
+    if (isLoaded) {
+      fetchUserRole();
+    }
+  }, [user, isLoaded]);
+
+  if (loading || !isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   // Check if user has any admin role
-  const hasAdminAccess = user && (
-    isSuperAdmin(user.role_id) || 
-    isBuilderAdmin(user.role_id) || 
-    isMendDataEntry(user.role_id)
+  const hasAdminAccess = userRoleId && (
+    isSuperAdmin(userRoleId) || 
+    isBuilderAdmin(userRoleId) || 
+    isMendDataEntry(userRoleId)
   );
 
   if (!hasAdminAccess) {
@@ -146,7 +181,7 @@ export default function AdminDashboard() {
         <div className="flex items-center gap-2 mt-4">
           <Shield className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">
-            Your role: {user?.role?.role_name || 'Unknown'}
+            Role ID: {userRoleId}
           </span>
         </div>
       </div>
@@ -155,31 +190,30 @@ export default function AdminDashboard() {
         {adminSections.map((section) => (
           <AdminCard
             key={section.link}
-            title={section.title}
-            description={section.description}
-            icon={section.icon}
-            link={section.link}
-            requiredRole={section.requiredRole}
+            {...section}
+            userRoleId={userRoleId}
           />
         ))}
       </div>
 
-      {isSuperAdmin(user?.role_id) && (
-        <div className="mt-12 p-6 bg-muted rounded-lg">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <Upload className="h-5 w-5" />
-            Quick Setup Guide
-          </h2>
-          <ol className="list-decimal list-inside space-y-2 text-sm">
-            <li>Configure storage buckets using Storage Setup</li>
-            <li>Run database migrations in Supabase SQL Editor</li>
-            <li>Set up reference tables for injury codes</li>
-            <li>Import initial user data</li>
-            <li>Configure email notifications</li>
-            <li>Review system logs for any issues</li>
-          </ol>
+      <div className="mt-12 p-6 bg-muted/30 rounded-lg">
+        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+          <Upload className="h-5 w-5" />
+          Quick Actions
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Link to="/incident-report">
+            <Button variant="outline" className="w-full">
+              New Incident Report
+            </Button>
+          </Link>
+          <Link to="/admin/data-import">
+            <Button variant="outline" className="w-full">
+              Import Data
+            </Button>
+          </Link>
         </div>
-      )}
+      </div>
     </div>
   );
 }

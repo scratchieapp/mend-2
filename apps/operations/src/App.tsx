@@ -4,7 +4,6 @@ import { Routes, Route } from "react-router-dom";
 import "./App.css";
 
 // Auth
-import AuthStateHandler from "./components/auth/AuthStateHandler"; // still in use
 import AuthCallback from "./pages/auth/AuthCallback";
 import Login from "./pages/auth/Login";
 import ClerkLogin from "./pages/auth/ClerkLogin";
@@ -60,21 +59,11 @@ function App() {
       {/* Session warning disabled for Clerk-only auth */}
       {/* <SessionWarning /> */}
       
-      {/* 
-        AuthStateHandler will auto-redirect on first load:
-          - If user is not logged in → /auth/login
-          - If user is logged in → "/"
-      */}
-      <AuthStateHandler />
 
       <Routes>
 
-        {/* Auth pages - Mock auth for testing */}
-        <Route path="/sign-in" element={<MockLogin />} />
-        <Route path="/mock-login" element={<MockLogin />} />
-        
-        {/* Clerk auth pages (disabled during mock auth testing) */}
-        <Route path="/clerk-sign-in" element={<ClerkLogin />} />
+        {/* Clerk auth pages */}
+        <Route path="/sign-in" element={<ClerkLogin />} />
         <Route path="/sign-up" element={<ClerkSignup />} />
         
         {/* Legacy auth pages (keep for backward compatibility) */}
@@ -92,17 +81,10 @@ function App() {
         <Route path="/test-role-query" element={<TestRoleQuery />} />
         <Route path="/debug-auth" element={<DebugAuth />} />
 
-        {/* Protected routes go inside a parent route guarded by <ProtectedRoute> */}
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <DashboardRouter />
-            </ProtectedRoute>
-          }
-        >
-          {/* Default route - role-based routing handled by DashboardRouter */}
-          <Route index element={<Dashboard />} />
+        {/* Protected routes */}
+        <Route element={<ProtectedRoute />}>
+          {/* Root route - DashboardRouter will fetch role and redirect */}
+          <Route path="/" element={<DashboardRouter />} />
           
           {/* Role-specific dashboard routes */}
           <Route path="dashboard" element={<Dashboard />} />
@@ -122,23 +104,8 @@ function App() {
           {/* Worker Portal route */}
           <Route path="worker-portal" element={<WorkerPortal />} />
 
-          {/* Administrator route (requires you import Administrator above) */}
-          <Route
-            path="administrator"
-            element={
-              <ProtectedRoute allowedRoles={["mend_super_admin", "builder_admin"]}>
-                <Administrator />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard"
-            element={
-             <ProtectedRoute>
-               <Dashboard />
-             </ProtectedRoute>
-             }
-          />
+          {/* Administrator route */}
+          <Route path="administrator" element={<Administrator />} />
           <Route path="incident-report" element={<IncidentReport />} />
           <Route path="incident/:id" element={<IncidentDetailsPage />} />
           <Route path="incident/:id/edit" element={<IncidentEditPage />} />
@@ -160,79 +127,16 @@ function App() {
             }
           />
 
-          {/* Admin routes - main admin route is handled by DashboardRouter above */}
-          <Route
-            path="admin/storage-setup"
-            element={
-              <ProtectedRoute allowedRoles={["mend_super_admin"]}>
-                <StorageSetupAdmin />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="admin/data"
-            element={
-              <ProtectedRoute allowedRoles={["mend_super_admin", "builder_admin", "administrator"]}>
-                <DataAdmin />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="admin/data-import"
-            element={
-              <ProtectedRoute allowedRoles={["mend_super_admin", "builder_admin", "administrator"]}>
-                <DataImportAdmin />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="admin/reference-tables"
-            element={
-              <ProtectedRoute allowedRoles={["mend_super_admin", "builder_admin", "administrator"]}>
-                <ReferenceTablesAdmin />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="admin/search-verify"
-            element={
-              <ProtectedRoute allowedRoles={["mend_super_admin", "builder_admin"]}>
-                <SearchVerifyAdmin />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="admin/system-logs"
-            element={
-              <ProtectedRoute allowedRoles={["mend_super_admin"]}>
-                <SystemLogsAdmin />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="admin/medical-professionals"
-            element={
-              <ProtectedRoute allowedRoles={["mend_super_admin", "builder_admin", "administrator"]}>
-                <MedicalProfessionalsAdmin />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="admin/hours-worked"
-            element={
-              <ProtectedRoute allowedRoles={["mend_super_admin", "builder_admin"]}>
-                <HoursWorkedAdmin />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="admin/user-management"
-            element={
-              <ProtectedRoute allowedRoles={["mend_super_admin", "builder_admin", "administrator"]}>
-                <UserManagementAdmin />
-              </ProtectedRoute>
-            }
-          />
+          {/* Admin routes */}
+          <Route path="admin/storage-setup" element={<StorageSetupAdmin />} />
+          <Route path="admin/data" element={<DataAdmin />} />
+          <Route path="admin/data-import" element={<DataImportAdmin />} />
+          <Route path="admin/reference-tables" element={<ReferenceTablesAdmin />} />
+          <Route path="admin/search-verify" element={<SearchVerifyAdmin />} />
+          <Route path="admin/system-logs" element={<SystemLogsAdmin />} />
+          <Route path="admin/medical-professionals" element={<MedicalProfessionalsAdmin />} />
+          <Route path="admin/hours-worked" element={<HoursWorkedAdmin />} />
+          <Route path="admin/user-management" element={<UserManagementAdmin />} />
         </Route>
       </Routes>
     </>
