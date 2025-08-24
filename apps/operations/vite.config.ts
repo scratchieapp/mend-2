@@ -26,5 +26,6 @@ export default defineConfig(({ mode }) => ({
     outDir: '../../dist/operations',
     emptyOutDir: true
   },
-  base: '/operations/'
+  // Use different base path for dev vs production
+  base: mode === 'development' ? '/' : '/operations/'
 }));

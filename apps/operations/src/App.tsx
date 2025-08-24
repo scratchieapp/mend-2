@@ -9,6 +9,7 @@ import AuthCallback from "./pages/auth/AuthCallback";
 import Login from "./pages/auth/Login";
 import ClerkLogin from "./pages/auth/ClerkLogin";
 import ClerkSignup from "./pages/auth/ClerkSignup";
+import MockLogin from "./pages/auth/MockLogin";
 import ClearSession from "./pages/auth/ClearSession";
 import SignUp from "./pages/auth/SignUp";
 import ForgotPassword from "./pages/auth/ForgotPassword";
@@ -68,8 +69,12 @@ function App() {
 
       <Routes>
 
-        {/* Auth pages - Clerk standard URLs */}
-        <Route path="/sign-in" element={<ClerkLogin />} />
+        {/* Auth pages - Mock auth for testing */}
+        <Route path="/sign-in" element={<MockLogin />} />
+        <Route path="/mock-login" element={<MockLogin />} />
+        
+        {/* Clerk auth pages (disabled during mock auth testing) */}
+        <Route path="/clerk-sign-in" element={<ClerkLogin />} />
         <Route path="/sign-up" element={<ClerkSignup />} />
         
         {/* Legacy auth pages (keep for backward compatibility) */}

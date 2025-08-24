@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { useClerk, useUser } from '@clerk/clerk-react';
-import { useClerkAuthContext } from '@/lib/clerk/ClerkAuthProvider';
 import { useNavigate } from 'react-router-dom';
+import { useAuthContext } from '@/lib/auth/authConfig';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,9 +23,7 @@ import {
 } from 'lucide-react';
 
 export function UserBadge() {
-  const { signOut } = useClerk();
-  const { user: clerkUser } = useUser();
-  const { user: userData, isLoading } = useClerkAuthContext();
+  const { user: userData, isLoading, signOut } = useAuthContext();
   const navigate = useNavigate();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -51,7 +48,7 @@ export function UserBadge() {
     );
   }
 
-  if (!clerkUser || !userData) {
+  if (!userData) {
     return null;
   }
 
@@ -66,8 +63,8 @@ export function UserBadge() {
       .slice(0, 2);
   };
 
-  const displayName = userData?.custom_display_name || userData?.display_name || clerkUser.fullName || clerkUser.primaryEmailAddress?.emailAddress || 'User';
-  const email = userData?.email || clerkUser.primaryEmailAddress?.emailAddress;
+  const displayName = userData?.custom_display_name || userData?.display_name || userData?.email || 'User';
+  const email = userData?.email;
   const roleLabel = userData?.role?.role_label || 'No Role';
   const roleName = userData?.role?.role_name || '';
 
@@ -97,7 +94,6 @@ export function UserBadge() {
             disabled={isSigningOut}
           >
             <Avatar className="h-8 w-8">
-              <AvatarImage src={clerkUser.imageUrl} alt={displayName} />
               <AvatarFallback className={getRoleColor(roleName)}>
                 <span className="text-white text-xs">{getInitials(displayName)}</span>
               </AvatarFallback>

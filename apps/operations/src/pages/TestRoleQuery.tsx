@@ -3,13 +3,23 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
+interface TestResult {
+  success: boolean;
+  data?: unknown;
+  error?: string;
+}
+
+interface TestResults {
+  [key: string]: TestResult;
+}
+
 export default function TestRoleQuery() {
-  const [results, setResults] = useState<any>({});
+  const [results, setResults] = useState<TestResults>({});
   const [loading, setLoading] = useState(false);
 
   const testEmail = 'role1@scratchie.com';
 
-  const runTest = async (testName: string, queryFn: () => Promise<any>) => {
+  const runTest = async (testName: string, queryFn: () => Promise<unknown>) => {
     console.log(`🧪 Running test: ${testName}`);
     try {
       const result = await queryFn();
@@ -127,7 +137,7 @@ export default function TestRoleQuery() {
           </Button>
 
           <div className="space-y-4">
-            {Object.entries(results).map(([testName, result]: [string, any]) => (
+            {Object.entries(results).map(([testName, result]) => (
               <Card key={testName} className={result.success ? 'border-green-500' : 'border-red-500'}>
                 <CardHeader>
                   <CardTitle className="text-sm">

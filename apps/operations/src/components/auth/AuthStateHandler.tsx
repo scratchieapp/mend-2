@@ -1,10 +1,10 @@
 // src/components/auth/AuthStateHandler.tsx
 import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useClerkAuthContext } from '@/lib/clerk/ClerkAuthProvider';
+import { useAuthContext } from '@/lib/auth/authConfig';
 
 export default function AuthStateHandler() {
-  const { user, isLoading } = useClerkAuthContext();
+  const { user, isLoading } = useAuthContext();
   const navigate = useNavigate();
   const location = useLocation();
 

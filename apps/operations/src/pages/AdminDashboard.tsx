@@ -1,7 +1,7 @@
 import { Link, Navigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useClerkAuthContext } from '@/lib/clerk/ClerkAuthProvider';
+import { useAuthContext } from '@/lib/auth/authConfig';
 import { isSuperAdmin, isBuilderAdmin, isMendDataEntry } from '@/lib/auth/roles';
 import { 
   Database, 
@@ -26,7 +26,7 @@ interface AdminCardProps {
 }
 
 function AdminCard({ title, description, icon, link, requiredRole }: AdminCardProps) {
-  const { user } = useClerkAuthContext();
+  const { user } = useAuthContext();
   
   // Check if user has required role
   if (requiredRole === 'super' && !isSuperAdmin(user?.role_id)) {
@@ -57,7 +57,7 @@ function AdminCard({ title, description, icon, link, requiredRole }: AdminCardPr
 }
 
 export default function AdminDashboard() {
-  const { user } = useClerkAuthContext();
+  const { user } = useAuthContext();
 
   // Check if user has any admin role
   const hasAdminAccess = user && (

@@ -1,8 +1,8 @@
 // src/components/auth/DashboardRouter.tsx
 import { Navigate, Outlet } from "react-router-dom";
-import { useClerkAuthContext } from "@/lib/clerk/ClerkAuthProvider";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuthContext } from '@/lib/auth/authConfig';
 
 // Role-based dashboard mapping by role_id
 const ROLE_ID_DASHBOARDS: Record<number, string> = {
@@ -42,7 +42,7 @@ const ROLE_DASHBOARDS: Record<string, string> = {
 };
 
 const DashboardRouter = () => {
-  const { user, isLoading } = useClerkAuthContext();
+  const { user, isLoading } = useAuthContext();
   const navigate = useNavigate();
 
   useEffect(() => {

@@ -1,8 +1,8 @@
 // src/components/auth/ProtectedRoute.tsx
 import { Navigate, Outlet } from 'react-router-dom';
-import { useClerkAuthContext } from '@/lib/clerk/ClerkAuthProvider';
+import { ReactNode } from 'react';
+import { useAuthContext, USE_MOCK_AUTH } from '@/lib/auth/authConfig';
 import { useAuth } from '@clerk/clerk-react';
-import { ReactNode, useEffect } from 'react';
 
 interface ProtectedRouteProps {
   children?: ReactNode;
@@ -10,18 +10,28 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
-  const { user, isLoading, isAuthenticated } = useClerkAuthContext();
-  const { isSignedIn, isLoaded } = useAuth();
+  const { user, isLoading, isAuthenticated } = useAuthContext();
+  
+  // Always call the hook, but only use its values when not in mock mode
+  const clerkAuth = useAuth();
+  const isSignedIn = USE_MOCK_AUTH ? true : clerkAuth.isSignedIn;
+  const isLoaded = USE_MOCK_AUTH ? true : clerkAuth.isLoaded;
 
-  // Double-check Clerk authentication state
-  useEffect(() => {
-    if (isLoaded && !isSignedIn) {
-      // Force redirect if Clerk says not signed in
-      window.location.href = '/sign-in';
-    }
-  }, [isLoaded, isSignedIn]);
+  // Handle Clerk loading state
+  if (!USE_MOCK_AUTH && !isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  
+  // Check Clerk authentication state
+  if (!USE_MOCK_AUTH && isLoaded && !isSignedIn) {
+    return <Navigate to="/sign-in" replace />;
+  }
 
-  if (isLoading || !isLoaded) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -29,8 +39,8 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     );
   }
 
-  // Strict authentication check - both Clerk and our context must agree
-  if (!isSignedIn || !isAuthenticated || !user) {
+  // Authentication check - adjusted for mock auth
+  if (!isAuthenticated || !user) {
     return <Navigate to="/sign-in" replace />;
   }
 
