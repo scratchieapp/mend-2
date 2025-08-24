@@ -46,7 +46,7 @@ const DashboardRouter = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Redirect if we have user data and are at root path or just authenticated
+    // Redirect if we have user data and need to go to the correct role dashboard
     const currentPath = window.location.pathname;
     const isAtRoot = currentPath === "/" || currentPath === "";
     
@@ -61,39 +61,46 @@ const DashboardRouter = () => {
       fullUrl: window.location.href
     });
     
-    if (!isLoading && user && isAtRoot) {
+    if (!isLoading && user) {
       // First try to use role_id for mapping (most reliable)
       const roleId = user?.role?.role_id;
+      const targetDashboard = roleId ? ROLE_ID_DASHBOARDS[roleId] : null;
+      
       console.log('🔍 DashboardRouter: Checking role_id mapping:', {
         roleId, 
         hasMapping: !!(roleId && ROLE_ID_DASHBOARDS[roleId]),
         availableRoleIds: Object.keys(ROLE_ID_DASHBOARDS),
-        targetPath: roleId ? ROLE_ID_DASHBOARDS[roleId] : 'none'
+        targetPath: targetDashboard,
+        currentPath,
+        needsRedirect: targetDashboard && currentPath !== targetDashboard
       });
       
-      if (roleId && ROLE_ID_DASHBOARDS[roleId]) {
-        console.log(`🔄 DashboardRouter: Redirecting user with role_id ${roleId} to ${ROLE_ID_DASHBOARDS[roleId]}`);
-        navigate(ROLE_ID_DASHBOARDS[roleId], { replace: true });
+      // Redirect if we're at root OR if we're at the wrong dashboard for this role
+      if (targetDashboard && (isAtRoot || currentPath !== targetDashboard)) {
+        console.log(`🔄 DashboardRouter: Redirecting user with role_id ${roleId} from ${currentPath} to ${targetDashboard}`);
+        navigate(targetDashboard, { replace: true });
         return;
       }
       
       // Fallback to role_name if role_id not available
-      const userRole = user?.role?.role_name;
-      console.log('🔍 DashboardRouter: Checking role_name mapping:', {
-        userRole,
-        hasMapping: !!(userRole && ROLE_DASHBOARDS[userRole]),
-        availableRoleNames: Object.keys(ROLE_DASHBOARDS),
-        targetPath: userRole ? ROLE_DASHBOARDS[userRole] : 'none'
-      });
-      
-      if (userRole && ROLE_DASHBOARDS[userRole]) {
-        console.log(`🔄 DashboardRouter: Redirecting user with role_name ${userRole} to ${ROLE_DASHBOARDS[userRole]}`);
-        navigate(ROLE_DASHBOARDS[userRole], { replace: true });
-      } else {
-        // Default to standard dashboard if role not found
-        console.log(`🔄 DashboardRouter: No specific role found, redirecting to default dashboard`);
-        console.log('🔍 Available role mappings:', { ROLE_ID_DASHBOARDS, ROLE_DASHBOARDS });
-        navigate("/dashboard", { replace: true });
+      if (!targetDashboard) {
+        const userRole = user?.role?.role_name;
+        const fallbackDashboard = userRole ? ROLE_DASHBOARDS[userRole] : '/dashboard';
+        
+        console.log('🔍 DashboardRouter: Checking role_name mapping:', {
+          userRole,
+          hasMapping: !!(userRole && ROLE_DASHBOARDS[userRole]),
+          availableRoleNames: Object.keys(ROLE_DASHBOARDS),
+          targetPath: fallbackDashboard,
+          currentPath,
+          needsRedirect: currentPath !== fallbackDashboard
+        });
+        
+        // Redirect if we're at root OR if we're at the wrong dashboard for this role
+        if (isAtRoot || currentPath !== fallbackDashboard) {
+          console.log(`🔄 DashboardRouter: Redirecting user with role_name ${userRole} from ${currentPath} to ${fallbackDashboard}`);
+          navigate(fallbackDashboard, { replace: true });
+        }
       }
     }
   }, [user, isLoading, navigate]);
