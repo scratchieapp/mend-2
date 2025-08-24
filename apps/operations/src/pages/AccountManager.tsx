@@ -1,5 +1,6 @@
 // src/pages/AccountManager.tsx
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/lib/auth/authConfig";
 import { UserData, UserRole, UserRoleName } from "@/types/auth";
@@ -7,6 +8,7 @@ import { getAvailableRolesToCreate } from "@/lib/auth/roles";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function AccountManager() {
+  const navigate = useNavigate();
   const { user: userData } = useAuthContext();
   const [users, setUsers] = useState<UserData[]>([]);
   const [roles, setRoles] = useState<UserRole[]>([]);
@@ -28,11 +31,22 @@ export default function AccountManager() {
   const [showAddUserDialog, setShowAddUserDialog] = useState(false);
   const { toast } = useToast();
 
-  // Fetch users
+  // Fetch users with proper field selection
   const fetchUsers = async () => {
     const { data, error } = await supabase
       .from("users")
-      .select(`*, user_roles (*)`)
+      .select(`
+        user_id,
+        display_name,
+        email,
+        created_at,
+        role_id,
+        user_roles (
+          role_id,
+          role_name,
+          role_label
+        )
+      `)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -183,8 +197,8 @@ const createUserMutation = useMutation({
       const { error } = await supabase
         .from('users')
         .update({
-          user_name: updatedUser.user_name,
-          user_email: updatedUser.user_email,
+          display_name: updatedUser.display_name,
+          email: updatedUser.email,
           role_id: updatedUser.role_id,
           updated_at: new Date().toISOString(),
         })
@@ -195,8 +209,13 @@ const createUserMutation = useMutation({
       // Update the local state to reflect the changes
       setUsers(users.map(u => (u.user_id === updatedUser.user_id ? updatedUser : u)));
       setSelectedUser(null); // Close the edit dialog
+      
+      toast({
+        title: "Success",
+        description: "User has been updated successfully.",
+      });
     } catch (error) {
-      // Error updating user
+      console.error('Error updating user:', error);
       toast({
         title: "Error",
         description: "Failed to update user. Please try again.",
@@ -225,11 +244,39 @@ const createUserMutation = useMutation({
 
   const availableRoles = userData ? getAvailableRolesToCreate(userData) : [];
 
+  const handleBackToDashboard = () => {
+    navigate('/admin');
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* Navigation Header */}
+      <div className="flex items-center mb-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleBackToDashboard}
+          className="mr-4 p-2"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Dashboard
+        </Button>
+        <div className="text-sm text-muted-foreground">
+          Admin Dashboard / User Management
+        </div>
+      </div>
+
+      {/* Page Header */}
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">User Management</h1>
-        <Button onClick={handleAddUser}>Add User</Button>
+        <div>
+          <h1 className="text-3xl font-bold">User Management</h1>
+          <p className="text-muted-foreground mt-2">
+            Manage user accounts, roles, and permissions
+          </p>
+        </div>
+        <Button onClick={handleAddUser} className="bg-primary hover:bg-primary/90">
+          Add User
+        </Button>
       </div>
 
       {/* Add User Dialog */}
@@ -255,13 +302,15 @@ const createUserMutation = useMutation({
       </Dialog>
 
       {/* Users Table */}
-      <UsersTable
-        users={users}
-        isLoading={isLoadingUsers}
-        updateUserRoleMutation={updateUserRoleMutation}
-        deactivateUserMutation={deactivateUserMutation}
-        onEditUser={handleEditUser}
-      />
+      <div className="bg-white rounded-lg border shadow-sm">
+        <UsersTable
+          users={users}
+          isLoading={isLoadingUsers}
+          updateUserRoleMutation={updateUserRoleMutation}
+          deactivateUserMutation={deactivateUserMutation}
+          onEditUser={handleEditUser}
+        />
+      </div>
     </div>
   );
 }
@@ -274,62 +323,67 @@ interface EditUserFormProps {
 }
 
 function EditUserForm({ user, onSave, roles }: EditUserFormProps) {
-  const [userName, setUserName] = useState(user.user_name);
-  const [userEmail, setUserEmail] = useState(user.user_email);
-  const [roleId, setRoleId] = useState(user.role_id);
+  const [displayName, setDisplayName] = useState(user.display_name || '');
+  const [userEmail, setUserEmail] = useState(user.email || '');
+  const [roleId, setRoleId] = useState(user.role_id || 1);
 
   const handleSave = () => {
     onSave({
       ...user,
-      user_name: userName,
-      user_email: userEmail,
+      display_name: displayName,
+      email: userEmail,
       role_id: roleId,
     });
   };
 
   return (
-    <div className="grid gap-4 py-4">
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="name" className="text-right">
-          Name
+    <div className="grid gap-6 py-4">
+      <div className="grid gap-2">
+        <Label htmlFor="name" className="text-sm font-medium">
+          Display Name
         </Label>
         <Input
           id="name"
-          value={userName}
-          onChange={(e) => setUserName(e.target.value)}
-          className="col-span-3"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          placeholder="Enter user's display name"
+          className="w-full"
         />
       </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="email" className="text-right">
-          Email
+      <div className="grid gap-2">
+        <Label htmlFor="email" className="text-sm font-medium">
+          Email Address
         </Label>
         <Input
           id="email"
+          type="email"
           value={userEmail}
           onChange={(e) => setUserEmail(e.target.value)}
-          className="col-span-3"
+          placeholder="Enter user's email address"
+          className="w-full"
         />
       </div>
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="role" className="text-right">
-          Role
+      <div className="grid gap-2">
+        <Label htmlFor="role" className="text-sm font-medium">
+          User Role
         </Label>
         <select
           id="role"
           value={roleId}
           onChange={(e) => setRoleId(parseInt(e.target.value, 10))}
-          className="col-span-3 border border-gray-300 px-3 py-2 rounded-md"
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {roles.map((role) => (
             <option key={role.role_id} value={role.role_id}>
-              {role.role_label}
+              {role.role_label} (Level {role.role_id})
             </option>
           ))}
         </select>
       </div>
-      <DialogFooter>
-        <Button onClick={handleSave}>Save Changes</Button>
+      <DialogFooter className="pt-4">
+        <Button onClick={handleSave} className="w-full sm:w-auto">
+          Save Changes
+        </Button>
       </DialogFooter>
     </div>
   );

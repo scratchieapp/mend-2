@@ -4,15 +4,15 @@ import { useUser } from '@clerk/clerk-react';
 import { supabase } from '@/integrations/supabase/client';
 
 const roleIdToDashboard: Record<number, string> = {
-  1: '/admin',
-  2: '/account-manager',
-  3: '/data-entry',
-  4: '/builder-junior',
-  5: '/builder-senior',
-  6: '/medical',
-  7: '/insurance-provider',
-  8: '/government-official',
-  9: '/admin'
+  1: '/admin',           // MEND Super Admin
+  2: '/account-manager', // MEND Account Manager
+  3: '/data-entry',      // MEND Data Entry
+  4: '/analyst',         // MEND Analyst
+  5: '/builder-senior',  // Builder Admin
+  6: '/site-admin',      // Site Admin
+  7: '/client',          // Client
+  8: '/vendor',          // Vendor
+  9: '/dashboard'        // Public User (default dashboard)
 };
 
 export default function DashboardRouter() {

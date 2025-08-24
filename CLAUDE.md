@@ -39,25 +39,33 @@ Mend-2 is a comprehensive workplace safety management platform built with React,
 3. **Circular Dependency Fix**: Fixed config file imports - getBaseUrl error persists
 4. **Debug Tools**: Created debugging utilities - can't load due to fundamental errors
 
-## 🔧 AUTHENTICATION SIMPLIFIED (2025-08-24)
+## 🔧 AUTHENTICATION IN PROGRESS (2025-08-24)
 **Current Implementation Status:**
-- **Clerk Authentication**: Using real Clerk for user authentication
-- **Role System**: Fetching role_id from Supabase users table
-- **Dashboard Routing**: DashboardRouter queries Supabase and routes based on role_id
-- **Simplification**: Removed all mock auth complexity - using Clerk as designed
+- **Clerk Authentication**: ✅ Working - Users can log in successfully
+- **Role System**: ✅ Fetching role_id from Supabase users table correctly
+- **Dashboard Routing**: ⚠️ Partially fixed - Role mappings corrected but needs testing
+- **Simplification**: ✅ Removed all mock auth complexity - using Clerk as designed
 
 ## 📋 AUTHENTICATION FLOW
-1. **User Login**: Clerk handles authentication
-2. **Role Fetch**: DashboardRouter gets role_id from Supabase using user email
-3. **Routing**: User routed to dashboard based on role_id mapping
-4. **Session**: Clerk maintains auth session
+1. **User Login**: ✅ Clerk handles authentication successfully
+2. **Role Fetch**: ✅ DashboardRouter gets role_id from Supabase using user email
+3. **Routing**: ⚠️ Now correctly mapped but needs verification for all roles
+4. **Session**: ✅ Clerk maintains auth session properly
 
-### ⚠️ TESTING REQUIRED
-The system is now simplified but needs testing with real Clerk accounts to verify:
-- Clerk authentication flow works correctly
-- Supabase role queries return expected data
-- Dashboard routing matches role_id correctly
-- All 9 roles route to appropriate dashboards
+### 🔧 RECENT FIXES (2025-08-24 Evening)
+- **Fixed Role Routing**: Corrected role_id to dashboard mappings (role 1 → /admin, not /medical)
+- **User Management UI**: 
+  - ✅ Added navigation with back button and breadcrumbs
+  - ✅ Fixed table alignment (left-aligned email, date, status)
+  - ✅ Fixed user name display using `display_name` field
+  - ✅ Added edit functionality with dropdown menus
+  - ✅ Renamed menu item from "Account Manager" to "User Management"
+- **Database Schema Understanding**: Identified correct fields (display_name vs non-existent first_name/last_name)
+
+### ⚠️ KNOWN ISSUES
+- Some demo users (role3-9@scratchie.com) have incorrect role_id values in database
+- Need to create proper routes for /analyst, /site-admin, /client, /vendor dashboards
+- User Management page needs "Account Management" section for actual client accounts
 
 ### ✅ LATEST AUTHENTICATION & ACCESS CONTROL IMPROVEMENTS (2025-08-23)
 1. **UserBadge Component Added**
