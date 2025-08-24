@@ -1,9 +1,9 @@
 import { useNavigate } from 'react-router-dom';
-import { useClerkAuthContext } from '@/lib/clerk/ClerkAuthProvider';
+import { useAuthContext } from '@/lib/auth/authConfig';
 
 export function Unauthorized() {
   const navigate = useNavigate();
-  const { signOut } = useClerkAuthContext();
+  const { signOut } = useAuthContext();
 
   async function handleSignOut() {
     await signOut();

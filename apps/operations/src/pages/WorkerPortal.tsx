@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useClerkAuthContext } from "@/lib/clerk/ClerkAuthProvider";
+import { useAuthContext } from "@/lib/auth/authConfig";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -51,7 +51,7 @@ interface IncidentRecord {
 }
 
 const WorkerPortal = () => {
-  const { user, isLoading: authLoading } = useClerkAuthContext();
+  const { user, isLoading: authLoading } = useAuthContext();
   const [workerInfo, setWorkerInfo] = useState<WorkerInfo | null>(null);
   const [incidents, setIncidents] = useState<IncidentRecord[]>([]);
   const [loading, setLoading] = useState(true);

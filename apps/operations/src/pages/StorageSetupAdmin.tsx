@@ -4,12 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle, AlertCircle, Database, Info } from 'lucide-react';
 import { setupStorageBuckets } from '@/lib/storage/setupStorage';
-import { useClerkAuthContext } from '@/lib/clerk/ClerkAuthProvider';
+import { useAuthContext } from '@/lib/auth/authConfig';
 import { Navigate } from 'react-router-dom';
 import { isSuperAdmin } from '@/lib/auth/roles';
 
 export default function StorageSetupAdmin() {
-  const { user } = useClerkAuthContext();
+  const { user } = useAuthContext();
   const [isSettingUp, setIsSettingUp] = useState(false);
   const [setupResult, setSetupResult] = useState<{ success: boolean; message: string } | null>(null);
 

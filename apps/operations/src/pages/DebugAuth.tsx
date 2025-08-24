@@ -1,8 +1,8 @@
-import { useClerkAuthContext } from '@/lib/clerk/ClerkAuthProvider';
+import { useAuthContext } from '@/lib/auth/authConfig';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function DebugAuth() {
-  const { user, isLoading, isAuthenticated } = useClerkAuthContext();
+  const { user, isLoading, isAuthenticated } = useAuthContext();
 
   return (
     <div className="container mx-auto p-6">

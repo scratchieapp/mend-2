@@ -1,12 +1,12 @@
 import React from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useClerkAuthContext } from '@/lib/clerk/ClerkAuthProvider';
+import { useAuthContext } from '@/lib/auth/authConfig';
 
 /**
  * Adds company-specific filtering to Supabase queries based on user's role and employer
  */
 export function useCompanyFilter() {
-  const { user } = useClerkAuthContext();
+  const { user } = useAuthContext();
 
   /**
    * Apply company filter to a query builder
@@ -129,7 +129,7 @@ export function withCompanyFilter<P extends object>(
   Component: React.ComponentType<P>
 ): React.FC<P> {
   return (props: P) => {
-    const { user } = useClerkAuthContext();
+    const { user } = useAuthContext();
 
     if (!user?.employer_id && user?.role?.role_name !== 'mend_super_admin') {
       return (

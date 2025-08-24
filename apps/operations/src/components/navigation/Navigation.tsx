@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { useClerkAuthContext } from '@/lib/clerk/ClerkAuthProvider';
+import { useAuthContext } from '@/lib/auth/authConfig';
 
 export const Navigation = () => {
-  const { user } = useClerkAuthContext();
+  const { user } = useAuthContext();
   
   const { data: roleData } = useQuery({
     queryKey: ['userRole', user?.role_id],
