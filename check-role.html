@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Role Check - Direct Supabase</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .result {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 20px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        .success {
+            color: #10b981;
+            font-weight: bold;
+        }
+        .error {
+            color: #ef4444;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Direct Supabase Role Check</h1>
+        <p>This checks your role directly in Supabase database.</p>
+        
+        <div>
+            <label>Email: </label>
+            <input type="email" id="email" value="role1@scratchie.com" style="padding: 5px; width: 300px;">
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <button onclick="checkRole()">Check Role in Supabase</button>
+            <button onclick="testAllQueries()">Test All Query Syntaxes</button>
+        </div>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // Initialize Supabase
+        const supabaseUrl = 'https://rkzcybthcszeusrohbtc.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJremN5YnRoY3N6ZXVzcm9oYnRjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwODQ1MDAsImV4cCI6MjA0OTY2MDUwMH0.4It46NhFTc0q1KkXDUT5iMvQ9ewlTiEbqb0kLRs-sd0';
+        const { createClient } = supabase;
+        const supabaseClient = createClient(supabaseUrl, supabaseKey);
+        
+        function showResult(title, data, isError = false) {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'result';
+            resultDiv.innerHTML = `
+                <div class="${isError ? 'error' : 'success'}">${title}</div>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+            resultsDiv.appendChild(resultDiv);
+        }
+        
+        async function checkRole() {
+            const email = document.getElementById('email').value;
+            document.getElementById('results').innerHTML = '';
+            
+            try {
+                // Test 1: Basic user query
+                const { data: userData, error: userError } = await supabaseClient
+                    .from('users')
+                    .select('*')
+                    .eq('email', email)
+                    .single();
+                
+                if (userError) throw userError;
+                showResult('✅ User Found', userData);
+                
+                // Test 2: Get role from user_roles table
+                if (userData?.role_id) {
+                    const { data: roleData, error: roleError } = await supabaseClient
+                        .from('user_roles')
+                        .select('*')
+                        .eq('role_id', userData.role_id)
+                        .single();
+                    
+                    if (roleError) throw roleError;
+                    showResult('✅ Role Data', roleData);
+                    
+                    // Show combined data
+                    showResult('✅ Combined User + Role', {
+                        ...userData,
+                        role: roleData
+                    });
+                }
+                
+            } catch (error) {
+                showResult('❌ Error', error, true);
+            }
+        }
+        
+        async function testAllQueries() {
+            const email = document.getElementById('email').value;
+            document.getElementById('results').innerHTML = '';
+            
+            // Test different join syntaxes
+            const queries = [
+                {
+                    name: 'Query with !inner',
+                    query: supabaseClient.from('users').select('*, role:user_roles!inner(*)').eq('email', email).single()
+                },
+                {
+                    name: 'Query with !role_id',
+                    query: supabaseClient.from('users').select('*, role:user_roles!role_id(*)').eq('email', email).single()
+                },
+                {
+                    name: 'Query with foreign key name',
+                    query: supabaseClient.from('users').select('*, user_roles!users_role_id_fkey(*)').eq('email', email).single()
+                }
+            ];
+            
+            for (const test of queries) {
+                try {
+                    const { data, error } = await test.query;
+                    if (error) {
+                        showResult(`❌ ${test.name}`, error, true);
+                    } else {
+                        showResult(`✅ ${test.name}`, data);
+                    }
+                } catch (err) {
+                    showResult(`❌ ${test.name} - Exception`, err, true);
+                }
+            }
+        }
+        
+        // Auto-check on load
+        window.onload = () => {
+            console.log('Supabase client initialized');
+            console.log('Ready to check roles');
+        };
+    </script>
+</body>
+</html>
