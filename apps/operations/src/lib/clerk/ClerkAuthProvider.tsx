@@ -79,6 +79,14 @@ function ClerkAuthSync({ children }: { children: React.ReactNode }) {
           }
 
           let supabaseUser = existingUser;
+          
+          console.log('🔍 ClerkAuthProvider: Supabase user query result:', {
+            found: !!existingUser,
+            email: existingUser?.email,
+            role_id: existingUser?.role_id,
+            role: existingUser?.role,
+            fullData: existingUser
+          });
 
           // If user doesn't exist, create them
           if (!existingUser) {
@@ -149,9 +157,12 @@ function ClerkAuthSync({ children }: { children: React.ReactNode }) {
           // Set user data in context
           console.log('🔄 ClerkAuthProvider: Setting user data:', {
             email: supabaseUser.email,
-            role_id: supabaseUser.role?.role_id,
+            role_id_from_user: supabaseUser.role_id,
+            role_id_from_join: supabaseUser.role?.role_id,
             role_name: supabaseUser.role?.role_name,
-            clerk_user_id: supabaseUser.clerk_user_id
+            clerk_user_id: supabaseUser.clerk_user_id,
+            fullRole: supabaseUser.role,
+            fullUserData: supabaseUser
           });
           setUserData(supabaseUser as UserData);
         } else {
