@@ -39,23 +39,25 @@ Mend-2 is a comprehensive workplace safety management platform built with React,
 3. **Circular Dependency Fix**: Fixed config file imports - getBaseUrl error persists
 4. **Debug Tools**: Created debugging utilities - can't load due to fundamental errors
 
-## ✅ AUTHENTICATION FULLY RESTORED (2025-08-24)
-**The authentication system is now working perfectly:**
-- ✅ All users correctly routed to role-appropriate dashboards
-- ✅ Role-based access control fully functional
-- ✅ Application starts cleanly without errors
-- ✅ Successful authentication flow for all 9 user roles
-- ✅ Mock auth system provides reliable role data flow
+## 🔧 AUTHENTICATION SIMPLIFIED (2025-08-24)
+**Current Implementation Status:**
+- **Clerk Authentication**: Using real Clerk for user authentication
+- **Role System**: Fetching role_id from Supabase users table
+- **Dashboard Routing**: DashboardRouter queries Supabase and routes based on role_id
+- **Simplification**: Removed all mock auth complexity - using Clerk as designed
 
-## 🎯 COMPLETED ACTIONS
-1. **Import/Bundling Issue**: ✅ Resolved - App starts without errors
-2. **Role Data Flow**: ✅ Fixed - Mock auth provides proper role data
-3. **Dashboard Routing**: ✅ Working - All roles route correctly
-4. **Auth Context**: ✅ Unified - Single useAuthContext for all components
-5. **Testing**: ✅ Verified - Admin and Account Manager roles tested successfully
+## 📋 AUTHENTICATION FLOW
+1. **User Login**: Clerk handles authentication
+2. **Role Fetch**: DashboardRouter gets role_id from Supabase using user email
+3. **Routing**: User routed to dashboard based on role_id mapping
+4. **Session**: Clerk maintains auth session
 
-### 🏆 AUTHENTICATION STATUS: FULLY OPERATIONAL
-The authentication system has been completely restored using a mock authentication provider that ensures reliable role-based routing during development.
+### ⚠️ TESTING REQUIRED
+The system is now simplified but needs testing with real Clerk accounts to verify:
+- Clerk authentication flow works correctly
+- Supabase role queries return expected data
+- Dashboard routing matches role_id correctly
+- All 9 roles route to appropriate dashboards
 
 ### ✅ LATEST AUTHENTICATION & ACCESS CONTROL IMPROVEMENTS (2025-08-23)
 1. **UserBadge Component Added**
