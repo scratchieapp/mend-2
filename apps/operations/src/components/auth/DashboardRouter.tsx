@@ -76,7 +76,7 @@ const DashboardRouter = () => {
 
   // If no user, redirect to login (should be handled by ProtectedRoute but double-check)
   if (!user) {
-    return <Navigate to="/auth/clerk-login" replace />;
+    return <Navigate to="/sign-in" replace />;
   }
 
   return <Outlet />;

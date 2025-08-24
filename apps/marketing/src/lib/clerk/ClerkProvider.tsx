@@ -72,7 +72,7 @@ const ClerkAuthContextProvider = ({ children }: { children: ReactNode }) => {
       openSignIn: () => {
         // Redirect to operations app login
         const operationsUrl = import.meta.env.VITE_OPERATIONS_URL || 'http://localhost:5173';
-        window.location.href = `${operationsUrl}/auth/clerk-login`;
+        window.location.href = `${operationsUrl}/sign-in`;
       },
     });
   }, [isLoaded, isSignedIn, user, clerkSignOut, navigate]);

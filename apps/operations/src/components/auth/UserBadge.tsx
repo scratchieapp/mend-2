@@ -34,7 +34,7 @@ export function UserBadge() {
     try {
       setIsSigningOut(true);
       await signOut();
-      navigate('/auth/clerk-login');
+      navigate('/sign-in');
     } catch (error) {
       console.error('Error signing out:', error);
     } finally {

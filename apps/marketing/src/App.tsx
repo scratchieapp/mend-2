@@ -28,7 +28,7 @@ function App() {
                 <button 
                   onClick={() => {
                     const operationsUrl = import.meta.env.VITE_OPERATIONS_URL || 'http://localhost:5173';
-                    window.location.href = `${operationsUrl}/auth/clerk-login`;
+                    window.location.href = `${operationsUrl}/sign-in`;
                   }}
                   className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                 >

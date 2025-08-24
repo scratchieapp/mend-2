@@ -49,7 +49,7 @@ export default function ClerkLogin() {
               },
             }}
             fallbackRedirectUrl={getClerkRedirectUrl('/')}
-            signUpFallbackRedirectUrl={getClerkRedirectUrl('/auth/clerk-login')}
+            signUpFallbackRedirectUrl={getClerkRedirectUrl('/sign-in')}
           />
         </CardContent>
       </Card>

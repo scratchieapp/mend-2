@@ -63,7 +63,11 @@ function App() {
 
       <Routes>
 
-        {/* Auth pages */}
+        {/* Auth pages - Clerk standard URLs */}
+        <Route path="/sign-in" element={<ClerkLogin />} />
+        <Route path="/sign-up" element={<ClerkSignup />} />
+        
+        {/* Legacy auth pages (keep for backward compatibility) */}
         <Route path="/auth/login" element={<Login />} />
         <Route path="/auth/clerk-login" element={<ClerkLogin />} />
         <Route path="/auth/clerk-signup" element={<ClerkSignup />} />

@@ -17,7 +17,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
       // Force redirect if Clerk says not signed in
-      window.location.href = '/auth/clerk-login';
+      window.location.href = '/sign-in';
     }
   }, [isLoaded, isSignedIn]);
 
@@ -31,7 +31,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
 
   // Strict authentication check - both Clerk and our context must agree
   if (!isSignedIn || !isAuthenticated || !user) {
-    return <Navigate to="/auth/clerk-login" replace />;
+    return <Navigate to="/sign-in" replace />;
   }
 
   // Check role-based access if roles are specified

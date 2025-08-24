@@ -15,7 +15,7 @@ export default function AuthStateHandler() {
       
       if (!user && !isAuthRoute && !isDevRoute) {
         // Redirect to Clerk login page which handles auth properly
-        navigate('/auth/clerk-login');
+        navigate('/sign-in');
       } else if (user && isAuthRoute && !location.pathname.includes('clear-session')) {
         // Redirect authenticated users away from auth pages to root 
         // Let DashboardRouter handle role-based routing

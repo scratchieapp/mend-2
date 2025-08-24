@@ -7,7 +7,7 @@ export function Unauthorized() {
 
   async function handleSignOut() {
     await signOut();
-    navigate('/auth/clerk-login');
+    navigate('/sign-in');
   }
 
   return (

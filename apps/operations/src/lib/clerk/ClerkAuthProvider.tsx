@@ -157,7 +157,7 @@ function ClerkAuthSync({ children }: { children: React.ReactNode }) {
     try {
       // Sign out from Clerk (handled by Clerk's button)
       setUserData(null);
-      navigate('/auth/clerk-login');
+      navigate('/sign-in');
     } catch (err) {
       console.error('Error signing out:', err);
       setError(err instanceof Error ? err.message : 'Failed to sign out');

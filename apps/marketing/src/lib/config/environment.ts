@@ -16,16 +16,16 @@ const environments = {
     operationsUrl: import.meta.env.VITE_OPERATIONS_URL || 'http://localhost:5173/operations',
     marketingUrl: import.meta.env.VITE_PUBLIC_URL || 'http://localhost:5174',
     authPaths: {
-      login: '/auth/clerk-login',
-      signup: '/auth/clerk-signup',
+      login: '/sign-in',
+      signup: '/sign-up',
     },
   },
   production: {
     operationsUrl: import.meta.env.VITE_OPERATIONS_URL || 'https://accounts.mendplatform.au',
     marketingUrl: import.meta.env.VITE_PUBLIC_URL || 'https://mendplatform.au',
     authPaths: {
-      login: '/auth/clerk-login',
-      signup: '/auth/clerk-signup',
+      login: '/sign-in',
+      signup: '/sign-up',
     },
   },
 } as const;
