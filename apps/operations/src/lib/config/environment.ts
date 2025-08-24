@@ -122,7 +122,7 @@ export const logEnvironmentConfig = () => {
     console.log('Operations URL:', config.operationsUrl);
     console.log('Marketing URL:', config.marketingUrl);
     console.log('Clerk Auth URL:', config.clerkAuthUrl);
-    console.log('Base URL:', getBaseUrl());
+    console.log('Base URL:', config.operationsUrl);
     console.log('Is Production:', isProduction());
     console.groupEnd();
   }
