@@ -50,9 +50,27 @@ const DashboardRouter = () => {
     const currentPath = window.location.pathname;
     const isAtRoot = currentPath === "/" || currentPath === "";
     
+    console.log('🔍 DashboardRouter useEffect:', {
+      isLoading,
+      hasUser: !!user,
+      currentPath,
+      isAtRoot,
+      userEmail: user?.email,
+      roleId: user?.role?.role_id,
+      roleName: user?.role?.role_name,
+      fullUrl: window.location.href
+    });
+    
     if (!isLoading && user && isAtRoot) {
       // First try to use role_id for mapping (most reliable)
       const roleId = user?.role?.role_id;
+      console.log('🔍 DashboardRouter: Checking role_id mapping:', {
+        roleId, 
+        hasMapping: !!(roleId && ROLE_ID_DASHBOARDS[roleId]),
+        availableRoleIds: Object.keys(ROLE_ID_DASHBOARDS),
+        targetPath: roleId ? ROLE_ID_DASHBOARDS[roleId] : 'none'
+      });
+      
       if (roleId && ROLE_ID_DASHBOARDS[roleId]) {
         console.log(`🔄 DashboardRouter: Redirecting user with role_id ${roleId} to ${ROLE_ID_DASHBOARDS[roleId]}`);
         navigate(ROLE_ID_DASHBOARDS[roleId], { replace: true });
@@ -61,12 +79,20 @@ const DashboardRouter = () => {
       
       // Fallback to role_name if role_id not available
       const userRole = user?.role?.role_name;
+      console.log('🔍 DashboardRouter: Checking role_name mapping:', {
+        userRole,
+        hasMapping: !!(userRole && ROLE_DASHBOARDS[userRole]),
+        availableRoleNames: Object.keys(ROLE_DASHBOARDS),
+        targetPath: userRole ? ROLE_DASHBOARDS[userRole] : 'none'
+      });
+      
       if (userRole && ROLE_DASHBOARDS[userRole]) {
         console.log(`🔄 DashboardRouter: Redirecting user with role_name ${userRole} to ${ROLE_DASHBOARDS[userRole]}`);
         navigate(ROLE_DASHBOARDS[userRole], { replace: true });
       } else {
         // Default to standard dashboard if role not found
         console.log(`🔄 DashboardRouter: No specific role found, redirecting to default dashboard`);
+        console.log('🔍 Available role mappings:', { ROLE_ID_DASHBOARDS, ROLE_DASHBOARDS });
         navigate("/dashboard", { replace: true });
       }
     }

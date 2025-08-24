@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { UserData } from '@/lib/auth/roles';
 import { getRoleFromEmail } from './config';
 import { useNavigate } from 'react-router-dom';
+import { isProduction } from '@/lib/config';
 
 interface ClerkAuthContextType {
   user: UserData | null;
@@ -39,15 +40,29 @@ function ClerkAuthSync({ children }: { children: React.ReactNode }) {
   // Sync Clerk user with Supabase database
   useEffect(() => {
     const syncUserData = async () => {
-      if (!isLoaded) return;
+      console.log('🔍 ClerkAuthProvider: Sync started:', {
+        isLoaded,
+        isSignedIn,
+        userId,
+        clerkUserEmail: clerkUser?.primaryEmailAddress?.emailAddress,
+        timestamp: new Date().toISOString()
+      });
+      
+      if (!isLoaded) {
+        console.log('🔍 ClerkAuthProvider: Clerk not loaded yet, skipping sync');
+        return;
+      }
       
       setIsLoading(true);
       setError(null);
 
       try {
         if (isSignedIn && clerkUser) {
+          console.log('🔍 ClerkAuthProvider: User is signed in, syncing with Supabase');
+          
           // Get role based on email
           const roleInfo = getRoleFromEmail(clerkUser.primaryEmailAddress?.emailAddress || '');
+          console.log('🔍 ClerkAuthProvider: Role info from email:', roleInfo);
           
           // Check if user exists in Supabase
           const { data: existingUser, error: fetchError } = await supabase
@@ -132,8 +147,15 @@ function ClerkAuthSync({ children }: { children: React.ReactNode }) {
           }
 
           // Set user data in context
+          console.log('🔄 ClerkAuthProvider: Setting user data:', {
+            email: supabaseUser.email,
+            role_id: supabaseUser.role?.role_id,
+            role_name: supabaseUser.role?.role_name,
+            clerk_user_id: supabaseUser.clerk_user_id
+          });
           setUserData(supabaseUser as UserData);
         } else {
+          console.log('🔍 ClerkAuthProvider: User not signed in, clearing user data');
           setUserData(null);
         }
       } catch (err) {
@@ -224,6 +246,8 @@ export function ClerkAuthProvider({ children }: ClerkAuthProviderProps) {
           rootBox: "mx-auto",
         },
       }}
+      // Configure for cross-domain authentication
+      domain={isProduction() ? 'mendplatform.au' : undefined}
     >
       <ClerkAuthSync>{children}</ClerkAuthSync>
     </ClerkProvider>

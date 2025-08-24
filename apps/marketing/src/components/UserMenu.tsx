@@ -51,8 +51,32 @@ export const UserMenu = () => {
         <DropdownMenuSeparator />
         <DropdownMenuItem 
           onClick={() => {
+            console.log('🔍 UserMenu: Go to Dashboard clicked');
+            console.log('🔍 UserMenu: Current location:', window.location.href);
+            console.log('🔍 UserMenu: Operations URL:', getOperationsUrl());
+            console.log('🔍 UserMenu: User info:', {
+              isSignedIn,
+              userEmail: user?.email,
+              userId: user?.id
+            });
+            
             // Navigate to operations root - DashboardRouter will redirect to correct role-based dashboard
-            window.location.href = getOperationsUrl();
+            const operationsUrl = getOperationsUrl();
+            const currentOrigin = window.location.origin;
+            
+            // Check if we're already on the operations domain
+            if (currentOrigin.includes('accounts.mendplatform.au') || 
+                currentOrigin.includes('localhost:5173')) {
+              console.log('🔄 UserMenu: Already on operations domain, using internal navigation');
+              // We're already on the operations app, so we can navigate directly
+              // This should preserve the authentication state
+              window.location.pathname = '/';
+            } else {
+              console.log('🔄 UserMenu: Cross-domain navigation to operations');
+              // We're on marketing site, need to navigate to operations domain
+              // This will trigger a cross-domain navigation but preserve Clerk session
+              window.location.href = operationsUrl;
+            }
           }}
         >
           <LayoutDashboard className="mr-2 h-4 w-4" />

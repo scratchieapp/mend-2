@@ -10,8 +10,22 @@ export default function ClerkLogin() {
   const { isAuthenticated, user } = useClerkAuthContext();
 
   useEffect(() => {
+    console.log('🔍 ClerkLogin useEffect triggered:', { 
+      isAuthenticated, 
+      hasUser: !!user, 
+      userEmail: user?.email,
+      userRole: user?.role?.role_name,
+      currentPath: window.location.pathname,
+      currentUrl: window.location.href
+    });
+    
     if (isAuthenticated && user) {
       console.log('🔄 ClerkLogin: User authenticated, redirecting to dashboard...');
+      console.log('🔄 ClerkLogin: User details:', {
+        role_id: user.role?.role_id,
+        role_name: user.role?.role_name,
+        email: user.email
+      });
       // Redirect immediately to root to let DashboardRouter handle role-based routing
       // This ensures users go directly to their dashboard after login
       navigate('/', { replace: true });
@@ -50,10 +64,10 @@ export default function ClerkLogin() {
                 footerActionLink: 'text-primary hover:text-primary/90',
               },
             }}
-            // After successful sign-in, redirect to root which will trigger DashboardRouter
-            afterSignInUrl={getClerkRedirectUrl('/')}
-            fallbackRedirectUrl={getClerkRedirectUrl('/')}
-            signUpFallbackRedirectUrl={getClerkRedirectUrl('/sign-up')}
+            // Let our useEffect handle redirects to avoid conflicts
+            // Removed afterSignInUrl and fallbackRedirectUrl to prevent double redirects
+            // Only keep signup redirect for new user registration flow
+            signUpUrl={getClerkRedirectUrl('/sign-up')}
           />
         </CardContent>
       </Card>
