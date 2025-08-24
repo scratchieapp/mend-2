@@ -11,7 +11,8 @@ export default function ClerkLogin() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard');
+      // Redirect to root to let DashboardRouter handle role-based routing
+      navigate('/', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
@@ -47,7 +48,7 @@ export default function ClerkLogin() {
                 footerActionLink: 'text-primary hover:text-primary/90',
               },
             }}
-            fallbackRedirectUrl={getClerkRedirectUrl('/dashboard')}
+            fallbackRedirectUrl={getClerkRedirectUrl('/')}
             signUpFallbackRedirectUrl={getClerkRedirectUrl('/auth/clerk-login')}
           />
         </CardContent>

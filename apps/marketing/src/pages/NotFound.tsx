@@ -1,4 +1,4 @@
-import { Shield, ArrowLeft, Home } from 'lucide-react';
+import { Shield, Home } from 'lucide-react';
 
 const NotFound = () => {
   return (

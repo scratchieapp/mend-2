@@ -47,7 +47,7 @@ export const trackPageView = (path?: string, title?: string) => {
 // Track custom events
 export const trackEvent = (
   eventName: string,
-  parameters?: Record<string, any>
+  parameters?: Record<string, string | number | boolean | object | undefined>
 ) => {
   if (!window.gtag) return;
 
@@ -72,7 +72,12 @@ export const trackConversion = {
   },
 
   // Track when demo booking is completed
-  demoBookingCompleted: (userData?: any) => {
+  demoBookingCompleted: (userData?: {
+    name?: string;
+    email?: string;
+    company?: string;
+    phone?: string;
+  }) => {
     trackEvent('purchase', {
       value: 1000, // Estimated lead value
       currency: 'AUD',
@@ -122,7 +127,14 @@ export const trackConversion = {
   },
 
   // Track ROI calculator usage
-  roiCalculatorUsed: (data: any) => {
+  roiCalculatorUsed: (data: {
+    estimatedSavings: number;
+    workers?: number;
+    wageBill?: number;
+    premiumRate?: number;
+    managers?: number;
+    currentIncidents?: number;
+  }) => {
     trackEvent('view_item', {
       currency: 'AUD',
       value: data.estimatedSavings,
@@ -146,7 +158,13 @@ export const trackConversion = {
   },
 
   // Track contact form submission
-  contactFormSubmitted: (formData: any) => {
+  contactFormSubmitted: (formData: {
+    name?: string;
+    email?: string;
+    company?: string;
+    message?: string;
+    phone?: string;
+  }) => {
     trackEvent('generate_lead', {
       currency: 'AUD',
       value: 500, // Estimated lead value
@@ -261,7 +279,7 @@ export const trackGoal = (goalName: string, value?: number) => {
 // Declare gtag on window
 declare global {
   interface Window {
-    gtag: (...args: any[]) => void;
-    dataLayer: any[];
+    gtag: (command: string, ...args: Array<string | number | object>) => void;
+    dataLayer: Array<IArguments | string | object>;
   }
 }

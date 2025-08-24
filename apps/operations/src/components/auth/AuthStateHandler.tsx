@@ -17,10 +17,11 @@ export default function AuthStateHandler() {
         // Redirect to Clerk login page which handles auth properly
         navigate('/auth/clerk-login');
       } else if (user && isAuthRoute && !location.pathname.includes('clear-session')) {
-        // Only redirect away from auth pages if user is logged in (except clear-session)
-        navigate('/');
+        // Redirect authenticated users away from auth pages to root 
+        // Let DashboardRouter handle role-based routing
+        navigate('/', { replace: true });
       }
-      // If user is at "/" and authenticated, or at "/auth/*" and not authenticated, do nothing
+      // If user is at "/" and authenticated, let DashboardRouter handle the routing
       // Development routes are allowed without authentication
     }
   }, [user, isLoading, navigate, location]);

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calculator, DollarSign, TrendingUp, Users } from 'lucide-react';
+import { Calculator, TrendingUp } from 'lucide-react';
 
 interface ROIInputs {
   workers: number;

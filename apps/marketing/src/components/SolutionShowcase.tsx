@@ -125,7 +125,7 @@ const SolutionShowcase = () => {
                 </span>
               </div>
               <div className="space-y-3 mb-4">
-                {mockup.fields.map((field, idx) => (
+                {mockup.fields?.map((field, idx) => (
                   <div key={idx} className="flex justify-between text-sm">
                     <span className="text-gray-600">{field.label}:</span>
                     <span className="font-medium">{field.value}</span>
@@ -164,7 +164,7 @@ const SolutionShowcase = () => {
               </span>
             </div>
             <div className="grid grid-cols-3 gap-4">
-              {mockup.metrics.map((metric, idx) => (
+              {mockup.metrics?.map((metric, idx) => (
                 <div key={idx} className="bg-gray-50 rounded-lg p-4 text-center">
                   <div className="text-sm text-gray-600 mb-1">{metric.label}</div>
                   <div className="text-lg font-bold text-gray-900">{metric.value}</div>
@@ -179,7 +179,7 @@ const SolutionShowcase = () => {
           <div className="bg-white rounded-xl p-6 shadow-lg">
             <h4 className="font-semibold text-lg mb-4">{mockup.title}</h4>
             <div className="space-y-3">
-              {mockup.contractors.map((contractor, idx) => (
+              {mockup.contractors?.map((contractor, idx) => (
                 <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                   <div>
                     <div className="font-medium">{contractor.name}</div>
@@ -204,7 +204,7 @@ const SolutionShowcase = () => {
           <div className="bg-white rounded-xl p-6 shadow-lg">
             <h4 className="font-semibold text-lg mb-4">{mockup.title}</h4>
             <div className="space-y-4">
-              {mockup.events.map((event, idx) => (
+              {mockup.events?.map((event, idx) => (
                 <div key={idx} className="flex items-start gap-3">
                   <div className={`w-3 h-3 rounded-full mt-2 ${
                     event.status === 'complete' ? 'bg-green-500' : 'bg-amber-500'

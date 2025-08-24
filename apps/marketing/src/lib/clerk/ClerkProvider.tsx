@@ -9,10 +9,20 @@ if (!CLERK_PUBLISHABLE_KEY) {
   console.warn('Missing VITE_CLERK_PUBLISHABLE_KEY in environment variables');
 }
 
+interface ClerkUser {
+  id: string;
+  email?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  fullName?: string | null;
+  imageUrl?: string;
+  role?: string;
+}
+
 interface ClerkAuthContextType {
   isLoaded: boolean;
   isSignedIn: boolean;
-  user: any;
+  user: ClerkUser | null;
   signOut: () => Promise<void>;
   openSignIn: () => void;
 }
@@ -61,7 +71,8 @@ const ClerkAuthContextProvider = ({ children }: { children: ReactNode }) => {
       },
       openSignIn: () => {
         // Redirect to operations app login
-        window.location.href = import.meta.env.VITE_OPERATIONS_URL || 'http://localhost:5173/auth/clerk-login';
+        const operationsUrl = import.meta.env.VITE_OPERATIONS_URL || 'http://localhost:5173';
+        window.location.href = `${operationsUrl}/auth/clerk-login`;
       },
     });
   }, [isLoaded, isSignedIn, user, clerkSignOut, navigate]);

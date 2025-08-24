@@ -6,11 +6,33 @@
   "rewrites": [
     {
       "source": "/operations/(.*)",
-      "destination": "/operations/$1"
+      "destination": "/operations/$1",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?<host>accounts\\.mendplatform\\.au|localhost)"
+        }
+      ]
     },
     {
       "source": "/operations",
-      "destination": "/operations/index.html"
+      "destination": "/operations/index.html",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?<host>accounts\\.mendplatform\\.au|localhost)"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/operations/$1",
+      "has": [
+        {
+          "type": "host",
+          "value": "accounts.mendplatform.au"
+        }
+      ]
     },
     {
       "source": "/(.*)",

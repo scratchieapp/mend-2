@@ -17,7 +17,8 @@ export default function ClerkSignup() {
   }
 
   if (isAuthenticated) {
-    return <Navigate to={returnUrl} replace />;
+    // Always redirect to root to let DashboardRouter handle role-based routing
+    return <Navigate to="/" replace />;
   }
 
   return (
@@ -48,7 +49,7 @@ export default function ClerkSignup() {
                 footerActionLink: 'text-blue-600 hover:text-blue-700',
               },
             }}
-            afterSignUpUrl={returnUrl}
+            afterSignUpUrl="/"
             signInUrl="/auth/clerk-login"
           />
         </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Shield, 
   TrendingDown, 
@@ -23,10 +23,23 @@ import SolutionShowcase from '../components/SolutionShowcase';
 import { UserMenu } from '../components/UserMenu';
 import { useClerkAuth } from '../lib/clerk/ClerkProvider';
 import { trackConversion, trackFunnel } from '../lib/analytics/ga4';
+import { 
+  getLoginUrl, 
+  getSignupUrl, 
+  logEnvironmentConfig, 
+  getEnvironment 
+} from '../lib/config/environment';
 
 const HomePage = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { isSignedIn } = useClerkAuth();
+  
+  // Log environment configuration in development
+  useEffect(() => {
+    if (getEnvironment() === 'development') {
+      logEnvironmentConfig();
+    }
+  }, []);
   
   const handleBookDemo = () => {
     trackConversion.demoBookingStarted();
@@ -38,17 +51,16 @@ const HomePage = () => {
   const handleLoginClick = (source: string) => {
     trackConversion.loginClicked(source);
     trackFunnel.conversionAction('login');
-    // Redirect to operations app login page
-    const operationsUrl = import.meta.env.VITE_OPERATIONS_URL || 'http://localhost:5173';
-    window.location.href = `${operationsUrl}/auth/clerk-login`;
+    // Use environment-aware login URL
+    window.location.href = getLoginUrl('/');
   };
 
   const handleSignUpClick = (source: string) => {
-    trackConversion.signupClicked(source);
-    trackFunnel.conversionAction('signup');
-    // Redirect to operations app sign-up page with return URL
-    const operationsUrl = import.meta.env.VITE_OPERATIONS_URL || 'http://localhost:5173';
-    window.location.href = `${operationsUrl}/auth/clerk-signup?returnUrl=/`;
+    // Track signup as a login conversion since they're the same in Clerk
+    trackConversion.loginClicked(source);
+    trackFunnel.conversionAction('login');
+    // Use environment-aware signup URL with return URL
+    window.location.href = getSignupUrl('/');
   };
 
   return (
