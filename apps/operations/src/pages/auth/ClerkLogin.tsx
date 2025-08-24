@@ -5,6 +5,19 @@ import { useNavigate } from 'react-router-dom';
 import { useClerkAuthContext } from '@/lib/clerk/ClerkAuthProvider';
 import { getClerkRedirectUrl } from '@/lib/config';
 
+// Simple role-based dashboard mapping
+const ROLE_DASHBOARDS: Record<number, string> = {
+  1: '/admin',              // role1@scratchie.com → AdminDashboard
+  2: '/account-manager',    // role2@scratchie.com → AccountManager
+  3: '/dashboard',          // role3@scratchie.com → Dashboard
+  4: '/dashboard',          // role4 → Dashboard
+  5: '/builder-senior',     // role5@scratchie.com → BuilderSeniorDashboard
+  6: '/site-admin',         // role6 → SiteAdmin
+  7: '/worker-portal',      // role7 → WorkerPortal
+  8: '/dashboard',          // role8 → Dashboard
+  9: '/worker-portal',      // role9 → WorkerPortal
+};
+
 export default function ClerkLogin() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useClerkAuthContext();
@@ -26,9 +39,13 @@ export default function ClerkLogin() {
         role_name: user.role?.role_name,
         email: user.email
       });
-      // Redirect immediately to root to let DashboardRouter handle role-based routing
-      // This ensures users go directly to their dashboard after login
-      navigate('/', { replace: true });
+      
+      // Direct redirect to the correct dashboard based on role
+      const roleId = user.role?.role_id;
+      const dashboardPath = roleId ? ROLE_DASHBOARDS[roleId] : '/dashboard';
+      
+      console.log(`🎯 ClerkLogin: Redirecting role ${roleId} to ${dashboardPath}`);
+      navigate(dashboardPath, { replace: true });
     }
   }, [isAuthenticated, user, navigate]);
 

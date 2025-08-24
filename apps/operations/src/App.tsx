@@ -97,6 +97,7 @@ function App() {
           
           {/* Role-specific dashboard routes */}
           <Route path="dashboard" element={<Dashboard />} />
+          <Route path="admin" element={<AdminDashboard />} />
           <Route path="account-manager" element={<AccountManager />} />
           <Route path="user-management" element={<UserManagementPage />} />
           <Route path="builder-senior" element={<BuilderSeniorDashboard />} />
