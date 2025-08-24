@@ -15,12 +15,13 @@ export default function AuthStateHandler() {
                          location.pathname === '/sign-up';
       const isDevRoute = location.pathname.startsWith('/dev/');
       
+      console.log(`🔍 AuthStateHandler: path=${location.pathname}, user=${!!user}, isAuthRoute=${isAuthRoute}`);
+      
       if (!user && !isAuthRoute && !isDevRoute) {
-        // Redirect to Clerk login page which handles auth properly
+        console.log('🔄 AuthStateHandler: No user, redirecting to sign-in');
         navigate('/sign-in');
       } else if (user && (isAuthRoute || location.pathname === '/sign-in' || location.pathname === '/sign-up')) {
-        // Redirect authenticated users away from auth pages directly to root
-        // DashboardRouter will immediately redirect them to their role-specific dashboard
+        console.log('🔄 AuthStateHandler: Authenticated user on auth page, redirecting to root for dashboard routing');
         navigate('/', { replace: true });
       }
       // If user is at "/" and authenticated, DashboardRouter will handle the redirect

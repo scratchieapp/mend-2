@@ -51,7 +51,7 @@ export const UserMenu = () => {
         <DropdownMenuSeparator />
         <DropdownMenuItem 
           onClick={() => {
-            // Navigate to operations dashboard
+            // Navigate to operations root - DashboardRouter will redirect to correct role-based dashboard
             window.location.href = getOperationsUrl();
           }}
         >
@@ -60,8 +60,8 @@ export const UserMenu = () => {
         </DropdownMenuItem>
         <DropdownMenuItem 
           onClick={() => {
-            // Navigate to account settings in operations app
-            window.location.href = `${getOperationsUrl()}/settings`;
+            // Navigate to Clerk user profile page (standard Clerk route)
+            window.location.href = `${getOperationsUrl()}/user`;
           }}
         >
           <Settings className="mr-2 h-4 w-4" />

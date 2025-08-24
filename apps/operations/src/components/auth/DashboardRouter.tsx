@@ -46,11 +46,15 @@ const DashboardRouter = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Only redirect if we're at the root path and have user data
-    if (!isLoading && user && window.location.pathname === "/") {
+    // Redirect if we have user data and are at root path or just authenticated
+    const currentPath = window.location.pathname;
+    const isAtRoot = currentPath === "/" || currentPath === "";
+    
+    if (!isLoading && user && isAtRoot) {
       // First try to use role_id for mapping (most reliable)
       const roleId = user?.role?.role_id;
       if (roleId && ROLE_ID_DASHBOARDS[roleId]) {
+        console.log(`🔄 DashboardRouter: Redirecting user with role_id ${roleId} to ${ROLE_ID_DASHBOARDS[roleId]}`);
         navigate(ROLE_ID_DASHBOARDS[roleId], { replace: true });
         return;
       }
@@ -58,9 +62,11 @@ const DashboardRouter = () => {
       // Fallback to role_name if role_id not available
       const userRole = user?.role?.role_name;
       if (userRole && ROLE_DASHBOARDS[userRole]) {
+        console.log(`🔄 DashboardRouter: Redirecting user with role_name ${userRole} to ${ROLE_DASHBOARDS[userRole]}`);
         navigate(ROLE_DASHBOARDS[userRole], { replace: true });
       } else {
         // Default to standard dashboard if role not found
+        console.log(`🔄 DashboardRouter: No specific role found, redirecting to default dashboard`);
         navigate("/dashboard", { replace: true });
       }
     }

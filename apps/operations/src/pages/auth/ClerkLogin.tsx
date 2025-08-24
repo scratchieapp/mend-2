@@ -11,6 +11,7 @@ export default function ClerkLogin() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
+      console.log('🔄 ClerkLogin: User authenticated, redirecting to dashboard...');
       // Redirect immediately to root to let DashboardRouter handle role-based routing
       // This ensures users go directly to their dashboard after login
       navigate('/', { replace: true });

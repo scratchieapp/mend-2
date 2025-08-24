@@ -14,6 +14,9 @@ import SignUp from "./pages/auth/SignUp";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
 import DashboardRouter from "./components/auth/DashboardRouter";
+
+// Clerk components
+import { UserProfile } from "@clerk/clerk-react";
 // import { SessionWarning } from "./components/SessionWarning"; // Disabled for Clerk-only auth
 
 // Pages
@@ -130,6 +133,23 @@ function App() {
           <Route path="incident/:id" element={<IncidentDetailsPage />} />
           <Route path="incident/:id/edit" element={<IncidentEditPage />} />
           
+          {/* User Profile route for Clerk */}
+          <Route
+            path="user/*"
+            element={
+              <div className="container mx-auto p-8">
+                <UserProfile
+                  appearance={{
+                    elements: {
+                      rootBox: "w-full max-w-4xl mx-auto",
+                      card: "shadow-lg border",
+                    },
+                  }}
+                />
+              </div>
+            }
+          />
+
           {/* Admin routes */}
           <Route
             path="admin"
