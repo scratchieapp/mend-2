@@ -43,6 +43,14 @@ const HomePage = () => {
     window.location.href = `${operationsUrl}/auth/clerk-login`;
   };
 
+  const handleSignUpClick = (source: string) => {
+    trackConversion.signupClicked(source);
+    trackFunnel.conversionAction('signup');
+    // Redirect to operations app sign-up page with return URL
+    const operationsUrl = import.meta.env.VITE_OPERATIONS_URL || 'http://localhost:5173';
+    window.location.href = `${operationsUrl}/auth/clerk-signup?returnUrl=/`;
+  };
+
   return (
     <div className="min-h-screen bg-white">
       {/* Top Banner - Compliance Trust Signal */}
@@ -90,10 +98,10 @@ const HomePage = () => {
                     Login
                   </button>
                   <button 
-                    onClick={handleBookDemo}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    onClick={() => handleSignUpClick('header')}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
                   >
-                    Book Demo
+                    Sign Up
                   </button>
                 </>
               )}

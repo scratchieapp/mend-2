@@ -23,7 +23,8 @@ export default defineConfig(({ mode }) => ({
     include: ['mapbox-gl']
   },
   build: {
-    outDir: '../../dist/operations'
+    outDir: '../../dist/operations',
+    emptyOutDir: true
   },
   base: '/operations/'
 }));

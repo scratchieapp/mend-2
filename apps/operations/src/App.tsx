@@ -8,6 +8,7 @@ import AuthStateHandler from "./components/auth/AuthStateHandler"; // still in u
 import AuthCallback from "./pages/auth/AuthCallback";
 import Login from "./pages/auth/Login";
 import ClerkLogin from "./pages/auth/ClerkLogin";
+import ClerkSignup from "./pages/auth/ClerkSignup";
 import ClearSession from "./pages/auth/ClearSession";
 import SignUp from "./pages/auth/SignUp";
 import ForgotPassword from "./pages/auth/ForgotPassword";
@@ -65,6 +66,7 @@ function App() {
         {/* Auth pages */}
         <Route path="/auth/login" element={<Login />} />
         <Route path="/auth/clerk-login" element={<ClerkLogin />} />
+        <Route path="/auth/clerk-signup" element={<ClerkSignup />} />
         <Route path="/auth/clear-session" element={<ClearSession />} />
         <Route path="/auth/signup" element={<SignUp />} />
         <Route path="/auth/forgot-password" element={<ForgotPassword />} />

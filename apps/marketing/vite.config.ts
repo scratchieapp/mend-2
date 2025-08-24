@@ -16,6 +16,7 @@ export default defineConfig({
   },
   build: {
     outDir: '../../dist/marketing',
+    emptyOutDir: true,
     sourcemap: false,
     minify: 'esbuild',
     rollupOptions: {

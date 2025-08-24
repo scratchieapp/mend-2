@@ -4,7 +4,20 @@ import { useClerkAuthContext } from "@/lib/clerk/ClerkAuthProvider";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
-// Role-based dashboard mapping
+// Role-based dashboard mapping by role_id
+const ROLE_ID_DASHBOARDS: Record<number, string> = {
+  1: "/admin",              // mend_super_admin
+  2: "/account-manager",    // mend_account_manager  
+  3: "/dashboard",          // mend_data_entry
+  4: "/dashboard",          // mend_analyst
+  5: "/builder-senior",     // builder_admin
+  6: "/site-admin",         // site_admin
+  7: "/worker-portal",      // client
+  8: "/dashboard",          // vendor
+  9: "/worker-portal",      // public
+};
+
+// Role-based dashboard mapping by role_name (fallback)
 const ROLE_DASHBOARDS: Record<string, string> = {
   mend_super_admin: "/admin",
   mend_account_manager: "/account-manager",
@@ -35,9 +48,16 @@ const DashboardRouter = () => {
   useEffect(() => {
     // Only redirect if we're at the root path and have user data
     if (!isLoading && user && window.location.pathname === "/") {
+      // First try to use role_id for mapping (most reliable)
+      const roleId = user?.role?.role_id;
+      if (roleId && ROLE_ID_DASHBOARDS[roleId]) {
+        navigate(ROLE_ID_DASHBOARDS[roleId], { replace: true });
+        return;
+      }
+      
+      // Fallback to role_name if role_id not available
       const userRole = user?.role?.role_name;
       if (userRole && ROLE_DASHBOARDS[userRole]) {
-        // Redirect to role-specific dashboard
         navigate(ROLE_DASHBOARDS[userRole], { replace: true });
       } else {
         // Default to standard dashboard if role not found
