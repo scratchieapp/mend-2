@@ -2,7 +2,6 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { ReactNode } from 'react';
 import { useAuthContext, USE_MOCK_AUTH } from '@/lib/auth/authConfig';
-import { useAuth } from '@clerk/clerk-react';
 
 interface ProtectedRouteProps {
   children?: ReactNode;
@@ -12,24 +11,8 @@ interface ProtectedRouteProps {
 export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { user, isLoading, isAuthenticated } = useAuthContext();
   
-  // Always call the hook, but only use its values when not in mock mode
-  const clerkAuth = useAuth();
-  const isSignedIn = USE_MOCK_AUTH ? true : clerkAuth.isSignedIn;
-  const isLoaded = USE_MOCK_AUTH ? true : clerkAuth.isLoaded;
-
-  // Handle Clerk loading state
-  if (!USE_MOCK_AUTH && !isLoaded) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-  
-  // Check Clerk authentication state
-  if (!USE_MOCK_AUTH && isLoaded && !isSignedIn) {
-    return <Navigate to="/sign-in" replace />;
-  }
+  // When using mock auth, we don't need to check Clerk state
+  // The mock auth provider handles all authentication state
 
   if (isLoading) {
     return (
