@@ -34,9 +34,6 @@ export const useIncidentData = (selectedEmployerId?: number | null) => {
         throw error;
       }
 
-      console.log('Raw incidents from DB:', incidents);
-      console.log('Raw employers from DB:', employers);
-      console.log('Date range:', { startDate: startDate.toISOString(), endDate: endDate.toISOString() });
 
       return transformIncidentData(incidents, employers);
     }

@@ -24,39 +24,27 @@ export const useEmployerSelection = () => {
       // Only initialize if we have user data
       if (!userData) return;
       
+      // Check if we already have a selection
+      const currentSelection = localStorage.getItem("selectedEmployerId");
+      if (currentSelection !== null && currentSelection !== "null") {
+        // Already have a selection, don't re-initialize
+        return;
+      }
+      
       try {
-        // If Super Admin has selected "View All" mode (null), clear context
-        if (selectedEmployerId === null && userData.role_id === 1) {
-          const { error } = await supabase.rpc('clear_employer_context');
-          if (error) {
-            console.error('Error clearing employer context:', error);
-          }
-        } else if (selectedEmployerId) {
-          // Set specific employer context
-          const { error } = await supabase.rpc('set_employer_context', {
-            employer_id: selectedEmployerId
-          });
-          
-          if (error) {
-            console.error('Error initializing employer context:', error);
-            // If error, try to set to user's default employer
-            if (userData.employer_id) {
-              const defaultEmployerId = parseInt(userData.employer_id);
-              await supabase.rpc('set_employer_context', {
-                employer_id: defaultEmployerId
-              });
-              setSelectedEmployerId(defaultEmployerId);
-              localStorage.setItem("selectedEmployerId", defaultEmployerId.toString());
-            }
-          }
-        } else if (!selectedEmployerId && userData.employer_id) {
-          // No selection yet, set to user's default employer
+        // No selection yet and user has a default employer
+        if (userData.employer_id) {
           const defaultEmployerId = parseInt(userData.employer_id);
           await supabase.rpc('set_employer_context', {
             employer_id: defaultEmployerId
           });
           setSelectedEmployerId(defaultEmployerId);
           localStorage.setItem("selectedEmployerId", defaultEmployerId.toString());
+        } else if (userData.role_id === 1) {
+          // Super Admin without default employer - set to View All mode
+          await supabase.rpc('clear_employer_context');
+          setSelectedEmployerId(null);
+          localStorage.setItem("selectedEmployerId", "null");
         }
       } catch (err) {
         console.error('Failed to initialize employer context:', err);
@@ -64,7 +52,7 @@ export const useEmployerSelection = () => {
     };
 
     initializeContext();
-  }, [userData, selectedEmployerId]);
+  }, [userData]); // Only depend on userData, not selectedEmployerId
 
   const { data: employers = [], isLoading: isLoadingEmployers } = useQuery({
     queryKey: ['employers'],

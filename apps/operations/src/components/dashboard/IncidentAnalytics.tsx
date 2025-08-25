@@ -26,8 +26,6 @@ export const IncidentAnalytics = ({ selectedEmployerId }: IncidentAnalyticsProps
     </ChartContainer>;
   }
 
-  // Debug logging
-  console.log("Chart data:", chartData);
 
   // Show message if no data
   if (!chartData.data.length) {
