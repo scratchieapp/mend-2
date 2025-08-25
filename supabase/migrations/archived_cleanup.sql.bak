@@ -1,0 +1,43 @@
+-- EMERGENCY CLEANUP: Drop ALL versions of get_incidents functions
+-- This migration must run BEFORE any other fixes
+-- Date: 2025-08-26
+
+-- Drop all possible function signatures that might exist
+-- We use IF EXISTS to avoid errors if they don't exist
+
+-- Version 1: Original signature with many parameters
+DROP FUNCTION IF EXISTS public.get_incidents_with_details(
+    integer, integer, integer, integer, date, date, integer, integer
+) CASCADE;
+
+-- Version 2: Simplified signature with uuid
+DROP FUNCTION IF EXISTS public.get_incidents_with_details(
+    uuid, integer, integer
+) CASCADE;
+
+-- Version 3: No parameters
+DROP FUNCTION IF EXISTS public.get_incidents_with_details() CASCADE;
+
+-- Version 4: Just page parameters
+DROP FUNCTION IF EXISTS public.get_incidents_with_details(
+    integer, integer
+) CASCADE;
+
+-- Version 5: Any other variations
+DROP FUNCTION IF EXISTS public.get_incidents_with_details CASCADE;
+
+-- Also drop count functions
+DROP FUNCTION IF EXISTS public.get_incidents_count(
+    integer, integer, date, date, integer, integer
+) CASCADE;
+
+DROP FUNCTION IF EXISTS public.get_incidents_count(uuid) CASCADE;
+DROP FUNCTION IF EXISTS public.get_incidents_count() CASCADE;
+DROP FUNCTION IF EXISTS public.get_incidents_count CASCADE;
+
+-- Log completion
+DO $$
+BEGIN
+    RAISE NOTICE 'All versions of get_incidents functions have been dropped successfully';
+END;
+$$;

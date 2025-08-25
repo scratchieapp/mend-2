@@ -1,0 +1,59 @@
+-- FIXED TYPES VERSION: Correct data types for get_incidents_with_details
+-- Date: 2025-08-26
+
+-- Drop existing functions
+DROP FUNCTION IF EXISTS public.get_incidents_with_details CASCADE;
+
+-- Create function with correct types
+CREATE OR REPLACE FUNCTION public.get_incidents_with_details(
+    p_user_id uuid DEFAULT NULL,
+    p_limit integer DEFAULT 50,
+    p_offset integer DEFAULT 0
+)
+RETURNS TABLE (
+    incident_id integer,  -- Changed from bigint to integer to match actual column type
+    incident_number text,
+    date_of_injury date,
+    time_of_injury time,
+    injury_type text,
+    classification text,
+    incident_status text,
+    injury_description text,
+    worker_name text,
+    employer_name text,
+    site_name text
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        i.incident_id::integer,  -- Explicit cast to integer
+        COALESCE(i.incident_number, 'Unknown')::text,
+        i.date_of_injury,
+        i.time_of_injury,
+        COALESCE(i.injury_type, 'Unknown')::text,
+        COALESCE(i.classification, 'Unknown')::text,
+        COALESCE(i.incident_status, 'Open')::text,
+        COALESCE(i.injury_description, 'No description')::text,
+        COALESCE(CONCAT(w.given_name, ' ', w.family_name), 'Unknown Worker')::text AS worker_name,
+        COALESCE(e.employer_name, 'Unknown Employer')::text AS employer_name,
+        COALESCE(s.site_name, 'Unknown Site')::text AS site_name
+    FROM incidents i
+    LEFT JOIN workers w ON i.worker_id = w.worker_id
+    LEFT JOIN employers e ON i.employer_id = e.employer_id
+    LEFT JOIN sites s ON i.site_id = s.site_id
+    ORDER BY i.date_of_injury DESC NULLS LAST, i.created_at DESC
+    LIMIT p_limit
+    OFFSET p_offset;
+END;
+$$;
+
+-- Grant permissions
+GRANT EXECUTE ON FUNCTION public.get_incidents_with_details TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_incidents_with_details TO anon;
+
+-- Add documentation
+COMMENT ON FUNCTION public.get_incidents_with_details IS 'FIXED TYPES: Returns essential incident details with correct data types';

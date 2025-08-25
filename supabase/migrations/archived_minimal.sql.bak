@@ -1,0 +1,80 @@
+-- MINIMAL WORKING VERSION: Basic get_incidents_with_details function
+-- Date: 2025-08-26
+-- Absolute minimum fields to ensure it works
+
+-- Drop existing functions
+DROP FUNCTION IF EXISTS public.get_incidents_with_details CASCADE;
+
+-- Create minimal working function
+CREATE OR REPLACE FUNCTION public.get_incidents_with_details(
+    p_user_id uuid DEFAULT NULL,
+    p_limit integer DEFAULT 50,
+    p_offset integer DEFAULT 0
+)
+RETURNS TABLE (
+    incident_id bigint,
+    incident_number text,
+    date_of_injury date,
+    time_of_injury time,
+    injury_type text,
+    classification text,
+    incident_status text,
+    injury_description text,
+    worker_name text,
+    employer_name text,
+    site_name text
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        i.incident_id,
+        COALESCE(i.incident_number, 'Unknown')::text,
+        i.date_of_injury,
+        i.time_of_injury,
+        COALESCE(i.injury_type, 'Unknown')::text,
+        COALESCE(i.classification, 'Unknown')::text,
+        COALESCE(i.incident_status, 'Open')::text,
+        COALESCE(i.injury_description, 'No description')::text,
+        COALESCE(CONCAT(w.given_name, ' ', w.family_name), 'Unknown Worker')::text AS worker_name,
+        COALESCE(e.employer_name, 'Unknown Employer')::text AS employer_name,
+        COALESCE(s.site_name, 'Unknown Site')::text AS site_name
+    FROM incidents i
+    LEFT JOIN workers w ON i.worker_id = w.worker_id
+    LEFT JOIN employers e ON i.employer_id = e.employer_id
+    LEFT JOIN sites s ON i.site_id = s.site_id
+    ORDER BY i.date_of_injury DESC NULLS LAST, i.created_at DESC
+    LIMIT p_limit
+    OFFSET p_offset;
+END;
+$$;
+
+-- Grant permissions
+GRANT EXECUTE ON FUNCTION public.get_incidents_with_details TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_incidents_with_details TO anon;
+
+-- Add documentation
+COMMENT ON FUNCTION public.get_incidents_with_details IS 'MINIMAL: Basic function that returns essential incident details';
+
+-- Test it immediately
+DO $$
+DECLARE
+    v_test_record record;
+    v_count integer := 0;
+BEGIN
+    FOR v_test_record IN 
+        SELECT * FROM get_incidents_with_details(NULL, 1, 0)
+    LOOP
+        v_count := v_count + 1;
+    END LOOP;
+    
+    IF v_count > 0 THEN
+        RAISE NOTICE 'SUCCESS: Function works! Retrieved % record(s)', v_count;
+    ELSE
+        RAISE NOTICE 'WARNING: Function works but no incidents found in database';
+    END IF;
+END;
+$$;

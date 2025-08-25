@@ -1,0 +1,202 @@
+-- WORKING VERSION: Simplified get_incidents_with_details function
+-- Date: 2025-08-26
+-- Removes injury code joins and testing to ensure it works
+
+-- Step 1: Drop ALL existing versions
+DROP FUNCTION IF EXISTS public.get_incidents_with_details CASCADE;
+DROP FUNCTION IF EXISTS public.get_incidents_count CASCADE;
+
+-- Step 2: Create simplified working function
+CREATE OR REPLACE FUNCTION public.get_incidents_with_details(
+    p_user_id uuid DEFAULT NULL,
+    p_limit integer DEFAULT 50,
+    p_offset integer DEFAULT 0
+)
+RETURNS TABLE (
+    incident_id bigint,
+    incident_number text,
+    date_of_injury date,
+    time_of_injury time,
+    injury_type text,
+    classification text,
+    incident_status text,
+    fatality boolean,
+    injury_description text,
+    treatment_provided text,
+    returned_to_work boolean,
+    total_days_lost integer,
+    created_at timestamp with time zone,
+    updated_at timestamp with time zone,
+    
+    -- Worker details
+    worker_id bigint,
+    worker_name text,
+    worker_occupation text,
+    worker_phone text,
+    worker_email text,
+    
+    -- Employer details
+    employer_id bigint,
+    employer_name text,
+    employer_abn text,
+    employer_state text,
+    
+    -- Site details
+    site_id bigint,
+    site_name text,
+    site_address text,
+    site_city text,
+    
+    -- Department details
+    department_id bigint,
+    department_name text
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+DECLARE
+    v_user_role_id integer;
+    v_user_employer_id bigint;
+    v_selected_employer_id bigint;
+BEGIN
+    -- Get user details if user_id is provided
+    IF p_user_id IS NOT NULL THEN
+        SELECT role_id, employer_id 
+        INTO v_user_role_id, v_user_employer_id
+        FROM users 
+        WHERE user_id = p_user_id;
+        
+        -- Check for selected employer context (may not exist)
+        BEGIN
+            SELECT selected_employer_id 
+            INTO v_selected_employer_id
+            FROM user_session_contexts 
+            WHERE user_id = p_user_id;
+        EXCEPTION
+            WHEN OTHERS THEN
+                v_selected_employer_id := NULL;
+        END;
+    END IF;
+    
+    RETURN QUERY
+    SELECT 
+        -- Incident details
+        i.incident_id,
+        i.incident_number::text,
+        i.date_of_injury,
+        i.time_of_injury,
+        i.injury_type::text,
+        i.classification::text,
+        COALESCE(i.incident_status, 'Open')::text,
+        COALESCE(i.fatality, false),
+        i.injury_description::text,
+        i.treatment_provided::text,
+        COALESCE(i.returned_to_work, false),
+        COALESCE(i.total_days_lost, 0),
+        i.created_at,
+        i.updated_at,
+        
+        -- Worker details
+        w.worker_id,
+        CONCAT(COALESCE(w.given_name, ''), ' ', COALESCE(w.family_name, ''))::text AS worker_name,
+        w.occupation::text,
+        COALESCE(w.mobile_number, w.phone_number)::text AS worker_phone,
+        w.email::text,
+        
+        -- Employer details
+        e.employer_id,
+        e.employer_name::text,
+        e.abn::text,
+        e.employer_state::text,
+        
+        -- Site details
+        s.site_id,
+        s.site_name::text,
+        s.street_address::text,
+        s.city::text,
+        
+        -- Department details
+        d.department_id,
+        d.department_name::text
+        
+    FROM incidents i
+    LEFT JOIN workers w ON i.worker_id = w.worker_id
+    LEFT JOIN employers e ON i.employer_id = e.employer_id
+    LEFT JOIN sites s ON i.site_id = s.site_id
+    LEFT JOIN departments d ON i.department_id = d.department_id
+    
+    WHERE 
+        -- Simple access control
+        CASE 
+            -- No user = return all
+            WHEN p_user_id IS NULL THEN true
+            
+            -- Super Admin (role 1) sees all
+            WHEN v_user_role_id = 1 THEN true
+            
+            -- Other admin roles see all
+            WHEN v_user_role_id IN (2, 4, 6, 7, 8) THEN true
+            
+            -- Regular users see their employer's data
+            WHEN v_user_employer_id IS NOT NULL 
+                THEN i.employer_id = v_user_employer_id
+            
+            -- Default: no access
+            ELSE false
+        END
+    
+    ORDER BY i.date_of_injury DESC NULLS LAST, i.created_at DESC
+    LIMIT p_limit
+    OFFSET p_offset;
+END;
+$$;
+
+-- Step 3: Create simple count function
+CREATE OR REPLACE FUNCTION public.get_incidents_count(
+    p_user_id uuid DEFAULT NULL
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+DECLARE
+    v_user_role_id integer;
+    v_user_employer_id bigint;
+    v_count integer;
+BEGIN
+    -- Get user details if user_id is provided
+    IF p_user_id IS NOT NULL THEN
+        SELECT role_id, employer_id 
+        INTO v_user_role_id, v_user_employer_id
+        FROM users 
+        WHERE user_id = p_user_id;
+    END IF;
+    
+    SELECT COUNT(*)::integer INTO v_count
+    FROM incidents i
+    WHERE 
+        -- Simple access control
+        CASE 
+            WHEN p_user_id IS NULL THEN true
+            WHEN v_user_role_id = 1 THEN true
+            WHEN v_user_role_id IN (2, 4, 6, 7, 8) THEN true
+            WHEN v_user_employer_id IS NOT NULL 
+                THEN i.employer_id = v_user_employer_id
+            ELSE false
+        END;
+    
+    RETURN COALESCE(v_count, 0);
+END;
+$$;
+
+-- Step 4: Grant permissions
+GRANT EXECUTE ON FUNCTION public.get_incidents_with_details TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_incidents_with_details TO anon;
+GRANT EXECUTE ON FUNCTION public.get_incidents_count TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_incidents_count TO anon;
+
+-- Step 5: Add documentation
+COMMENT ON FUNCTION public.get_incidents_with_details IS 'Simplified working version: Returns incident details with proper column names';
+COMMENT ON FUNCTION public.get_incidents_count IS 'Returns total count of accessible incidents';

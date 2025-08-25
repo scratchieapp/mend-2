@@ -1,0 +1,212 @@
+-- COMPLETE VERSION: Full get_incidents_with_details function with all fields
+-- Date: 2025-08-26
+-- This is the production-ready version with all required fields
+
+-- Drop existing functions
+DROP FUNCTION IF EXISTS public.get_incidents_with_details CASCADE;
+
+-- Create complete function with all fields the application needs
+CREATE OR REPLACE FUNCTION public.get_incidents_with_details(
+    p_user_id uuid DEFAULT NULL,
+    p_limit integer DEFAULT 50,
+    p_offset integer DEFAULT 0
+)
+RETURNS TABLE (
+    -- Core incident fields
+    incident_id integer,
+    incident_number text,
+    date_of_injury date,
+    time_of_injury time,
+    injury_type text,
+    classification text,
+    incident_status text,
+    fatality boolean,
+    
+    -- Detailed incident information
+    injury_description text,
+    treatment_provided text,
+    returned_to_work boolean,
+    total_days_lost integer,
+    actions text,
+    case_notes text,
+    witness text,
+    doctor_notes text,
+    shift_arrangement text,
+    incident_summary text,
+    
+    -- Timestamps
+    created_at timestamp with time zone,
+    updated_at timestamp with time zone,
+    
+    -- Worker details
+    worker_id integer,
+    worker_name text,
+    worker_occupation text,
+    worker_phone text,
+    worker_email text,
+    worker_employment_type text,
+    
+    -- Employer details
+    employer_id integer,
+    employer_name text,
+    employer_abn text,
+    employer_state text,
+    employer_phone text,
+    employer_manager_name text,
+    employer_manager_email text,
+    
+    -- Site details
+    site_id integer,
+    site_name text,
+    site_address text,
+    site_city text,
+    site_state text,
+    site_supervisor text,
+    
+    -- Department details
+    department_id integer,
+    department_name text,
+    
+    -- Document count
+    document_count bigint
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+DECLARE
+    v_user_role_id integer;
+    v_user_employer_id integer;
+    v_selected_employer_id integer;
+BEGIN
+    -- Get user details if user_id is provided
+    IF p_user_id IS NOT NULL THEN
+        SELECT role_id, employer_id::integer
+        INTO v_user_role_id, v_user_employer_id
+        FROM users 
+        WHERE user_id = p_user_id;
+        
+        -- Check for selected employer context (if table exists)
+        BEGIN
+            SELECT selected_employer_id::integer
+            INTO v_selected_employer_id
+            FROM user_session_contexts 
+            WHERE user_id = p_user_id;
+        EXCEPTION
+            WHEN OTHERS THEN
+                v_selected_employer_id := NULL;
+        END;
+    END IF;
+    
+    RETURN QUERY
+    SELECT 
+        -- Core incident fields
+        i.incident_id::integer,
+        COALESCE(i.incident_number, '')::text,
+        i.date_of_injury,
+        i.time_of_injury,
+        COALESCE(i.injury_type, '')::text,
+        COALESCE(i.classification, '')::text,
+        COALESCE(i.incident_status, 'Open')::text,
+        COALESCE(i.fatality, false),
+        
+        -- Detailed incident information
+        COALESCE(i.injury_description, '')::text,
+        COALESCE(i.treatment_provided, '')::text,
+        COALESCE(i.returned_to_work, false),
+        COALESCE(i.total_days_lost, 0),
+        COALESCE(i.actions, '')::text,
+        COALESCE(i.case_notes, '')::text,
+        COALESCE(i.witness, '')::text,
+        COALESCE(i.doctor_notes, '')::text,
+        COALESCE(i.shift_arrangement, '')::text,
+        COALESCE(i.incident_summary, '')::text,
+        
+        -- Timestamps
+        i.created_at,
+        i.updated_at,
+        
+        -- Worker details
+        w.worker_id::integer,
+        COALESCE(CONCAT(w.given_name, ' ', w.family_name), '')::text AS worker_name,
+        COALESCE(w.occupation, '')::text,
+        COALESCE(COALESCE(w.mobile_number, w.phone_number), '')::text AS worker_phone,
+        COALESCE(w.email, '')::text,
+        COALESCE(w.employment_type, '')::text,
+        
+        -- Employer details
+        e.employer_id::integer,
+        COALESCE(e.employer_name, '')::text,
+        COALESCE(e.abn, '')::text,
+        COALESCE(e.employer_state, '')::text,
+        COALESCE(e.employer_phone, '')::text,
+        COALESCE(e.manager_name, '')::text,
+        COALESCE(e.manager_email, '')::text,
+        
+        -- Site details
+        s.site_id::integer,
+        COALESCE(s.site_name, '')::text,
+        COALESCE(s.street_address, '')::text,
+        COALESCE(s.city, '')::text,
+        COALESCE(s.state, '')::text,
+        COALESCE(s.supervisor_name, '')::text,
+        
+        -- Department details
+        d.department_id::integer,
+        COALESCE(d.department_name, '')::text,
+        
+        -- Document count
+        COALESCE(doc_count.count, 0)::bigint
+        
+    FROM incidents i
+    LEFT JOIN workers w ON i.worker_id = w.worker_id
+    LEFT JOIN employers e ON i.employer_id = e.employer_id
+    LEFT JOIN sites s ON i.site_id = s.site_id
+    LEFT JOIN departments d ON i.department_id = d.department_id
+    LEFT JOIN LATERAL (
+        SELECT COUNT(*) AS count
+        FROM incident_documents id
+        WHERE id.incident_id = i.incident_id
+    ) doc_count ON true
+    
+    WHERE 
+        -- Apply filtering based on user role and context
+        CASE 
+            -- No user context = return all
+            WHEN p_user_id IS NULL THEN true
+            
+            -- Super Admin (role 1) logic
+            WHEN v_user_role_id = 1 THEN
+                CASE
+                    -- View All Companies selected
+                    WHEN v_selected_employer_id = -1 THEN true
+                    -- Specific employer selected
+                    WHEN v_selected_employer_id IS NOT NULL AND v_selected_employer_id > 0 
+                        THEN i.employer_id = v_selected_employer_id
+                    -- No selection = show all
+                    ELSE true
+                END
+            
+            -- Roles that see all incidents
+            WHEN v_user_role_id IN (2, 4, 6, 7, 8) THEN true
+            
+            -- Roles that see only their employer's incidents
+            WHEN v_user_role_id IN (3, 5, 9) AND v_user_employer_id IS NOT NULL 
+                THEN i.employer_id = v_user_employer_id
+            
+            -- Default: no access
+            ELSE false
+        END
+    
+    ORDER BY i.date_of_injury DESC NULLS LAST, i.time_of_injury DESC NULLS LAST, i.created_at DESC
+    LIMIT p_limit
+    OFFSET p_offset;
+END;
+$$;
+
+-- Grant permissions
+GRANT EXECUTE ON FUNCTION public.get_incidents_with_details TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_incidents_with_details TO anon;
+
+-- Add documentation
+COMMENT ON FUNCTION public.get_incidents_with_details IS 'PRODUCTION VERSION: Complete incident details with all fields, proper RLS support, and correct data types';

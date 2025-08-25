@@ -1,0 +1,297 @@
+-- FINAL FIX: Complete reset and recreation of get_incidents_with_details function
+-- Date: 2025-08-26
+-- This combines cleanup and recreation in a single migration
+
+-- Step 1: Drop ALL existing versions (comprehensive cleanup)
+DO $$
+BEGIN
+    -- Drop any function named get_incidents_with_details regardless of signature
+    IF EXISTS (
+        SELECT 1 FROM pg_proc p
+        JOIN pg_namespace n ON p.pronamespace = n.oid
+        WHERE n.nspname = 'public' AND p.proname = 'get_incidents_with_details'
+    ) THEN
+        EXECUTE 'DROP FUNCTION IF EXISTS public.get_incidents_with_details CASCADE';
+    END IF;
+    
+    -- Drop count function too
+    IF EXISTS (
+        SELECT 1 FROM pg_proc p
+        JOIN pg_namespace n ON p.pronamespace = n.oid
+        WHERE n.nspname = 'public' AND p.proname = 'get_incidents_count'
+    ) THEN
+        EXECUTE 'DROP FUNCTION IF EXISTS public.get_incidents_count CASCADE';
+    END IF;
+END;
+$$;
+
+-- Step 2: Create the correct function with verified column names
+CREATE OR REPLACE FUNCTION public.get_incidents_with_details(
+    p_user_id uuid DEFAULT NULL,
+    p_limit integer DEFAULT 50,
+    p_offset integer DEFAULT 0
+)
+RETURNS TABLE (
+    incident_id bigint,
+    incident_number text,
+    date_of_injury date,
+    time_of_injury time,
+    injury_type text,
+    classification text,
+    incident_status text,
+    fatality boolean,
+    injury_description text,
+    treatment_provided text,
+    returned_to_work boolean,
+    total_days_lost integer,
+    actions text,
+    case_notes text,
+    witness text,
+    doctor_notes text,
+    shift_arrangement text,
+    incident_summary text,
+    created_at timestamp with time zone,
+    updated_at timestamp with time zone,
+    
+    -- Worker details
+    worker_id bigint,
+    worker_name text,
+    worker_occupation text,
+    worker_phone text,
+    worker_email text,
+    worker_employment_type text,
+    
+    -- Employer details
+    employer_id bigint,
+    employer_name text,
+    employer_abn text,
+    employer_state text,
+    employer_phone text,
+    employer_manager_name text,
+    employer_manager_email text,
+    
+    -- Site details
+    site_id bigint,
+    site_name text,
+    site_address text,
+    site_city text,
+    site_state text,
+    site_supervisor text,
+    
+    -- Department details
+    department_id bigint,
+    department_name text,
+    
+    -- Document count
+    document_count bigint
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+DECLARE
+    v_user_role_id integer;
+    v_user_employer_id bigint;
+    v_selected_employer_id bigint;
+BEGIN
+    -- Get user details if user_id is provided
+    IF p_user_id IS NOT NULL THEN
+        SELECT role_id, employer_id 
+        INTO v_user_role_id, v_user_employer_id
+        FROM users 
+        WHERE user_id = p_user_id;
+        
+        -- Check for selected employer context
+        SELECT selected_employer_id 
+        INTO v_selected_employer_id
+        FROM user_session_contexts 
+        WHERE user_id = p_user_id;
+    END IF;
+    
+    RETURN QUERY
+    SELECT 
+        -- Incident details
+        i.incident_id,
+        i.incident_number::text,
+        i.date_of_injury,
+        i.time_of_injury,
+        i.injury_type::text,
+        i.classification::text,
+        COALESCE(i.incident_status, 'Open')::text,
+        COALESCE(i.fatality, false),
+        i.injury_description::text,
+        i.treatment_provided::text,
+        COALESCE(i.returned_to_work, false),
+        COALESCE(i.total_days_lost, 0),
+        i.actions::text,
+        i.case_notes::text,
+        i.witness::text,
+        i.doctor_notes::text,
+        i.shift_arrangement::text,
+        i.incident_summary::text,
+        i.created_at,
+        i.updated_at,
+        
+        -- Worker details (correct column names)
+        w.worker_id,
+        CONCAT(w.given_name, ' ', w.family_name)::text AS worker_name,
+        w.occupation::text AS worker_occupation,
+        COALESCE(w.mobile_number, w.phone_number)::text AS worker_phone,
+        w.email::text AS worker_email,
+        w.employment_type::text AS worker_employment_type,
+        
+        -- Employer details (correct column name: abn not employer_abn)
+        e.employer_id,
+        e.employer_name::text,
+        e.abn::text AS employer_abn,
+        e.employer_state::text,
+        e.employer_phone::text,
+        e.manager_name::text AS employer_manager_name,
+        e.manager_email::text AS employer_manager_email,
+        
+        -- Site details (correct columns - no site_location)
+        s.site_id,
+        s.site_name::text,
+        s.street_address::text AS site_address,
+        s.city::text AS site_city,
+        s.state::text AS site_state,
+        s.supervisor_name::text AS site_supervisor,
+        
+        -- Department details
+        d.department_id,
+        d.department_name::text,
+        
+        -- Document count
+        COALESCE(doc_count.count, 0) AS document_count
+        
+    FROM incidents i
+    LEFT JOIN workers w ON i.worker_id = w.worker_id
+    LEFT JOIN employers e ON i.employer_id = e.employer_id
+    LEFT JOIN sites s ON i.site_id = s.site_id
+    LEFT JOIN departments d ON i.department_id = d.department_id
+    LEFT JOIN LATERAL (
+        SELECT COUNT(*) AS count
+        FROM incident_documents id
+        WHERE id.incident_id = i.incident_id
+    ) doc_count ON true
+    
+    WHERE 
+        -- Apply filtering based on user role and context
+        CASE 
+            -- No user context, return all
+            WHEN p_user_id IS NULL THEN true
+            
+            -- Super Admin (role 1) with "View All" context (-1)
+            WHEN v_user_role_id = 1 AND v_selected_employer_id = -1 THEN true
+            
+            -- Super Admin with specific employer selected
+            WHEN v_user_role_id = 1 AND v_selected_employer_id IS NOT NULL AND v_selected_employer_id != -1 
+                THEN i.employer_id = v_selected_employer_id
+            
+            -- Super Admin with no selection (default to all)
+            WHEN v_user_role_id = 1 AND v_selected_employer_id IS NULL THEN true
+            
+            -- Roles that see all incidents
+            WHEN v_user_role_id IN (2, 4, 6, 7, 8) THEN true
+            
+            -- Roles that see only their employer's incidents
+            WHEN v_user_role_id IN (3, 5, 9) AND v_user_employer_id IS NOT NULL 
+                THEN i.employer_id = v_user_employer_id
+            
+            -- Default: no access
+            ELSE false
+        END
+    
+    ORDER BY i.date_of_injury DESC NULLS LAST, i.time_of_injury DESC NULLS LAST, i.created_at DESC
+    LIMIT p_limit
+    OFFSET p_offset;
+END;
+$$;
+
+-- Step 3: Create count function
+CREATE OR REPLACE FUNCTION public.get_incidents_count(
+    p_user_id uuid DEFAULT NULL
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+DECLARE
+    v_user_role_id integer;
+    v_user_employer_id bigint;
+    v_selected_employer_id bigint;
+    v_count integer;
+BEGIN
+    -- Get user details if user_id is provided
+    IF p_user_id IS NOT NULL THEN
+        SELECT role_id, employer_id 
+        INTO v_user_role_id, v_user_employer_id
+        FROM users 
+        WHERE user_id = p_user_id;
+        
+        -- Check for selected employer context
+        SELECT selected_employer_id 
+        INTO v_selected_employer_id
+        FROM user_session_contexts 
+        WHERE user_id = p_user_id;
+    END IF;
+    
+    SELECT COUNT(*)::integer INTO v_count
+    FROM incidents i
+    WHERE 
+        -- Apply same filtering logic as main function
+        CASE 
+            WHEN p_user_id IS NULL THEN true
+            WHEN v_user_role_id = 1 AND v_selected_employer_id = -1 THEN true
+            WHEN v_user_role_id = 1 AND v_selected_employer_id IS NOT NULL AND v_selected_employer_id != -1 
+                THEN i.employer_id = v_selected_employer_id
+            WHEN v_user_role_id = 1 AND v_selected_employer_id IS NULL THEN true
+            WHEN v_user_role_id IN (2, 4, 6, 7, 8) THEN true
+            WHEN v_user_role_id IN (3, 5, 9) AND v_user_employer_id IS NOT NULL 
+                THEN i.employer_id = v_user_employer_id
+            ELSE false
+        END;
+    
+    RETURN v_count;
+END;
+$$;
+
+-- Step 4: Grant permissions
+GRANT EXECUTE ON FUNCTION public.get_incidents_with_details TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_incidents_with_details TO anon;
+GRANT EXECUTE ON FUNCTION public.get_incidents_count TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_incidents_count TO anon;
+
+-- Step 5: Add documentation
+COMMENT ON FUNCTION public.get_incidents_with_details IS 'FINAL VERSION: Retrieves paginated incident details with correct column names and RLS support';
+COMMENT ON FUNCTION public.get_incidents_count IS 'Returns total count of incidents accessible to the user';
+
+-- Step 6: Verify function works
+DO $$
+DECLARE
+    v_test_count integer;
+    v_test_record record;
+BEGIN
+    -- Test 1: Call without user context
+    BEGIN
+        SELECT COUNT(*) INTO v_test_count
+        FROM get_incidents_with_details(NULL, 5, 0);
+        RAISE NOTICE 'SUCCESS: Function works without user context. Found % records', v_test_count;
+    EXCEPTION
+        WHEN OTHERS THEN
+            RAISE EXCEPTION 'FAILED: Function test without user context failed: %', SQLERRM;
+    END;
+    
+    -- Test 2: Check count function
+    BEGIN
+        SELECT get_incidents_count(NULL) INTO v_test_count;
+        RAISE NOTICE 'SUCCESS: Count function works. Total incidents: %', v_test_count;
+    EXCEPTION
+        WHEN OTHERS THEN
+            RAISE EXCEPTION 'FAILED: Count function test failed: %', SQLERRM;
+    END;
+    
+    RAISE NOTICE 'ALL TESTS PASSED! Functions are working correctly.';
+END;
+$$;
