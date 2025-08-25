@@ -42,6 +42,7 @@ import SystemLogsAdmin from "./pages/SystemLogsAdmin";
 import MedicalProfessionalsAdmin from "./pages/MedicalProfessionalsAdmin";
 import HoursWorkedAdmin from "./pages/HoursWorkedAdmin";
 import UserManagementAdmin from "./pages/UserManagementAdmin";
+import EmployerManagementAdmin from "./pages/EmployerManagementAdmin";
 import IncidentReport from "./pages/IncidentReport";
 import IncidentReportDev from "./pages/IncidentReportDev";
 import IncidentDetailsPage from "./pages/IncidentDetailsPage";
@@ -137,6 +138,7 @@ function App() {
           <Route path="admin/medical-professionals" element={<MedicalProfessionalsAdmin />} />
           <Route path="admin/hours-worked" element={<HoursWorkedAdmin />} />
           <Route path="admin/user-management" element={<UserManagementAdmin />} />
+          <Route path="admin/employer-management" element={<EmployerManagementAdmin />} />
         </Route>
       </Routes>
     </>

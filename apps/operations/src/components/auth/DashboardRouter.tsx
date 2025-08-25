@@ -4,7 +4,7 @@ import { useUser } from '@clerk/clerk-react';
 import { supabase } from '@/integrations/supabase/client';
 
 const roleIdToDashboard: Record<number, string> = {
-  1: '/admin',           // MEND Super Admin
+  1: '/dashboard',       // MEND Super Admin - main dashboard with incidents
   2: '/account-manager', // MEND Account Manager
   3: '/data-entry',      // MEND Data Entry
   4: '/analyst',         // MEND Analyst

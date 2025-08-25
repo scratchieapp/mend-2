@@ -17,7 +17,8 @@ import {
   HardDrive,
   Activity,
   Upload,
-  Shield
+  Shield,
+  Building
 } from 'lucide-react';
 
 interface AdminCardProps {
@@ -107,6 +108,13 @@ export default function AdminDashboard() {
   }
 
   const adminSections = [
+    {
+      title: 'Builder/Employer Management',
+      description: 'Manage construction companies and builders',
+      icon: <Building className="h-5 w-5" />,
+      link: '/admin/employer-management',
+      requiredRole: 'super' as const
+    },
     {
       title: 'User Management',
       description: 'Manage users, roles, and permissions',

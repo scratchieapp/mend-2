@@ -51,6 +51,8 @@ export interface IncidentsListParams {
   workerId?: number;
   startDate?: string;
   endDate?: string;
+  userRoleId?: number;
+  userEmployerId?: number;
 }
 
 export interface PaginatedIncidents {
@@ -72,10 +74,12 @@ export async function getIncidentsWithDetails(params: IncidentsListParams = {}):
       employerId = null,
       workerId = null,
       startDate = null,
-      endDate = null
+      endDate = null,
+      userRoleId = null,
+      userEmployerId = null
     } = params;
 
-    // Get incidents with details
+    // Get incidents with details - pass user context for RLS
     const { data: incidents, error: incidentsError } = await supabase
       .rpc('get_incidents_with_details', {
         page_size: pageSize,
@@ -83,7 +87,9 @@ export async function getIncidentsWithDetails(params: IncidentsListParams = {}):
         filter_employer_id: employerId,
         filter_worker_id: workerId,
         filter_start_date: startDate,
-        filter_end_date: endDate
+        filter_end_date: endDate,
+        user_role_id: userRoleId,
+        user_employer_id: userEmployerId
       });
 
     if (incidentsError) {
@@ -91,13 +97,15 @@ export async function getIncidentsWithDetails(params: IncidentsListParams = {}):
       throw new Error(`Failed to fetch incidents: ${incidentsError.message}`);
     }
 
-    // Get total count for pagination
+    // Get total count for pagination - pass user context for RLS
     const { data: countData, error: countError } = await supabase
       .rpc('get_incidents_count', {
         filter_employer_id: employerId,
         filter_worker_id: workerId,
         filter_start_date: startDate,
-        filter_end_date: endDate
+        filter_end_date: endDate,
+        user_role_id: userRoleId,
+        user_employer_id: userEmployerId
       });
 
     if (countError) {
@@ -239,11 +247,17 @@ export async function deleteIncident(incidentId: number): Promise<void> {
 /**
  * Get recent incidents for dashboard
  */
-export async function getRecentIncidents(limit = 10): Promise<IncidentWithDetails[]> {
+export async function getRecentIncidents(
+  limit = 10, 
+  userRoleId?: number, 
+  userEmployerId?: number
+): Promise<IncidentWithDetails[]> {
   try {
     const { incidents } = await getIncidentsWithDetails({
       pageSize: limit,
-      pageOffset: 0
+      pageOffset: 0,
+      userRoleId,
+      userEmployerId
     });
 
     return incidents;

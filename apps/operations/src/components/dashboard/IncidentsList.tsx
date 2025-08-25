@@ -23,6 +23,7 @@ import {
 import { format, parseISO } from 'date-fns';
 import { getIncidentsWithDetails, type IncidentWithDetails } from '@/lib/supabase/incidents';
 import { useNavigate } from 'react-router-dom';
+import { useUserContext } from '@/hooks/useUserContext';
 
 interface IncidentsListProps {
   highlightIncidentId?: number;
@@ -38,6 +39,7 @@ export function IncidentsList({
   selectedEmployerId
 }: IncidentsListProps) {
   const navigate = useNavigate();
+  const { roleId, employerId: userEmployerId, isLoading: userLoading } = useUserContext();
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
@@ -50,7 +52,7 @@ export function IncidentsList({
     error, 
     refetch 
   } = useQuery({
-    queryKey: ['incidents', currentPage, pageSize, searchTerm, statusFilter, dateFilter, selectedEmployerId],
+    queryKey: ['incidents', currentPage, pageSize, searchTerm, statusFilter, dateFilter, selectedEmployerId, roleId, userEmployerId],
     queryFn: async () => {
       const offset = (currentPage - 1) * pageSize;
       
@@ -84,10 +86,14 @@ export function IncidentsList({
         pageSize,
         pageOffset: offset,
         startDate,
-        endDate
+        endDate,
+        employerId: selectedEmployerId || undefined,
+        userRoleId: roleId || undefined,
+        userEmployerId: userEmployerId || undefined
       });
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: !userLoading // Don't fetch until we have user context
   });
 
   // Filter incidents based on search term

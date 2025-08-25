@@ -118,6 +118,5 @@ export default function MedicalDashboard() {
         </div>
       </div>
     </div>
-    </div>
   );
 }
