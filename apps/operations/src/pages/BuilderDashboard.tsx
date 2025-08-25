@@ -24,17 +24,19 @@ export default function BuilderDashboard() {
     statistics: stats, 
     isLoadingStats,
     setContext,
-    currentContext,
-    incidents,
-    isLoadingIncidents 
+    currentContext
   } = useEmployerContext();
   
-  // Sync employer selection with context
+  // Sync employer selection with context - debounced to prevent rapid updates
   useEffect(() => {
-    if (selectedEmployerId && selectedEmployerId !== currentContext) {
-      setContext(selectedEmployerId);
-    }
-  }, [selectedEmployerId, currentContext, setContext]);
+    const timer = setTimeout(() => {
+      if (selectedEmployerId && selectedEmployerId !== currentContext) {
+        setContext(selectedEmployerId);
+      }
+    }, 300); // 300ms debounce
+    
+    return () => clearTimeout(timer);
+  }, [selectedEmployerId]); // Removed currentContext and setContext to prevent loops
 
   const breadcrumbItems = [
     { label: 'Home', href: '/' },

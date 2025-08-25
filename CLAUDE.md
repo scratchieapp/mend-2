@@ -3,7 +3,23 @@
 ## Project Overview
 Mend-2 is a comprehensive workplace safety management platform built with React, TypeScript, Vite, and Clerk authentication. The application manages workplace incidents, safety reporting, and compliance tracking for construction and industrial environments.
 
-## Current Status (Updated: 2025-08-26 - DATA RETRIEVAL FIXED)
+## 🚨 CRITICAL PERFORMANCE FIX REQUIRED (Updated: 2025-08-26)
+
+### ⚠️ IMMEDIATE ACTION NEEDED:
+**The application has severe performance issues causing browser crashes. A fix has been created but needs to be applied:**
+
+1. **DATABASE FIX REQUIRED**: Execute `/scripts/EXECUTE_NOW_critical_fix.sql` in Supabase SQL Editor
+2. **See `/CRITICAL_DATABASE_FIX_INSTRUCTIONS.md` for detailed instructions**
+
+### Issues Identified and Fixed in Code:
+- ✅ React query infinite loops eliminated
+- ✅ Redundant data fetching removed
+- ✅ Query invalidation cascade optimized
+- ✅ Debouncing added to prevent rapid updates
+- ✅ Cache times increased, window focus refetch disabled
+- ❌ Database function still broken until SQL fix is applied
+
+## Current Status (Updated: 2025-08-26 - PERFORMANCE ISSUES RESOLVED IN CODE, DATABASE FIX PENDING)
 
 ### ✅ AUTHENTICATION SYSTEM OPERATIONAL (2025-08-25)
 **SUCCESS: Authentication and role-based routing is working with Clerk**

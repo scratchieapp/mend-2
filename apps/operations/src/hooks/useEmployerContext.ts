@@ -73,19 +73,15 @@ export const useEmployerContext = () => {
       return employerId;
     },
     onSuccess: async (employerId) => {
-      // Invalidate all queries that depend on employer context
-      await queryClient.invalidateQueries({ queryKey: ['employer-context'] });
-      await queryClient.invalidateQueries({ queryKey: ['employer-statistics'] });
-      await queryClient.invalidateQueries({ queryKey: ['context-incidents'] });
-      await queryClient.invalidateQueries({ queryKey: ['context-workers'] });
-      await queryClient.invalidateQueries({ queryKey: ['context-sites'] });
-      await queryClient.invalidateQueries({ queryKey: ['incidents'] });
-      await queryClient.invalidateQueries({ queryKey: ['workers'] });
-      await queryClient.invalidateQueries({ queryKey: ['sites'] });
-      await queryClient.invalidateQueries({ queryKey: ['builderStats'] });
+      // Only invalidate the most critical queries to prevent cascading re-fetches
+      // Using setQueryData to update context immediately without re-fetch
+      queryClient.setQueryData(['employer-context', userData?.user_id], employerId);
       
-      // Refetch the current data
-      refetchStats();
+      // Invalidate only data queries, not the context itself
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['employer-statistics', employerId] }),
+        queryClient.invalidateQueries({ queryKey: ['incidents'] }),
+      ]);
       
       toast({
         title: "Context Updated",
@@ -127,71 +123,20 @@ export const useEmployerContext = () => {
     }
   });
 
-  // Fetch incidents with automatic RLS filtering
-  const { data: contextIncidents, isLoading: isLoadingIncidents } = useQuery({
-    queryKey: ['context-incidents', currentContext],
-    queryFn: async () => {
-      // This will automatically be filtered by RLS based on the context
-      const { data, error } = await supabase
-        .from('incidents')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error('Error fetching context incidents:', error);
-        return [];
-      }
-      
-      return data || [];
-    },
-    enabled: !!currentContext,
-    staleTime: 30 * 1000, // Consider data stale after 30 seconds
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
-  });
+  // REMOVED: Fetch incidents with automatic RLS filtering
+  // This was causing redundant fetches since IncidentsList already fetches incidents
+  const contextIncidents = [];
+  const isLoadingIncidents = false;
 
-  // Fetch workers with automatic RLS filtering
-  const { data: contextWorkers, isLoading: isLoadingWorkers } = useQuery({
-    queryKey: ['context-workers', currentContext],
-    queryFn: async () => {
-      // This will automatically be filtered by RLS based on the context
-      const { data, error } = await supabase
-        .from('workers')
-        .select('*')
-        .order('family_name', { ascending: true });
-      
-      if (error) {
-        console.error('Error fetching context workers:', error);
-        return [];
-      }
-      
-      return data || [];
-    },
-    enabled: !!currentContext,
-    staleTime: 30 * 1000, // Consider data stale after 30 seconds
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
-  });
+  // REMOVED: Fetch workers with automatic RLS filtering
+  // This was causing redundant fetches - fetch only when needed
+  const contextWorkers = [];
+  const isLoadingWorkers = false;
 
-  // Fetch sites with automatic RLS filtering
-  const { data: contextSites, isLoading: isLoadingSites } = useQuery({
-    queryKey: ['context-sites', currentContext],
-    queryFn: async () => {
-      // This will automatically be filtered by RLS based on the context
-      const { data, error } = await supabase
-        .from('sites')
-        .select('*')
-        .order('site_name', { ascending: true });
-      
-      if (error) {
-        console.error('Error fetching context sites:', error);
-        return [];
-      }
-      
-      return data || [];
-    },
-    enabled: !!currentContext,
-    staleTime: 30 * 1000, // Consider data stale after 30 seconds
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
-  });
+  // REMOVED: Fetch sites with automatic RLS filtering  
+  // This was causing redundant fetches - fetch only when needed
+  const contextSites = [];
+  const isLoadingSites = false;
 
   return {
     // Context management

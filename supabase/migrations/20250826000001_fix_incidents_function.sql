@@ -1,14 +1,13 @@
--- Create the missing get_incidents_with_details function
+-- CRITICAL FIX: Remove medical_professionals table reference from get_incidents_with_details
 -- Date: 2025-08-26
--- Purpose: Provide paginated incident data with all related details
+-- Issue: Function is failing with "column mp.medical_professional_id does not exist"
+-- Solution: Comment out medical_professionals join since table doesn't exist
 
--- Drop the functions if they exist (with all parameter combinations)
-DROP FUNCTION IF EXISTS get_incidents_with_details(integer, integer, integer, integer, date, date, integer, integer);
-DROP FUNCTION IF EXISTS get_incidents_with_details;
-DROP FUNCTION IF EXISTS get_incidents_count(integer, integer, date, date, integer, integer);
-DROP FUNCTION IF EXISTS get_incidents_count;
+-- Drop the existing broken functions
+DROP FUNCTION IF EXISTS get_incidents_with_details CASCADE;
+DROP FUNCTION IF EXISTS get_incidents_count CASCADE;
 
--- Create the function
+-- Create the FIXED function without medical_professionals reference
 CREATE OR REPLACE FUNCTION get_incidents_with_details(
   page_size INTEGER DEFAULT 50,
   page_offset INTEGER DEFAULT 0,
@@ -43,7 +42,7 @@ RETURNS TABLE (
   employer_id INTEGER,
   employer_name VARCHAR,
   employer_abn VARCHAR,
-  -- Medical professional details
+  -- Medical professional details (nulled out for now)
   medical_professional_id INTEGER,
   medical_professional_name VARCHAR,
   medical_professional_specialty VARCHAR,
@@ -74,24 +73,24 @@ BEGIN
     i.fatality,
     i.returned_to_work,
     i.total_days_lost,
-    i.incident_status,
+    COALESCE(i.incident_status, 'Open')::VARCHAR AS incident_status,
     i.created_at::TIMESTAMP,
     i.updated_at::TIMESTAMP,
     -- Worker details
     w.worker_id,
-    w.worker_first_name,
-    w.worker_last_name,
-    CONCAT(w.worker_first_name, ' ', w.worker_last_name)::VARCHAR AS worker_full_name,
-    w.employee_number AS worker_employee_number,
+    w.given_names::VARCHAR AS worker_first_name,
+    w.family_name::VARCHAR AS worker_last_name,
+    CONCAT(w.given_names, ' ', w.family_name)::VARCHAR AS worker_full_name,
+    w.employee_number::VARCHAR AS worker_employee_number,
     -- Employer details
     e.employer_id,
     e.employer_name,
     e.employer_abn,
-    -- Medical professional details
-    mp.medical_professional_id,
-    mp.medical_professional_name,
-    mp.specialty AS medical_professional_specialty,
-    mp.phone AS medical_professional_phone,
+    -- Medical professional details - set to NULL since table doesn't exist
+    NULL::INTEGER AS medical_professional_id,
+    NULL::VARCHAR AS medical_professional_name,
+    NULL::VARCHAR AS medical_professional_specialty,
+    NULL::VARCHAR AS medical_professional_phone,
     -- Site details
     s.site_id,
     s.site_name,
@@ -104,7 +103,7 @@ BEGIN
   FROM incidents i
   LEFT JOIN workers w ON i.worker_id = w.worker_id
   LEFT JOIN employers e ON i.employer_id = e.employer_id
-  LEFT JOIN medical_professionals mp ON i.medical_professional_id = mp.medical_professional_id
+  -- Medical professionals table doesn't exist - removed join
   LEFT JOIN sites s ON i.site_id = s.site_id
   LEFT JOIN departments d ON i.department_id = d.department_id
   LEFT JOIN LATERAL (
@@ -123,7 +122,7 @@ BEGIN
       -- Super Admin (roles 1-3) can see everything
       user_role_id IS NULL OR user_role_id <= 3
       -- Other roles can only see their employer's data
-      OR (user_employer_id IS NOT NULL AND i.employer_id = user_employer_id::INTEGER)
+      OR (user_employer_id IS NOT NULL AND i.employer_id = user_employer_id)
     )
   ORDER BY i.date_of_injury DESC, i.created_at DESC
   LIMIT page_size
@@ -135,7 +134,7 @@ $$;
 GRANT EXECUTE ON FUNCTION get_incidents_with_details TO authenticated;
 GRANT EXECUTE ON FUNCTION get_incidents_with_details TO anon;
 
--- Create a function to get the total count for pagination
+-- Recreate the count function (no changes needed but recreating for consistency)
 CREATE OR REPLACE FUNCTION get_incidents_count(
   filter_employer_id INTEGER DEFAULT NULL,
   filter_worker_id INTEGER DEFAULT NULL,
@@ -164,7 +163,7 @@ BEGIN
       -- Super Admin (roles 1-3) can see everything
       user_role_id IS NULL OR user_role_id <= 3
       -- Other roles can only see their employer's data
-      OR (user_employer_id IS NOT NULL AND i.employer_id = user_employer_id::INTEGER)
+      OR (user_employer_id IS NOT NULL AND i.employer_id = user_employer_id)
     );
   
   RETURN total_count;
@@ -176,5 +175,5 @@ GRANT EXECUTE ON FUNCTION get_incidents_count TO authenticated;
 GRANT EXECUTE ON FUNCTION get_incidents_count TO anon;
 
 -- Add comment
-COMMENT ON FUNCTION get_incidents_with_details IS 'Retrieves paginated incident data with all related details, respecting role-based access control';
+COMMENT ON FUNCTION get_incidents_with_details IS 'FIXED: Retrieves paginated incident data with all related details, respecting role-based access control. Medical professionals table removed.';
 COMMENT ON FUNCTION get_incidents_count IS 'Returns the total count of incidents for pagination, respecting role-based access control';
