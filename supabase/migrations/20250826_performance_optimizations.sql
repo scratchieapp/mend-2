@@ -1,6 +1,8 @@
 -- Performance Optimization Migration
 -- Date: 2025-08-26
 -- Purpose: Optimize database performance for builder dashboard and incident queries
+-- IMPORTANT: This migration depends on incident_status column existing in incidents table
+-- Run 20250826_add_incident_status_column.sql FIRST if not already applied
 
 -- ============================================
 -- 1. CREATE INDEXES FOR BETTER QUERY PERFORMANCE
@@ -14,8 +16,20 @@ ON user_session_contexts(user_id, selected_employer_id);
 CREATE INDEX IF NOT EXISTS idx_incidents_employer_date 
 ON incidents(employer_id, date_of_injury DESC);
 
-CREATE INDEX IF NOT EXISTS idx_incidents_employer_status 
-ON incidents(employer_id, incident_status, date_of_injury DESC);
+-- Check if incident_status column exists before creating index
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'incidents' 
+    AND column_name = 'incident_status'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_incidents_employer_status 
+    ON incidents(employer_id, incident_status, date_of_injury DESC);
+  ELSE
+    RAISE WARNING 'incident_status column does not exist. Please run 20250826_add_incident_status_column.sql first';
+  END IF;
+END $$;
 
 -- Index for worker lookups
 CREATE INDEX IF NOT EXISTS idx_workers_employer 
@@ -83,13 +97,13 @@ BEGIN
   incident_stats AS (
     SELECT 
       COUNT(*) AS total_incidents,
-      COUNT(*) FILTER (WHERE injury_type = 'LTI' AND incident_status != 'Closed') AS active_lti,
+      COUNT(*) FILTER (WHERE injury_type = 'LTI' AND (incident_status IS NULL OR incident_status NOT IN ('Closed', 'Resolved'))) AS active_lti,
       AVG(total_days_lost) AS avg_days,
       SUM(total_days_lost) AS total_days,
       COUNT(*) FILTER (WHERE date_of_injury >= v_current_month_start) AS this_month,
       COUNT(*) FILTER (WHERE date_of_injury >= v_last_month_start AND date_of_injury <= v_last_month_end) AS last_month,
-      COUNT(*) FILTER (WHERE incident_status = 'Open' OR incident_status IS NULL) AS open_count,
-      COUNT(*) FILTER (WHERE incident_status = 'Closed') AS closed_count
+      COUNT(*) FILTER (WHERE COALESCE(incident_status, 'Open') = 'Open') AS open_count,
+      COUNT(*) FILTER (WHERE incident_status IN ('Closed', 'Resolved')) AS closed_count
     FROM incidents
     WHERE employer_id = v_employer_id
   ),

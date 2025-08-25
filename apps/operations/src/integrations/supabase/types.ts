@@ -665,6 +665,7 @@ export type Database = {
           fatality: boolean | null
           incident_id: number
           incident_number: string | null
+          incident_status: string | null
           incident_summary: string | null
           injury_description: string | null
           injury_type: string | null
@@ -1250,6 +1251,54 @@ export type Database = {
             referencedRelation: "sites"
             referencedColumns: ["site_id"]
           },
+        ]
+      }
+      incident_status_history: {
+        Row: {
+          id: number
+          incident_id: number
+          old_status: string | null
+          new_status: string
+          changed_by: number | null
+          changed_at: string
+          change_reason: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: number
+          incident_id: number
+          old_status?: string | null
+          new_status: string
+          changed_by?: number | null
+          changed_at?: string
+          change_reason?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: number
+          incident_id?: number
+          old_status?: string | null
+          new_status?: string
+          changed_by?: number | null
+          changed_at?: string
+          change_reason?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incident_status_history_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "incidents"
+            referencedColumns: ["incident_id"]
+          },
+          {
+            foreignKeyName: "incident_status_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
         ]
       }
       sites: {
