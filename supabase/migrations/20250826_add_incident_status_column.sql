@@ -258,7 +258,7 @@ BEGIN
       NEW.incident_id,
       OLD.incident_status,
       NEW.incident_status,
-      NULLIF(current_setting('app.current_user_id', true), '')::INTEGER,
+      NULLIF(current_setting('app.current_user_id', true), '')::UUID,
       'Automatic status update'
     );
   END IF;
