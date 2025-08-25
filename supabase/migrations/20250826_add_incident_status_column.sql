@@ -100,7 +100,8 @@ BEGIN
     END
   WHERE incident_id = p_incident_id;
   
-  GET DIAGNOSTICS v_success = ROW_COUNT > 0;
+  GET DIAGNOSTICS v_success = ROW_COUNT;
+  v_success := v_success > 0;
   
   RETURN v_success;
 END;
