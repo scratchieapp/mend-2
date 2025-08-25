@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mend/shared-utils": "file:../../packages/shared-utils",
     "@clerk/clerk-react": "^5.43.0",
     "@clerk/clerk-sdk-node": "^4.13.23",
     "@hookform/resolvers": "^3.9.0",
