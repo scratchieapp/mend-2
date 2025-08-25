@@ -11,13 +11,14 @@
     "dev": "npm run dev --workspace=@mend/operations",
     "dev:ops": "npm run dev --workspace=@mend/operations",
     "dev:marketing": "npm run dev --workspace=@mend/marketing",
-    "build": "npm run build:marketing && npm run build:ops",
+    "build:shared": "npm run build --workspace=@mend/shared-utils",
+    "build": "npm run build:shared && npm run build:marketing && npm run build:ops",
     "build:ops": "npm run build --workspace=@mend/operations",
     "build:marketing": "npm run build --workspace=@mend/marketing",
     "lint": "npm run lint --workspace=@mend/operations && npm run lint --workspace=@mend/marketing",
     "preview": "vite preview",
     "create-demo-users": "node scripts/create-demo-users.js",
-    "vercel-build": "npm run build"
+    "vercel-build": "npm run build:shared && npm run build"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",
