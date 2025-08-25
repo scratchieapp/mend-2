@@ -2,61 +2,75 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, TrendingDown, TrendingUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, subMonths } from "date-fns";
 import { useEmployerSelection } from "@/hooks/useEmployerSelection";
 
 interface AverageDaysLostCardProps {
-  selectedMonth: string;
+  selectedMonth?: string;
 }
 
 export const AverageDaysLostCard = ({ selectedMonth }: AverageDaysLostCardProps) => {
   const { selectedEmployerId } = useEmployerSelection();
   
   const { data } = useQuery({
-    queryKey: ['average-days-lost', selectedMonth, selectedEmployerId],
+    queryKey: ['average-days-lost', selectedEmployerId],
     queryFn: async () => {
-      const [year, month] = selectedMonth.split('-').map(Number);
-      const currentMonthStart = `${selectedMonth}-01`;
-      const currentMonthEnd = `${selectedMonth}-${new Date(year, month, 0).getDate()}`;
+      // Default to current financial year (July 1 to June 30)
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
       
-      const prevMonthDate = subMonths(new Date(currentMonthStart), 1);
-      const prevMonthStart = format(prevMonthDate, 'yyyy-MM-dd');
-      const prevMonthEnd = format(new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth() + 1, 0), 'yyyy-MM-dd');
+      // Determine financial year
+      const financialYearStart = currentMonth >= 6 ? // July or later
+        `${currentYear}-07-01` : 
+        `${currentYear - 1}-07-01`;
+      const financialYearEnd = currentMonth >= 6 ?
+        `${currentYear + 1}-06-30` :
+        `${currentYear}-06-30`;
       
-      const [currentMonthData, prevMonthData] = await Promise.all([
+      // Get last financial year for comparison
+      const lastFYStart = currentMonth >= 6 ?
+        `${currentYear - 1}-07-01` :
+        `${currentYear - 2}-07-01`;
+      const lastFYEnd = currentMonth >= 6 ?
+        `${currentYear}-06-30` :
+        `${currentYear - 1}-06-30`;
+      
+      const [currentFYData, lastFYData] = await Promise.all([
         supabase
           .from('incidents')
           .select('total_days_lost')
           .eq('employer_id', selectedEmployerId)
-          .gte('date_of_injury', currentMonthStart)
-          .lte('date_of_injury', currentMonthEnd)
+          .gte('date_of_injury', financialYearStart)
+          .lte('date_of_injury', financialYearEnd)
           .not('total_days_lost', 'is', null),
         supabase
           .from('incidents')
           .select('total_days_lost')
           .eq('employer_id', selectedEmployerId)
-          .gte('date_of_injury', prevMonthStart)
-          .lte('date_of_injury', prevMonthEnd)
+          .gte('date_of_injury', lastFYStart)
+          .lte('date_of_injury', lastFYEnd)
           .not('total_days_lost', 'is', null)
       ]);
 
-      if (currentMonthData.error) throw currentMonthData.error;
-      if (prevMonthData.error) throw prevMonthData.error;
+      if (currentFYData.error) throw currentFYData.error;
+      if (lastFYData.error) throw lastFYData.error;
 
-      const currentAvg = currentMonthData.data?.length 
-        ? currentMonthData.data.reduce((acc, curr) => acc + (curr.total_days_lost || 0), 0) / currentMonthData.data.length 
+      const currentAvg = currentFYData.data?.length 
+        ? currentFYData.data.reduce((acc, curr) => acc + (curr.total_days_lost || 0), 0) / currentFYData.data.length 
         : 0;
       
-      const prevAvg = prevMonthData.data?.length 
-        ? prevMonthData.data.reduce((acc, curr) => acc + (curr.total_days_lost || 0), 0) / prevMonthData.data.length 
+      const lastAvg = lastFYData.data?.length 
+        ? lastFYData.data.reduce((acc, curr) => acc + (curr.total_days_lost || 0), 0) / lastFYData.data.length 
         : 0;
 
       return {
         average: currentAvg,
-        difference: currentAvg - prevAvg
+        difference: currentAvg - lastAvg,
+        fyStart: financialYearStart,
+        fyEnd: financialYearEnd
       };
     },
-    enabled: !!selectedMonth && !!selectedEmployerId
+    enabled: !!selectedEmployerId
   });
 
   return (
@@ -82,7 +96,8 @@ export const AverageDaysLostCard = ({ selectedMonth }: AverageDaysLostCardProps)
           )}
         </div>
         <p className="text-xs text-muted-foreground mt-2">
-          As of {format(new Date(`${selectedMonth}-01`), 'MMMM yyyy')}
+          FY {data?.fyStart ? new Date(data.fyStart).getFullYear() : new Date().getFullYear()} 
+          {' '}(Jul 1 - Jun 30)
         </p>
       </CardContent>
     </Card>
