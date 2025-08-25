@@ -35,6 +35,7 @@ import MedicalHomePage from "./pages/MedicalHomePage";
 import MedicalPatientsPage from "./pages/MedicalPatientsPage";
 import StorageSetupAdmin from "./pages/StorageSetupAdmin";
 import DataAdmin from "./pages/DataAdmin";
+import DataConfigurationAdmin from "./pages/DataConfigurationAdmin";
 import DataImportAdmin from "./pages/DataImportAdmin";
 import ReferenceTablesAdmin from "./pages/ReferenceTablesAdmin";
 import SearchVerifyAdmin from "./pages/SearchVerifyAdmin";
@@ -131,6 +132,7 @@ function App() {
           {/* Admin routes */}
           <Route path="admin/storage-setup" element={<StorageSetupAdmin />} />
           <Route path="admin/data" element={<DataAdmin />} />
+          <Route path="admin/data-configuration" element={<DataConfigurationAdmin />} />
           <Route path="admin/data-import" element={<DataImportAdmin />} />
           <Route path="admin/reference-tables" element={<ReferenceTablesAdmin />} />
           <Route path="admin/search-verify" element={<SearchVerifyAdmin />} />

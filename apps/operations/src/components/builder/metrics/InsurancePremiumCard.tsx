@@ -16,10 +16,21 @@ export const InsurancePremiumCard = ({ baselineInsurance }: InsurancePremiumCard
     queryFn: async () => {
       if (!selectedEmployerId) return null;
       
+      // Get configured cost settings
+      const savedCosts = localStorage.getItem('incident_cost_settings');
+      const costSettings = savedCosts ? JSON.parse(savedCosts) : {
+        fai_cost: 50000,
+        mti_cost: 15000,
+        lti_base_cost: 85000,
+        lti_daily_cost: 500,
+        rwi_cost: 25000,
+        fatality_cost: 5000000
+      };
+      
       // Calculate estimated claim costs based on incident severity
       const { data: incidents, error } = await supabase
         .from('incidents')
-        .select('classification, total_days_lost')
+        .select('classification, total_days_lost, fatality')
         .eq('employer_id', selectedEmployerId)
         .gte('date_of_injury', new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0]);
       
@@ -28,14 +39,16 @@ export const InsurancePremiumCard = ({ baselineInsurance }: InsurancePremiumCard
       // Estimate costs based on incident classification
       let totalCosts = 0;
       incidents.forEach(incident => {
-        if (incident.classification === 'FAI') {
-          totalCosts += 50000; // First Aid Injury average cost
+        if (incident.fatality) {
+          totalCosts += costSettings.fatality_cost;
+        } else if (incident.classification === 'FAI') {
+          totalCosts += costSettings.fai_cost;
         } else if (incident.classification === 'MTI') {
-          totalCosts += 15000; // Medical Treatment Injury average cost  
+          totalCosts += costSettings.mti_cost;
         } else if (incident.classification === 'LTI') {
-          totalCosts += 85000 + (incident.total_days_lost || 0) * 500; // Lost Time Injury
+          totalCosts += costSettings.lti_base_cost + (incident.total_days_lost || 0) * costSettings.lti_daily_cost;
         } else if (incident.classification === 'RWI') {
-          totalCosts += 25000; // Restricted Work Injury
+          totalCosts += costSettings.rwi_cost;
         }
       });
       

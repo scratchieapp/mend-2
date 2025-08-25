@@ -2,8 +2,11 @@
 -- Date: 2025-08-26
 -- Purpose: Provide paginated incident data with all related details
 
--- Drop the function if it exists
+-- Drop the functions if they exist (with all parameter combinations)
+DROP FUNCTION IF EXISTS get_incidents_with_details(integer, integer, integer, integer, date, date, integer, integer);
 DROP FUNCTION IF EXISTS get_incidents_with_details;
+DROP FUNCTION IF EXISTS get_incidents_count(integer, integer, date, date, integer, integer);
+DROP FUNCTION IF EXISTS get_incidents_count;
 
 -- Create the function
 CREATE OR REPLACE FUNCTION get_incidents_with_details(

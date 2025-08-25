@@ -18,7 +18,8 @@ import {
   Activity,
   Upload,
   Shield,
-  Building
+  Building,
+  DollarSign
 } from 'lucide-react';
 
 interface AdminCardProps {
@@ -128,6 +129,13 @@ export default function AdminDashboard() {
       icon: <Database className="h-5 w-5" />,
       link: '/admin/data',
       requiredRole: 'admin' as const
+    },
+    {
+      title: 'Data Configuration',
+      description: 'Configure cost estimates and benchmarks',
+      icon: <DollarSign className="h-5 w-5" />,
+      link: '/admin/data-configuration',
+      requiredRole: 'super' as const
     },
     {
       title: 'Data Import',
