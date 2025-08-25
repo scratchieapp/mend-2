@@ -1,10 +1,24 @@
 -- Enhanced Row Level Security with Company Context System
 -- This migration implements proper company-based filtering with session context
 
+-- Ensure the auth.user_role() function exists (in case earlier migration didn't run)
+CREATE OR REPLACE FUNCTION auth.user_role()
+RETURNS TEXT AS $$
+BEGIN
+  RETURN (
+    SELECT ur.role_name 
+    FROM public.users u
+    JOIN public.user_roles ur ON u.role_id = ur.role_id
+    WHERE u.clerk_user_id = auth.jwt() ->> 'sub'
+    OR u.email = auth.jwt() ->> 'email'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
 -- Create a table to store user session contexts
 CREATE TABLE IF NOT EXISTS user_session_contexts (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id TEXT NOT NULL,
+  user_id TEXT NOT NULL UNIQUE,
   selected_employer_id INTEGER,
   selected_at TIMESTAMPTZ DEFAULT NOW(),
   expires_at TIMESTAMPTZ DEFAULT NOW() + INTERVAL '24 hours',
@@ -189,8 +203,8 @@ CREATE POLICY "Users can view incidents with context" ON incidents
       -- Super Admin can see all or filtered by context
       WHEN auth.user_role() = 'mend_super_admin' THEN 
         (get_employer_context() IS NULL OR employer_id = get_employer_context())
-      -- Medical professionals can see all incidents
-      WHEN auth.user_role() = 'medical_professional' THEN TRUE
+      -- Note: Add medical_professional role check here when role is added to user_roles table
+      -- WHEN auth.user_role() = 'medical_professional' THEN TRUE
       -- Other users see only their context employer
       ELSE employer_id = get_employer_context()
     END
@@ -207,7 +221,9 @@ CREATE POLICY "Users can update incidents for context employer" ON incidents
   FOR UPDATE
   USING (
     employer_id = get_employer_context()
-    OR auth.user_role() IN ('mend_super_admin', 'medical_professional')
+    OR auth.user_role() = 'mend_super_admin'
+    -- Note: Add medical_professional when role is added to user_roles table
+    -- OR auth.user_role() = 'medical_professional'
   );
 
 -- SITES table policies with context
