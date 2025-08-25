@@ -3,9 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { startOfMonth, subMonths } from "date-fns";
 import { transformIncidentData } from "@/utils/chartDataTransformers";
 
-export const useIncidentData = () => {
+export const useIncidentData = (selectedEmployerId?: number | null) => {
   return useQuery({
-    queryKey: ['incident-distribution'],
+    queryKey: ['incident-distribution', selectedEmployerId],
     queryFn: async () => {
       // Use current date as end date, and go back 12 months to capture more data
       const endDate = new Date();

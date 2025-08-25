@@ -4,9 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { startOfMonth, subMonths, isFuture, isEqual, format } from "date-fns";
 
-export const IndustryLTIChart = () => {
+interface IndustryLTIChartProps {
+  selectedEmployerId?: number | null;
+}
+
+export const IndustryLTIChart = ({ selectedEmployerId }: IndustryLTIChartProps) => {
   const { data: chartData, isLoading, error } = useQuery({
-    queryKey: ['industry-lti-rates'],
+    queryKey: ['industry-lti-rates', selectedEmployerId],
     queryFn: async () => {
       // Fetching industry LTI rates...
       

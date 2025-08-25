@@ -12,6 +12,7 @@ import { MenuBar } from "@/components/MenuBar";
 import { DataErrorBoundary } from "@/components/DataErrorBoundary";
 import { useState, useEffect } from "react";
 import { startOfMonth, subMonths } from "date-fns";
+import { useEmployerSelection } from "@/hooks/useEmployerSelection";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -22,10 +23,9 @@ const Dashboard = () => {
   // Get last month as the default month for metrics
   const defaultMonth = startOfMonth(subMonths(new Date(), 1)).toISOString();
   const [selectedMonth] = useState(defaultMonth);
-  const [selectedEmployerId] = useState<number | null>(() => {
-    const stored = localStorage.getItem("selectedEmployerId");
-    return stored ? Number(stored) : null;
-  });
+  
+  // Use the employer selection hook for proper context management
+  const { selectedEmployerId } = useEmployerSelection();
 
   // Handle success state from incident submission
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
@@ -113,6 +113,7 @@ const Dashboard = () => {
                   highlightIncidentId={submittedIncidentId || undefined}
                   showActions={true}
                   maxHeight="400px"
+                  selectedEmployerId={selectedEmployerId}
                 />
               </DataErrorBoundary>
 
@@ -121,15 +122,15 @@ const Dashboard = () => {
               </DataErrorBoundary>
               
               <DataErrorBoundary errorTitle="Failed to load LTI chart">
-                <IndustryLTIChart />
+                <IndustryLTIChart selectedEmployerId={selectedEmployerId} />
               </DataErrorBoundary>
               
               <DataErrorBoundary errorTitle="Failed to load incident analytics">
-                <IncidentAnalytics />
+                <IncidentAnalytics selectedEmployerId={selectedEmployerId} />
               </DataErrorBoundary>
               
               <DataErrorBoundary errorTitle="Failed to load performance overview">
-                <PerformanceOverview />
+                <PerformanceOverview selectedEmployerId={selectedEmployerId} />
               </DataErrorBoundary>
             </>
           )}

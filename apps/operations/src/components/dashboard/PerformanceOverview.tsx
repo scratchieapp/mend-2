@@ -2,7 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { CalendarDays, TrendingUp, TrendingDown } from "lucide-react";
 
-export const PerformanceOverview = () => {
+interface PerformanceOverviewProps {
+  selectedEmployerId?: number | null;
+}
+
+export const PerformanceOverview = ({ selectedEmployerId }: PerformanceOverviewProps) => {
   // Calculate year progress
   const now = new Date();
   const startOfYear = new Date(now.getFullYear(), 0, 1);

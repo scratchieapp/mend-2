@@ -28,12 +28,14 @@ interface IncidentsListProps {
   highlightIncidentId?: number;
   showActions?: boolean;
   maxHeight?: string;
+  selectedEmployerId?: number | null;
 }
 
 export function IncidentsList({ 
   highlightIncidentId, 
   showActions = true,
-  maxHeight = "600px" 
+  maxHeight = "600px",
+  selectedEmployerId
 }: IncidentsListProps) {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
@@ -48,7 +50,7 @@ export function IncidentsList({
     error, 
     refetch 
   } = useQuery({
-    queryKey: ['incidents', currentPage, pageSize, searchTerm, statusFilter, dateFilter],
+    queryKey: ['incidents', currentPage, pageSize, searchTerm, statusFilter, dateFilter, selectedEmployerId],
     queryFn: async () => {
       const offset = (currentPage - 1) * pageSize;
       

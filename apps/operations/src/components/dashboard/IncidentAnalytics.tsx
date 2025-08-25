@@ -3,8 +3,12 @@ import { ChartContainer } from "./charts/ChartContainer";
 import { StackedBarChart } from "./charts/StackedBarChart";
 import { chartColors } from "./charts/ChartColors";
 
-export const IncidentAnalytics = () => {
-  const { data: chartData = { data: [], employerOrder: [] }, isError, isLoading } = useIncidentData();
+interface IncidentAnalyticsProps {
+  selectedEmployerId?: number | null;
+}
+
+export const IncidentAnalytics = ({ selectedEmployerId }: IncidentAnalyticsProps) => {
+  const { data: chartData = { data: [], employerOrder: [] }, isError, isLoading } = useIncidentData(selectedEmployerId);
 
   if (isLoading) {
     return <ChartContainer title="Incident Distribution by Employer">

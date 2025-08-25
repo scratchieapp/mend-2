@@ -7,8 +7,10 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { Separator } from "@/components/ui/separator";
 
 interface Employer {
   employer_id: number;
@@ -18,7 +20,7 @@ interface Employer {
 interface EmployerSelectorProps {
   employers: Employer[];
   selectedEmployerId: number | null;
-  onSelect: (employerId: number) => void;
+  onSelect: (employerId: number | null) => void;
   isLoading: boolean;
 }
 
@@ -30,6 +32,8 @@ export const EmployerSelector = ({
 }: EmployerSelectorProps) => {
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
+  const { userData } = useAuth();
+  const isSuperAdmin = userData?.role_id === 1;
 
   const selectedEmployer = employers.find(
     (employer) => employer.employer_id === selectedEmployerId
@@ -57,7 +61,9 @@ export const EmployerSelector = ({
           aria-expanded={open}
           className="w-[200px] justify-between"
         >
-          {selectedEmployer?.employer_name ?? "Select employer..."}
+          {selectedEmployerId === null && isSuperAdmin 
+            ? "View All Companies" 
+            : selectedEmployer?.employer_name ?? "Select employer..."}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -73,6 +79,31 @@ export const EmployerSelector = ({
           </div>
           <ScrollArea className="h-[300px]">
             <div className="p-2">
+              {isSuperAdmin && (
+                <>
+                  <Button
+                    variant="ghost"
+                    role="option"
+                    onClick={() => {
+                      onSelect(null);
+                      setOpen(false);
+                      setSearchValue("");
+                    }}
+                    className="w-full justify-start font-normal"
+                  >
+                    <Eye
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        selectedEmployerId === null
+                          ? "opacity-100"
+                          : "opacity-0"
+                      )}
+                    />
+                    View All Companies
+                  </Button>
+                  <Separator className="my-2" />
+                </>
+              )}
               {filteredEmployers.length === 0 ? (
                 <div className="text-sm text-muted-foreground text-center py-4">
                   No employer found.
