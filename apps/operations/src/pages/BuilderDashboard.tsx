@@ -3,60 +3,15 @@ import { Button } from "@/components/ui/button";
 import { Building2, Users, FileText, TrendingUp, AlertTriangle, Calendar, Shield, ClipboardList } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEmployerSelection } from "@/hooks/useEmployerSelection";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useEmployerContext } from "@/hooks/useEmployerContext";
 import { DashboardHeader } from '@/components/layout/DashboardHeader';
 
 export default function BuilderDashboard() {
   const { selectedEmployerId } = useEmployerSelection();
-
-  // Fetch statistics for the selected employer
-  const { data: stats } = useQuery({
-    queryKey: ['builderStats', selectedEmployerId],
-    queryFn: async () => {
-      if (!selectedEmployerId) return null;
-      
-      // Fetch incident count
-      const { count: incidentCount } = await supabase
-        .from('incidents')
-        .select('*', { count: 'exact', head: true })
-        .eq('employer_id', selectedEmployerId);
-
-      // Fetch worker count
-      const { count: workerCount } = await supabase
-        .from('workers')
-        .select('*', { count: 'exact', head: true })
-        .eq('employer_id', selectedEmployerId);
-
-      // Fetch site count
-      const { count: siteCount } = await supabase
-        .from('sites')
-        .select('*', { count: 'exact', head: true })
-        .eq('employer_id', selectedEmployerId);
-
-      return {
-        incidents: incidentCount || 0,
-        workers: workerCount || 0,
-        sites: siteCount || 0,
-      };
-    },
-    enabled: !!selectedEmployerId,
-  });
-
-  if (!selectedEmployerId) {
-    return (
-      <div className="container mx-auto p-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Select an Employer</CardTitle>
-            <CardDescription>
-              Please select an employer from the dropdown above to view the dashboard.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
+  
+  // Use the new context-aware hook for statistics
+  // This will automatically respect RLS policies
+  const { statistics: stats, isLoadingStats } = useEmployerContext();
 
   const breadcrumbItems = [
     { label: 'Home', href: '/' },
@@ -70,8 +25,52 @@ export default function BuilderDashboard() {
         description="Manage workplace safety and incidents for your organization"
         breadcrumbItems={breadcrumbItems}
       />
+
+      {!selectedEmployerId ? (
+        <div className="container mx-auto p-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Select an Employer</CardTitle>
+              <CardDescription>
+                Please select an employer from the dropdown above to view the dashboard.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      ) : isLoadingStats ? (
+        <div className="container mx-auto p-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Loading...</CardTitle>
+              <CardDescription>
+                Fetching data for the selected employer...
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      ) : (
       
       <div className="container mx-auto p-6 space-y-6">
+
+      {/* Current Company Banner */}
+      {stats?.selected_employer_name && (
+        <Card className="bg-primary/5 border-primary/20">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">Current Company</CardTitle>
+              </div>
+              <span className="text-sm text-muted-foreground">
+                Company ID: {stats.selected_employer_id}
+              </span>
+            </div>
+            <CardDescription className="text-base font-medium text-foreground">
+              {stats.selected_employer_name}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -81,7 +80,7 @@ export default function BuilderDashboard() {
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.incidents || 0}</div>
+            <div className="text-2xl font-bold">{stats?.incident_count || 0}</div>
             <p className="text-xs text-muted-foreground">All time incidents</p>
           </CardContent>
         </Card>
@@ -92,7 +91,7 @@ export default function BuilderDashboard() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.workers || 0}</div>
+            <div className="text-2xl font-bold">{stats?.worker_count || 0}</div>
             <p className="text-xs text-muted-foreground">Registered workers</p>
           </CardContent>
         </Card>
@@ -103,7 +102,7 @@ export default function BuilderDashboard() {
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.sites || 0}</div>
+            <div className="text-2xl font-bold">{stats?.site_count || 0}</div>
             <p className="text-xs text-muted-foreground">Active locations</p>
           </CardContent>
         </Card>
@@ -266,6 +265,7 @@ export default function BuilderDashboard() {
         </CardContent>
       </Card>
     </div>
+      )}
     </div>
   );
 }

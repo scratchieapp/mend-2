@@ -316,6 +316,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = useCallback(async () => {
     setIsLoading(true);
     try {
+      // Clear employer context before signing out
+      await supabase.rpc('clear_employer_context').catch(err => {
+        console.warn('Failed to clear employer context:', err);
+      });
+      
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
@@ -328,6 +333,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsSessionExpiring(false);
       lastFetchedUserId.current = null;
       clearError();
+      
+      // Clear localStorage
+      localStorage.removeItem("selectedEmployerId");
       
       // Clear user context from error logger
       errorLogger.clearUserContext();
