@@ -32,6 +32,12 @@ export const SafetySummary = ({ selectedMonth }: SafetySummaryProps) => {
   const { data: incidents, isLoading: isIncidentsLoading } = useQuery({
     queryKey: ['recent-incidents', selectedEmployerId, selectedMonth],
     queryFn: async () => {
+      // Calculate date range for the selected month
+      const startDate = `${selectedMonth}-01`;
+      const [year, month] = selectedMonth.split('-').map(Number);
+      const lastDay = new Date(year, month, 0).getDate();
+      const endDate = `${selectedMonth}-${lastDay.toString().padStart(2, '0')}`;
+
       const { data, error } = await supabase
         .from('incidents')
         .select(`
@@ -44,8 +50,10 @@ export const SafetySummary = ({ selectedMonth }: SafetySummaryProps) => {
           )
         `)
         .eq('employer_id', selectedEmployerId)
-        .eq('date_of_injury', `${selectedMonth}-01`)
+        .gte('date_of_injury', startDate)
+        .lte('date_of_injury', endDate)
         .order('date_of_injury', { ascending: false })
+        .limit(10)
         .returns<IncidentWithWorker[]>();
 
       if (error) throw error;
