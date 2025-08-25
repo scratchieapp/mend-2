@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -52,7 +52,7 @@ export function IncidentsList({
     error, 
     refetch 
   } = useQuery({
-    queryKey: ['incidents', currentPage, pageSize, searchTerm, statusFilter, dateFilter, selectedEmployerId, roleId, userEmployerId],
+    queryKey: ['incidents', currentPage, pageSize, statusFilter, dateFilter, selectedEmployerId, roleId, userEmployerId],
     queryFn: async () => {
       const offset = (currentPage - 1) * pageSize;
       
@@ -92,22 +92,25 @@ export function IncidentsList({
         userEmployerId: userEmployerId || undefined
       });
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    enabled: !userLoading // Don't fetch until we have user context
+    staleTime: 30 * 1000, // 30 seconds - more aggressive refresh for real-time data
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    enabled: !userLoading, // Don't fetch until we have user context
+    placeholderData: (previousData) => previousData, // Keep previous data while fetching
   });
 
-  // Filter incidents based on search term
-  const filteredIncidents = incidentsData?.incidents.filter(incident => {
-    if (!searchTerm) return true;
+  // Filter incidents based on search term - using useMemo for performance
+  const filteredIncidents = React.useMemo(() => {
+    if (!incidentsData?.incidents) return [];
+    if (!searchTerm) return incidentsData.incidents;
     
     const searchLower = searchTerm.toLowerCase();
-    return (
+    return incidentsData.incidents.filter(incident => (
       incident.worker_full_name.toLowerCase().includes(searchLower) ||
       incident.injury_type.toLowerCase().includes(searchLower) ||
       incident.incident_number.toLowerCase().includes(searchLower) ||
       incident.employer_name.toLowerCase().includes(searchLower)
-    );
-  }) || [];
+    ));
+  }, [incidentsData?.incidents, searchTerm]);
 
   const getStatusBadge = (incident: IncidentWithDetails) => {
     if (incident.fatality) {

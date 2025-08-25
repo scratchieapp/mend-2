@@ -1,22 +1,59 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Building2, Users, FileText, TrendingUp, AlertTriangle, Calendar, Shield, ClipboardList } from "lucide-react";
+import { Building2, Users, FileText, TrendingUp, AlertTriangle, Calendar, Shield, ClipboardList, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEmployerSelection } from "@/hooks/useEmployerSelection";
 import { useEmployerContext } from "@/hooks/useEmployerContext";
 import { DashboardHeader } from '@/components/layout/DashboardHeader';
+import { EmployerSelector } from '@/components/builder/EmployerSelector';
+import { useAuth } from "@/lib/auth/AuthContext";
+import { IncidentsList } from '@/components/dashboard/IncidentsList';
+import { useEffect } from 'react';
 
 export default function BuilderDashboard() {
-  const { selectedEmployerId } = useEmployerSelection();
+  const { userData } = useAuth();
+  const { 
+    selectedEmployerId, 
+    employers, 
+    isLoadingEmployers, 
+    handleEmployerChange 
+  } = useEmployerSelection();
   
   // Use the new context-aware hook for statistics
-  // This will automatically respect RLS policies
-  const { statistics: stats, isLoadingStats } = useEmployerContext();
+  const { 
+    statistics: stats, 
+    isLoadingStats,
+    setContext,
+    currentContext,
+    incidents,
+    isLoadingIncidents 
+  } = useEmployerContext();
+  
+  // Sync employer selection with context
+  useEffect(() => {
+    if (selectedEmployerId && selectedEmployerId !== currentContext) {
+      setContext(selectedEmployerId);
+    }
+  }, [selectedEmployerId, currentContext, setContext]);
 
   const breadcrumbItems = [
     { label: 'Home', href: '/' },
     { label: 'Builder Dashboard' }
   ];
+  
+  const isSuperAdmin = userData?.role_id === 1;
+  
+  // Custom actions for the header (employer selector for super admin)
+  const headerActions = isSuperAdmin ? (
+    <div className="flex items-center gap-2">
+      <EmployerSelector
+        employers={employers}
+        selectedEmployerId={selectedEmployerId}
+        onSelect={handleEmployerChange}
+        isLoading={isLoadingEmployers}
+      />
+    </div>
+  ) : null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -24,6 +61,7 @@ export default function BuilderDashboard() {
         title="Builder Dashboard"
         description="Manage workplace safety and incidents for your organization"
         breadcrumbItems={breadcrumbItems}
+        customActions={headerActions}
       />
 
       {!selectedEmployerId ? (
@@ -109,12 +147,12 @@ export default function BuilderDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Safety Score</CardTitle>
+            <CardTitle className="text-sm font-medium">Days Lost Average</CardTitle>
             <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">85%</div>
-            <p className="text-xs text-muted-foreground">Compliance rating</p>
+            <div className="text-2xl font-bold">{stats?.avg_days_lost ? Number(stats.avg_days_lost).toFixed(1) : '0'}</div>
+            <p className="text-xs text-muted-foreground">Average days per incident</p>
           </CardContent>
         </Card>
       </div>
@@ -226,44 +264,12 @@ export default function BuilderDashboard() {
         </Card>
       </div>
 
-      {/* Recent Activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Latest incidents and updates</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center space-x-4">
-              <div className="flex-shrink-0">
-                <AlertTriangle className="h-5 w-5 text-yellow-500" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">New incident reported at Site A</p>
-                <p className="text-xs text-muted-foreground">2 hours ago</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex-shrink-0">
-                <Shield className="h-5 w-5 text-green-500" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">Safety audit completed at Site B</p>
-                <p className="text-xs text-muted-foreground">1 day ago</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex-shrink-0">
-                <Users className="h-5 w-5 text-blue-500" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">5 new workers added to the system</p>
-                <p className="text-xs text-muted-foreground">2 days ago</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Recent Incidents List */}
+      <IncidentsList 
+        selectedEmployerId={selectedEmployerId}
+        showActions={true}
+        maxHeight="500px"
+      />
     </div>
       )}
     </div>

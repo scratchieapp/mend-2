@@ -69,7 +69,7 @@ export interface PaginatedIncidents {
 export async function getIncidentsWithDetails(params: IncidentsListParams = {}): Promise<PaginatedIncidents> {
   try {
     const {
-      pageSize = 50,
+      pageSize = 10, // Reduced default page size for faster loads
       pageOffset = 0,
       employerId = null,
       workerId = null,
@@ -245,10 +245,10 @@ export async function deleteIncident(incidentId: number): Promise<void> {
 }
 
 /**
- * Get recent incidents for dashboard
+ * Get recent incidents for dashboard with optimized query
  */
 export async function getRecentIncidents(
-  limit = 10, 
+  limit = 5, // Reduced default for faster dashboard loads
   userRoleId?: number, 
   userEmployerId?: number
 ): Promise<IncidentWithDetails[]> {

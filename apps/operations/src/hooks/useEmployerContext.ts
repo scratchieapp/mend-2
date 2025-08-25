@@ -10,6 +10,12 @@ interface EmployerStatistics {
   active_lti_count: number;
   selected_employer_id: number;
   selected_employer_name: string;
+  avg_days_lost?: number;
+  total_days_lost?: number;
+  incidents_this_month?: number;
+  incidents_last_month?: number;
+  open_incidents?: number;
+  closed_incidents?: number;
 }
 
 /**
@@ -38,7 +44,7 @@ export const useEmployerContext = () => {
   });
 
   // Get statistics for the current employer context
-  const { data: statistics, isLoading: isLoadingStats } = useQuery({
+  const { data: statistics, isLoading: isLoadingStats, refetch: refetchStats } = useQuery({
     queryKey: ['employer-statistics', currentContext],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_employer_statistics');
@@ -52,6 +58,8 @@ export const useEmployerContext = () => {
       return data?.[0] as EmployerStatistics | null;
     },
     enabled: !!currentContext,
+    staleTime: 30 * 1000, // Consider data stale after 30 seconds
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
 
   // Mutation to set employer context
@@ -64,18 +72,24 @@ export const useEmployerContext = () => {
       if (error) throw error;
       return employerId;
     },
-    onSuccess: (employerId) => {
+    onSuccess: async (employerId) => {
       // Invalidate all queries that depend on employer context
-      queryClient.invalidateQueries({ queryKey: ['employer-context'] });
-      queryClient.invalidateQueries({ queryKey: ['employer-statistics'] });
-      queryClient.invalidateQueries({ queryKey: ['incidents'] });
-      queryClient.invalidateQueries({ queryKey: ['workers'] });
-      queryClient.invalidateQueries({ queryKey: ['sites'] });
-      queryClient.invalidateQueries({ queryKey: ['builderStats'] });
+      await queryClient.invalidateQueries({ queryKey: ['employer-context'] });
+      await queryClient.invalidateQueries({ queryKey: ['employer-statistics'] });
+      await queryClient.invalidateQueries({ queryKey: ['context-incidents'] });
+      await queryClient.invalidateQueries({ queryKey: ['context-workers'] });
+      await queryClient.invalidateQueries({ queryKey: ['context-sites'] });
+      await queryClient.invalidateQueries({ queryKey: ['incidents'] });
+      await queryClient.invalidateQueries({ queryKey: ['workers'] });
+      await queryClient.invalidateQueries({ queryKey: ['sites'] });
+      await queryClient.invalidateQueries({ queryKey: ['builderStats'] });
+      
+      // Refetch the current data
+      refetchStats();
       
       toast({
         title: "Context Updated",
-        description: `Employer context set to ID: ${employerId}`,
+        description: `Viewing data for employer ID: ${employerId}`,
       });
     },
     onError: (error) => {
@@ -131,6 +145,8 @@ export const useEmployerContext = () => {
       return data || [];
     },
     enabled: !!currentContext,
+    staleTime: 30 * 1000, // Consider data stale after 30 seconds
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
 
   // Fetch workers with automatic RLS filtering
@@ -141,7 +157,7 @@ export const useEmployerContext = () => {
       const { data, error } = await supabase
         .from('workers')
         .select('*')
-        .order('worker_last_name', { ascending: true });
+        .order('family_name', { ascending: true });
       
       if (error) {
         console.error('Error fetching context workers:', error);
@@ -151,6 +167,8 @@ export const useEmployerContext = () => {
       return data || [];
     },
     enabled: !!currentContext,
+    staleTime: 30 * 1000, // Consider data stale after 30 seconds
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
 
   // Fetch sites with automatic RLS filtering
@@ -171,6 +189,8 @@ export const useEmployerContext = () => {
       return data || [];
     },
     enabled: !!currentContext,
+    staleTime: 30 * 1000, // Consider data stale after 30 seconds
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
 
   return {
@@ -185,6 +205,7 @@ export const useEmployerContext = () => {
     // Statistics
     statistics,
     isLoadingStats,
+    refetchStats,
     
     // Context-filtered data
     incidents: contextIncidents,

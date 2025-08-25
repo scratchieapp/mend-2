@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -11,6 +11,7 @@ interface Employer {
 
 export const useEmployerSelection = () => {
   const { userData } = useAuth();
+  const queryClient = useQueryClient();
   const [selectedEmployerId, setSelectedEmployerId] = useState<number | null>(() => {
     const stored = localStorage.getItem("selectedEmployerId");
     // If stored value is "null" string, return null for View All mode
@@ -117,8 +118,9 @@ export const useEmployerSelection = () => {
         }
       }
 
-      // Force reload the page to reset all React states and apply new RLS context
-      window.location.reload();
+      // Invalidate all queries to refetch with new context
+      await queryClient.invalidateQueries();
+      
     } catch (error) {
       console.error('Failed to change employer:', error);
       toast({
