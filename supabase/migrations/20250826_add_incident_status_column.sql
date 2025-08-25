@@ -229,7 +229,7 @@ CREATE TABLE IF NOT EXISTS incident_status_history (
   incident_id INTEGER NOT NULL REFERENCES incidents(incident_id) ON DELETE CASCADE,
   old_status TEXT,
   new_status TEXT NOT NULL,
-  changed_by INTEGER REFERENCES users(id),
+  changed_by UUID REFERENCES users(user_id),
   changed_at TIMESTAMPTZ DEFAULT NOW(),
   change_reason TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
