@@ -11,18 +11,18 @@ WHERE u.role_id = ur.role_id
 
 -- Optional: Update ALL users regardless of existing custom_display_name
 -- Uncomment the following if you want to reset all display names to role labels
-/*
+
 UPDATE users u
 SET custom_display_name = ur.role_label
 FROM user_roles ur
 WHERE u.role_id = ur.role_id;
-*/
+
 
 -- Verify the update (query to check results)
 -- This is a comment showing how to verify the migration worked
 /*
 SELECT 
-    u.id,
+    u.user_id,
     u.email,
     u.role_id,
     ur.role_label,
