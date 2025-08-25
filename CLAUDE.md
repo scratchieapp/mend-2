@@ -3,94 +3,117 @@
 ## Project Overview
 Mend-2 is a comprehensive workplace safety management platform built with React, TypeScript, Vite, and Clerk authentication. The application manages workplace incidents, safety reporting, and compliance tracking for construction and industrial environments.
 
-## Current Status (Updated: 2025-08-25 - RECENT IMPROVEMENTS)
+## Current Status (Updated: 2025-08-25 - AUTHENTICATION WORKING, RLS ISSUES)
 
-### ✅ AUTHENTICATION SYSTEM FULLY OPERATIONAL (2025-08-24)
-**SUCCESS: Role-based authentication and routing is now working perfectly**
+### ✅ AUTHENTICATION SYSTEM OPERATIONAL (2025-08-25)
+**SUCCESS: Authentication and role-based routing is working with Clerk**
 
-### 🎉 LATEST IMPROVEMENTS (2025-08-25)
-**Recent enhancements to infrastructure, UI components, and database management**
+### ⚠️ ROW-LEVEL SECURITY PARTIALLY WORKING (2025-08-25)
+**RLS implemented but filtering is broken - needs debugging**
 
-## 🎉 AUTHENTICATION FIXES IMPLEMENTED
+## ✅ AUTHENTICATION STATUS (August 25, 2025)
 
-### 1. **Base Path Configuration - FIXED**
-   - **Solution**: Modified vite.config.ts to use root path in development
-   - **Impact**: App now loads correctly without routing conflicts
-   - **Status**: ✅ RESOLVED
+### 1. **Authentication Working with Clerk** ✅
+   - **Status**: Clerk authentication is fully functional
+   - **Login Flow**: Users can successfully authenticate
+   - **Session Management**: Proper session handling throughout app
+   - **Impact**: Core authentication system operational
 
-### 2. **Role Detection and Routing - WORKING**
-   - **Test Results**: All roles routing to correct dashboards
-   - **Verified**: role1@scratchie.com → /admin ✅
-   - **Verified**: role5@scratchie.com → /builder-senior ✅
-   - **Status**: ✅ FULLY FUNCTIONAL
+### 2. **Role-Based Routing Functional** ✅
+   - **Test Results**: All role routing working correctly
+   - **Verified**: role_id 1 → /admin dashboard ✅
+   - **Verified**: DashboardRouter fetches role from Supabase correctly ✅
+   - **Status**: Role-based navigation fully operational
 
-### 3. **Mock Authentication System - IMPLEMENTED**
-   - **Feature**: Created mock auth provider for development/testing
-   - **Benefit**: Can test all role flows without Clerk issues
-   - **Location**: `/src/lib/clerk/MockAuthProvider.tsx`
-   - **Status**: ✅ OPERATIONAL
+### 3. **User Management Improvements** ✅
+   - **UI Enhancement**: Proper navigation and table formatting
+   - **Display Names**: Using role_label from user_roles table
+   - **Navigation**: DashboardHeader component for consistent UI
+   - **Status**: User management interface working properly
 
-### 4. **Centralized Auth Configuration - COMPLETE**
-   - **Solution**: Single source of truth for auth configuration
-   - **Location**: `/src/lib/auth/authConfig.ts`
-   - **Switch**: Set `USE_MOCK_AUTH` to toggle between mock and real auth
-   - **Status**: ✅ WORKING PERFECTLY
+### 4. **Infrastructure Enhancements** ✅
+   - **Migration Files**: Moved to proper `/supabase/migrations/` location
+   - **Environment Variables**: Monorepo fallback system implemented
+   - **Component Fixes**: Fixed Shield import error in UsersTable
+   - **Status**: Development infrastructure stabilized
 
-## ❌ FAILED FIX ATTEMPTS (2025-08-24)
-1. **Supabase Query Syntax**: Changed `!inner` to `!role_id` - didn't resolve
-2. **DashboardRouter Modification**: Added role-based redirect logic - role data unavailable
-3. **Circular Dependency Fix**: Fixed config file imports - getBaseUrl error persists
-4. **Debug Tools**: Created debugging utilities - can't load due to fundamental errors
+## ⚠️ ROW-LEVEL SECURITY (RLS) STATUS - PARTIALLY WORKING
 
-## 🔧 AUTHENTICATION IN PROGRESS (2025-08-24)
-**Current Implementation Status:**
-- **Clerk Authentication**: ✅ Working - Users can log in successfully
-- **Role System**: ✅ Fetching role_id from Supabase users table correctly
-- **Dashboard Routing**: ⚠️ Partially fixed - Role mappings corrected but needs testing
-- **Simplification**: ✅ Removed all mock auth complexity - using Clerk as designed
+### 1. **RLS System Implementation** ✅
+   - **Created**: Comprehensive RLS system with company context
+   - **Tables**: user_session_contexts table for storing selected company
+   - **Functions**: set_employer_context(), get_employer_context() implemented
+   - **Admin Features**: "View All Companies" option for Super Admins
+   - **Migration Status**: All migration files created and successfully run
 
-## 📋 AUTHENTICATION FLOW
-1. **User Login**: ✅ Clerk handles authentication successfully
-2. **Role Fetch**: ✅ DashboardRouter gets role_id from Supabase using user email
-3. **Routing**: ⚠️ Now correctly mapped but needs verification for all roles
-4. **Session**: ✅ Clerk maintains auth session properly
+### 2. **CURRENT CRITICAL ISSUE - RLS FILTERING BROKEN** ❌
+   - **Problem**: When logged in as mend_super_admin (role 1)
+   - **Symptom**: Selecting any builder returns NO incidents in recent incidents table
+   - **Cause**: RLS filtering appears too restrictive or not working correctly
+   - **Impact**: Dashboard shows empty incident list regardless of employer selection
+   - **Status**: ❌ BROKEN - Requires immediate investigation
 
-### 🔧 RECENT IMPROVEMENTS (2025-08-25)
-1. **Migration File Organization** ✅
+### 3. **RLS Debugging Required** ❌
+   - **Issue**: get_incidents_with_details returns empty results
+   - **Suspect**: Company context may not be properly integrated with RLS policies
+   - **Next Steps**: Debug RLS policy logic and company context integration
+   - **Priority**: HIGH - Core functionality blocked
+
+## ✅ RECENT IMPROVEMENTS (August 25, 2025)
+
+### 1. **Migration File Organization** ✅
    - Fixed Supabase migration location: `/supabase/migrations/20250824_populate_custom_display_names.sql`
    - Migration populates `custom_display_name` with `role_label` from `user_roles` table
-   - Proper database schema maintenance
+   - Proper database schema maintenance and organization
+   - All migrations successfully applied to database
 
-2. **Common Dashboard Header Component** ✅
+### 2. **Common Dashboard Header Component** ✅
    - Created `DashboardHeader` component for consistent navigation
    - Features: breadcrumbs, back button, user profile badge, sticky header
    - Implemented across: AdminDashboard, BuilderDashboard, MedicalDashboard, GovernmentOfficialDashboard
    - Consistent UI/UX throughout dashboard hierarchy
+   - Enhanced user experience with standardized navigation
 
-3. **Environment Variable Fallback System** ✅
+### 3. **Environment Variable Fallback System** ✅
    - Implemented monorepo-wide environment variable fallback
    - Apps check local `.env` first, then fall back to root `.env`
    - Created `shared-utils` package for environment utilities
    - Both operations and marketing apps support shared variables
    - Documentation: `/docs/ENVIRONMENT_VARIABLE_FALLBACK.md`
+   - Improved development workflow across multiple apps
 
-4. **User Management Enhancements** ✅
-   - Fixed Shield import error
+### 4. **User Management Enhancements** ✅
+   - Fixed Shield import error in UsersTable component
    - Improved table alignment and user display names
    - Added comprehensive edit functionality with dropdown menus
-   - Enhanced navigation with breadcrumbs
+   - Enhanced navigation with breadcrumbs and proper routing
+   - Updated custom_display_name to use role_label from user_roles table
 
-### 🔧 PREVIOUS FIXES (2025-08-24 Evening)
-- **Fixed Role Routing**: Corrected role_id to dashboard mappings (role 1 → /admin, not /medical)
-- **User Management UI**: 
-  - ✅ Added navigation with back button and breadcrumbs
-  - ✅ Fixed table alignment (left-aligned email, date, status)
-  - ✅ Fixed user name display using `display_name` field
-  - ✅ Added edit functionality with dropdown menus
-  - ✅ Renamed menu item from "Account Manager" to "User Management"
-- **Database Schema Understanding**: Identified correct fields (display_name vs non-existent first_name/last_name)
+### 5. **Row-Level Security Implementation** ⚠️
+   - Created comprehensive RLS system with company context
+   - Added user_session_contexts table for storing selected company
+   - Implemented set_employer_context(), get_employer_context() functions
+   - Added "View All Companies" option for Super Admins
+   - Migration files created and successfully run
+   - **ISSUE**: RLS filtering currently broken - shows no incidents when employer selected
+
+## 🟢 WHAT'S WORKING (August 25, 2025)
+- ✅ Authentication and role detection with Clerk
+- ✅ Role-based routing (role_id 1 → /admin, etc.)
+- ✅ User management with proper display names
+- ✅ Navigation with DashboardHeader component
+- ✅ Environment variable fallback system
+- ✅ Database migrations run successfully
+- ✅ Core application functionality accessible
+
+## 🔴 WHAT'S NOT WORKING (August 25, 2025)
+- ❌ RLS filtering broken - shows no incidents when employer is selected
+- ❌ get_incidents_with_details returns empty results despite valid data
+- ❌ Company context may not be properly integrated with RLS policies
+- ❌ Dashboard incident lists empty regardless of employer selection
 
 ### ⚠️ KNOWN ISSUES
+- **CRITICAL**: RLS system not filtering incidents correctly - needs debugging
 - Some demo users (role3-9@scratchie.com) have incorrect role_id values in database
 - Need to create proper routes for /analyst, /site-admin, /client, /vendor dashboards
 - User Management page needs "Account Management" section for actual client accounts
@@ -123,12 +146,13 @@ Mend-2 is a comprehensive workplace safety management platform built with React,
    - Medical Dashboard created for medical professionals (role 6)
    - Improved error handling for unauthorized access
 
-5. **Row-Level Security (RLS) Implementation**
+5. **Row-Level Security (RLS) Implementation** ⚠️
    - Migration: `/supabase/migrations/20250823_row_level_security.sql`
    - Company filter utility: `/src/lib/supabase/companyFilter.ts`
-   - Users only see their company's data automatically
+   - User session contexts table: `/supabase/migrations/20250825_user_session_contexts.sql`
+   - Company context functions: set_employer_context(), get_employer_context()
    - Admin override capabilities for cross-company access
-   - Enhanced data privacy and security
+   - **STATUS**: Implemented but filtering currently broken - needs debugging
 
 6. **Critical Bug Fixes**
    - Fixed Mapbox token issue (now using VITE_MAPBOX_ACCESS_TOKEN)
@@ -359,31 +383,33 @@ npm run create-demo-users
 5. **Vercel deployment**: Optimized for React SPAs with proper routing
 
 ## Risk Assessment
-**Current Risk Level: LOW** (Updated 2025-08-25)
+**Current Risk Level: MEDIUM** (Updated 2025-08-25)
 - ✅ Authentication system fully operational
 - ✅ Application starts without errors
 - ✅ Role-based routing working correctly
 - ✅ Supabase-Clerk integration functional
 - ✅ Users access appropriate role-based interfaces
 - ✅ Dashboard routing working for all roles
-- ✅ Core application fully operational
-- ✅ Database integration stable and accessible
+- ❌ **CRITICAL**: Row-Level Security filtering broken - incidents not displaying
+- ❌ **HIGH**: Company context integration with RLS policies failing
+- ⚠️ **MEDIUM**: Core incident management features affected by RLS issues
+- ✅ Database integration stable but RLS filtering non-functional
 
 ## Quality Metrics (Updated 2025-08-25)
 - **TypeScript Coverage**: >95% (strict mode enabled)
-- **Authentication Flow**: ✅ OPERATIONAL - both mock and Clerk auth working
+- **Authentication Flow**: ✅ OPERATIONAL - Clerk authentication working properly
 - **User Identity Display**: ✅ FUNCTIONAL - UserBadge working with role display
 - **Role-Based Access**: ✅ WORKING - routing system fully functional
-- **Data Security**: ✅ SECURE - role-based access controls operational
+- **Data Security**: ❌ COMPROMISED - RLS filtering broken, data access issues
 - **Form Validation**: ✅ Comprehensive Zod schemas throughout
 - **Error Handling**: ✅ ROBUST - proper error boundaries and handling
 - **Mobile Responsiveness**: ✅ TESTED - responsive design verified
 - **Map Integration**: ✅ ACCESSIBLE - Mapbox integration working
 - **Site Navigation**: ✅ WORKING - consistent navigation with DashboardHeader
-- **Dashboard Coverage**: ✅ COMPLETE - all role-based dashboards accessible
-- **React Query Integration**: ✅ OPERATIONAL - data fetching working properly
-- **Core Features**: ✅ FUNCTIONAL - incident management fully accessible
-- **Application Status**: ✅ FULLY OPERATIONAL
+- **Dashboard Coverage**: ⚠️ PARTIAL - dashboards accessible but incident data not displaying
+- **React Query Integration**: ✅ OPERATIONAL - data fetching working but returns empty results
+- **Core Features**: ❌ IMPAIRED - incident management affected by RLS filtering issues
+- **Application Status**: ⚠️ PARTIALLY FUNCTIONAL - auth working, data filtering broken
 
 ## Support and Maintenance
 - **Monitoring**: Application performance tracked
@@ -398,40 +424,42 @@ npm run create-demo-users
 - **Playwright**: Configured for automated testing
 
 ## Production Readiness
-**Status: READY FOR TESTING** ✅
-IMPORTANT: Review and follow docs/avoid-set-state.md for proper state management patterns
+**Status: NOT READY FOR PRODUCTION** ❌
+IMPORTANT: Critical RLS issues must be resolved before production deployment
 
-The application is now functional with mock authentication for development and testing:
+The application has working authentication but critical data filtering issues:
 
 **WORKING SYSTEMS**:
-- ✅ Authentication system operational with mock provider
-- ✅ Role-based routing fully functional for all 9 roles
+- ✅ Authentication system operational with Clerk
+- ✅ Role-based routing fully functional for all roles
 - ✅ Users correctly access role-appropriate dashboards
 - ✅ Application starts without errors
-- ✅ Centralized auth configuration for easy switching
+- ✅ User management interface working properly
+- ✅ Navigation and UI components functioning
 
-**APPLICATION STATE**:
-- ✅ Application starts cleanly
-- ✅ Mock authentication works reliably
-- ✅ Incident reporting features accessible
-- ✅ All dashboards reachable by appropriate roles
-- ✅ Core application functions operational
+**BROKEN SYSTEMS**:
+- ❌ Row-Level Security filtering completely broken
+- ❌ Incident data not displaying despite valid database records
+- ❌ Company context integration with RLS policies failing
+- ❌ Dashboard incident lists showing empty results
+- ❌ Core data access functionality impaired
 
-**DEPLOYMENT CONSIDERATIONS**: ⚠️ DEVELOPMENT MODE
-- Currently using mock authentication (USE_MOCK_AUTH = true)
-- For production: Switch to real Clerk authentication
-- All role-based routing logic tested and working
-- Ready for integration testing
+**DEPLOYMENT BLOCKERS**: ❌ CRITICAL ISSUES
+- RLS system implemented but filtering logic broken
+- Users cannot see incident data regardless of company selection
+- Data security compromised due to RLS filtering failures
+- Core application functionality severely impaired
 
-**NEXT STEPS**:
-1. Test all 9 roles thoroughly with mock auth
-2. Switch to real Clerk auth when ready for production
-3. Verify Supabase-Clerk integration for production use
+**IMMEDIATE ACTIONS REQUIRED**:
+1. **DEBUG RLS POLICIES**: Investigate why get_incidents_with_details returns empty
+2. **FIX COMPANY CONTEXT**: Ensure company context properly integrates with RLS
+3. **TEST DATA FILTERING**: Verify RLS policies work with actual data
+4. **VALIDATE PERMISSIONS**: Ensure appropriate data access for each role
 
 ---
 
-**Last Updated**: August 25, 2025 - INFRASTRUCTURE IMPROVEMENTS  
-**Version**: 2.2.0 (Enhanced Infrastructure & UI Components)  
+**Last Updated**: August 25, 2025 - AUTHENTICATION WORKING, RLS BROKEN  
+**Version**: 2.3.0 (Authentication Fixed, RLS Issues Critical)  
 **Maintainer**: Development Team  
-**Status**: ✅ PRODUCTION READY - All Systems Operational  
-**Next Review**: Weekly development cycle
+**Status**: ❌ NOT PRODUCTION READY - Critical RLS Filtering Issues  
+**Next Review**: Daily until RLS issues resolved - HIGH PRIORITY
