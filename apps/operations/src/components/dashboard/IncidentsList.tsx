@@ -41,7 +41,7 @@ export function IncidentsList({
   const navigate = useNavigate();
   const { roleId, employerId: userEmployerId, isLoading: userLoading } = useUserContext();
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(10);
+  const [pageSize] = useState(25); // Optimized page size
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
@@ -52,7 +52,7 @@ export function IncidentsList({
     error, 
     refetch 
   } = useQuery({
-    queryKey: ['incidents', currentPage, pageSize, dateFilter, selectedEmployerId || 'all'],
+    queryKey: ['incidents', currentPage, pageSize, dateFilter, selectedEmployerId || 'all', roleId, userEmployerId],
     queryFn: async () => {
       const offset = (currentPage - 1) * pageSize;
       
@@ -82,14 +82,27 @@ export function IncidentsList({
         }
       }
 
+      // For Super Admin (role_id = 1), when no employer is selected, 
+      // we don't pass employerId to get ALL incidents
+      const filterEmployerId = roleId === 1 && !selectedEmployerId 
+        ? undefined 
+        : selectedEmployerId || undefined;
+
+      console.log('Fetching incidents with RBAC:', {
+        roleId,
+        userEmployerId,
+        filterEmployerId,
+        isSuperAdmin: roleId === 1
+      });
+
       return await getIncidentsWithDetails({
         pageSize,
         pageOffset: offset,
         startDate,
         endDate,
-        employerId: selectedEmployerId || undefined,
+        employerId: filterEmployerId,
         userRoleId: roleId || undefined,
-        userEmployerId: userEmployerId || undefined
+        userEmployerId: userEmployerId ? parseInt(userEmployerId.toString()) : undefined
       });
     },
     staleTime: 60 * 1000, // 60 seconds - reduce refresh frequency
@@ -105,12 +118,16 @@ export function IncidentsList({
     if (!searchTerm) return incidentsData.incidents;
     
     const searchLower = searchTerm.toLowerCase();
-    return incidentsData.incidents.filter(incident => (
-      incident.worker_full_name?.toLowerCase().includes(searchLower) ||
-      incident.injury_type?.toLowerCase().includes(searchLower) ||
-      incident.incident_number?.toLowerCase().includes(searchLower) ||
-      incident.employer_name?.toLowerCase().includes(searchLower)
-    ));
+    return incidentsData.incidents.filter(incident => {
+      // Handle both worker_full_name and worker_name from optimized function
+      const workerName = incident.worker_full_name || incident.worker_name || '';
+      return (
+        workerName.toLowerCase().includes(searchLower) ||
+        incident.injury_type?.toLowerCase().includes(searchLower) ||
+        incident.incident_number?.toLowerCase().includes(searchLower) ||
+        incident.employer_name?.toLowerCase().includes(searchLower)
+      );
+    });
   }, [incidentsData?.incidents, searchTerm]);
 
   const getStatusBadge = (incident: IncidentWithDetails) => {
@@ -297,10 +314,10 @@ export function IncidentsList({
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-muted-foreground" />
                         <div>
-                          <div className="font-medium">{incident.worker_full_name}</div>
-                          {incident.worker_employee_number && (
+                          <div className="font-medium">{incident.worker_full_name || incident.worker_name || 'Unknown'}</div>
+                          {incident.worker_occupation && (
                             <div className="text-sm text-muted-foreground">
-                              #{incident.worker_employee_number}
+                              {incident.worker_occupation}
                             </div>
                           )}
                         </div>

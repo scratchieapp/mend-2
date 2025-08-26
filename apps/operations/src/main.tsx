@@ -11,6 +11,18 @@ import './index.css';
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
+// Debug Clerk configuration
+console.log('🔑 Clerk Configuration Debug:');
+console.log('Environment:', import.meta.env.MODE);
+console.log('Clerk Key Present:', !!clerkPubKey);
+console.log('Clerk Key Prefix:', clerkPubKey?.substring(0, 15));
+
+if (!clerkPubKey) {
+  console.error('❌ VITE_CLERK_PUBLISHABLE_KEY is not set!');
+} else {
+  console.log('✅ Clerk publishable key is configured');
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

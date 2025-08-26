@@ -1,12 +1,15 @@
 import { ModeSelector } from "./navigation/ModeSelector";
 import { NavigationLinks } from "./navigation/NavigationLinks";
 import { EmployerSelector } from "./builder/EmployerSelector";
+import { EmployerContextSelector } from "./EmployerContextSelector";
 import { UserBadge } from "./auth/UserBadge";
 import { useUserMode } from "@/hooks/useUserMode";
 import { useEmployerSelection } from "@/hooks/useEmployerSelection";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 export function MenuBar() {
   const { currentMode, handleModeChange } = useUserMode();
+  const { userData } = useAuth();
   const { 
     selectedEmployerId, 
     employers, 
@@ -14,7 +17,9 @@ export function MenuBar() {
     handleEmployerChange 
   } = useEmployerSelection();
 
+  const isSuperAdmin = userData?.role_id === 1;
   const showEmployerSelector = currentMode === "builder";
+  const showContextSelector = currentMode === "mend" && isSuperAdmin;
 
   return (
     <nav className="border-b bg-white shadow-sm">
@@ -31,6 +36,9 @@ export function MenuBar() {
               onSelect={handleEmployerChange}
               isLoading={isLoadingEmployers}
             />
+          )}
+          {showContextSelector && (
+            <EmployerContextSelector />
           )}
           <NavigationLinks currentMode={currentMode} />
         </div>

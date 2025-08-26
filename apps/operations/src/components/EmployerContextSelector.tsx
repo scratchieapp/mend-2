@@ -59,17 +59,51 @@ export function EmployerContextSelector() {
     <div className="flex items-center gap-2">
       <Building2 className="h-4 w-4 text-muted-foreground" />
       <Select
-        value={selectedEmployerId?.toString() || ""}
-        onValueChange={(value) => handleEmployerChange(parseInt(value))}
+        value={selectedEmployerId?.toString() || (isSuperAdmin ? "all" : "")}
+        onValueChange={(value) => {
+          if (value === "all") {
+            handleEmployerChange(null);
+          } else {
+            handleEmployerChange(parseInt(value));
+          }
+        }}
         disabled={isLoadingEmployers}
       >
         <SelectTrigger className="w-[280px]">
-          <SelectValue placeholder="Select an employer..." />
+          <SelectValue placeholder="Select an employer...">
+            {selectedEmployerId === null && isSuperAdmin 
+              ? "📊 View All Companies" 
+              : undefined}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-            {isSuperAdmin ? "All Companies" : "Your Company"}
+            {isSuperAdmin ? "Company Filter" : "Your Company"}
           </div>
+          {isSuperAdmin && (
+            <SelectItem
+              value="all"
+              className={cn(
+                "relative pl-8 font-medium",
+                selectedEmployerId === null && "bg-primary/5"
+              )}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="flex items-center gap-2">
+                  {selectedEmployerId === null && (
+                    <Check className="h-4 w-4 text-primary absolute left-2" />
+                  )}
+                  📊 View All Companies
+                </span>
+                <Badge variant="outline" className="text-xs h-5 ml-2">
+                  All Data
+                </Badge>
+              </div>
+            </SelectItem>
+          )}
+          {isSuperAdmin && (
+            <div className="my-1 border-t" />
+          )}
           {availableEmployers.map((employer) => {
             const isSelected = employer.employer_id === selectedEmployerId;
             const isUserDefault = employer.employer_id === userEmployerId;

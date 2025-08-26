@@ -117,6 +117,13 @@ export default function AdminDashboard() {
       requiredRole: 'super' as const
     },
     {
+      title: 'Super User Management',
+      description: 'Manage ALL users, roles, and company assignments',
+      icon: <Shield className="h-5 w-5" />,
+      link: '/admin/super-user-management',
+      requiredRole: 'super' as const
+    },
+    {
       title: 'User Management',
       description: 'Manage users, roles, and permissions',
       icon: <Users className="h-5 w-5" />,

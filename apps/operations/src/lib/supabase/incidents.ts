@@ -17,29 +17,31 @@ export interface IncidentWithDetails {
   returned_to_work: boolean;
   total_days_lost: number;
   created_at: string;
-  updated_at: string;
+  updated_at?: string; // Made optional for optimized function
   // Worker details
   worker_id: number;
-  worker_first_name: string;
-  worker_last_name: string;
-  worker_full_name: string;
-  worker_employee_number: string;
+  worker_name?: string; // Simplified from first/last
+  worker_full_name?: string; // For compatibility
+  worker_first_name?: string; // Optional for compatibility
+  worker_last_name?: string; // Optional for compatibility
+  worker_occupation?: string;
+  worker_employee_number?: string;
   // Employer details
   employer_id: number;
   employer_name: string;
-  employer_abn: string;
-  // Medical professional details
-  medical_professional_id: number | null;
-  medical_professional_name: string | null;
-  medical_professional_specialty: string | null;
-  medical_professional_phone: string | null;
+  employer_abn?: string; // Made optional for optimized function
+  // Medical professional details (optional for listing)
+  medical_professional_id?: number | null;
+  medical_professional_name?: string | null;
+  medical_professional_specialty?: string | null;
+  medical_professional_phone?: string | null;
   // Site details
   site_id: number;
   site_name: string;
-  site_location: string;
-  // Department details
-  department_id: number;
-  department_name: string;
+  site_location?: string; // Made optional for optimized function
+  // Department details (optional for listing)
+  department_id?: number;
+  department_name?: string;
   // Document count
   document_count: number;
 }
@@ -69,7 +71,7 @@ export interface PaginatedIncidents {
 export async function getIncidentsWithDetails(params: IncidentsListParams = {}): Promise<PaginatedIncidents> {
   try {
     const {
-      pageSize = 10, // Reduced default page size for faster loads
+      pageSize = 25, // Optimized page size
       pageOffset = 0,
       employerId = null,
       workerId = null,
