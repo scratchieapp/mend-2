@@ -19,25 +19,39 @@ Mend-2 is a comprehensive workplace safety management platform built with React,
 - ✅ Cache times increased, window focus refetch disabled
 - ❌ Database function still broken until SQL fix is applied
 
-## Current Status (Updated: 2025-08-26 - PERFORMANCE ISSUES RESOLVED IN CODE, DATABASE FIX PENDING)
+## Current Status (Updated: 2025-08-26 - RBAC/RLS IN PROGRESS)
 
-### ✅ AUTHENTICATION SYSTEM OPERATIONAL (2025-08-25)
-**SUCCESS: Authentication and role-based routing is working with Clerk**
+### ⚠️ ROLE-BASED ACCESS CONTROL (RBAC) - PARTIALLY WORKING
+**Authentication and role detection functional, but separation between roles incomplete**
+- **Authentication Working**: ✅ Users can log in successfully with Clerk
+- **Role Detection Working**: ✅ Role 1 (Super Admin) users correctly routed to dashboard
+- **INCOMPLETE**: ❌ Role 1 (Super Admin) cannot see all incidents across entire business yet
+- **Status**: Still being implemented - not fully functional for cross-business visibility
+- **Impact**: Super Admins currently limited to single company view instead of system-wide access
 
-### ✅ DATA RETRIEVAL ISSUES RESOLVED (2025-08-26)
-**FIXED: All dashboard data now displays correctly with proper filtering**
-- **Recent Incidents**: Fixed date range filtering to show all incidents in selected month
-- **Open Claims**: Now using actual incident data (workers not returned to work)
-- **Claim Costs**: Calculating real costs based on incident classifications
-- **Average Days Lost**: Properly filtering by employer and date range
-- **Psychosocial Flags**: New component analyzing incidents for mental health indicators
+### ⚠️ ROW-LEVEL SECURITY (RLS) - IN PROGRESS
+**Company data separation being implemented**
+- **Purpose**: Ensure each builder/company only sees their own data
+- **Implementation Status**: ⚠️ IN PROGRESS - not yet fully functional
+- **Current Issue**: Company context and data isolation not properly working
+- **Security Concern**: Data separation between companies not enforced yet
+- **Priority**: HIGH - Required before production deployment
 
-### ✅ SUPER ADMIN FUNCTIONALITY COMPLETE (2025-08-26)
-**SUCCESS: Comprehensive admin capabilities for MEND Super Admin (role 1)**
-- **Builder/Employer Management**: Create, edit, and delete construction companies
-- **Enhanced User Management**: Assign users to companies with role-based access
-- **RLS Testing Panel**: Verify data isolation for each employer
-- **Company Assignment**: Users can be assigned to specific employers for data access control
+### ✅ SUPABASE DATABASE AGENT IMPROVEMENTS (2025-08-26)
+**Significantly enhanced database management practices**
+- **Research-First Approach**: ✅ Agent now requires proper research before making changes
+- **Schema Verification**: ✅ Must check existence of tables/columns/functions before modifying
+- **Exact Schema Usage**: ✅ Uses actual database schema from queries, not assumptions
+- **Workflow Enforcement**: ✅ Follows Research → Diagnose → Fix → Verify methodology
+- **Quality Improvements**: ✅ Prevents destructive changes without proper validation
+- **Impact**: Eliminates database errors and improves development reliability
+
+### ✅ PERFORMANCE ISSUES RESOLVED (2025-08-26)
+**Critical browser crash issues fixed**
+- **Database Functions**: ✅ Fixed with correct column names and optimized queries
+- **React Query Issues**: ✅ Infinite loops eliminated, caching optimized
+- **Performance**: ✅ No more browser crashes, significantly improved load times
+- **Data Configuration**: ✅ Super Admin data configuration page created and functional
 
 ## ✅ AUTHENTICATION STATUS (August 25, 2025)
 
@@ -423,22 +437,61 @@ npm run create-demo-users
 - **Build Status**: ✅ Successful
 - **Last Deploy**: 2025-08-22 (authentication fix)
 
-## Next Development Priorities
+## Next Development Priorities (Updated: 2025-08-26)
 
-### High Priority
-1. **Bundle Optimization** - Implement code splitting to reduce initial load
-2. **Error Monitoring** - Add production error tracking
-3. **Performance Metrics** - Implement user experience monitoring
+### Critical Priority - Security & Access Control
+1. **Complete Role-Based Access Control (RBAC)** - HIGH PRIORITY
+   - Fix Role 1 (Super Admin) to see all incidents across entire business
+   - Implement proper role separation and permissions
+   - Ensure each role sees appropriate data scope
+   - Status: ❌ INCOMPLETE - blocking production readiness
 
-### Medium Priority
-1. **Automated Testing** - Add unit and integration tests
-2. **Email Notifications** - Integrate email service for incident alerts
-3. **Advanced Reporting** - Dashboard analytics for safety metrics
+2. **Complete Row-Level Security (RLS)** - HIGH PRIORITY
+   - Implement proper company data separation
+   - Ensure builders only see their own company data
+   - Fix company context and data isolation issues
+   - Test data access controls thoroughly
+   - Status: ⚠️ IN PROGRESS - critical for production
 
-### Low Priority
-1. **Offline Support** - PWA capabilities for field use
-2. **Mobile App** - Native mobile application consideration
-3. **API Documentation** - Comprehensive API documentation
+3. **Security Testing & Validation** - HIGH PRIORITY
+   - Comprehensive testing of RBAC permissions
+   - Verification of RLS data isolation
+   - Security audit of access controls
+   - Penetration testing for data leaks
+   - Status: ⚠️ PENDING - awaiting RBAC/RLS completion
+
+### Secondary Priority - Feature Development
+4. **User-Friendly Role-Specific Interfaces** - MEDIUM PRIORITY
+   - Build role-specific dashboard features after RBAC is complete
+   - Enhance user experience for each role type
+   - Custom workflows per role
+   - Status: ⚠️ BLOCKED - waiting for security foundation
+
+5. **Advanced Reporting & Analytics** - MEDIUM PRIORITY
+   - Dashboard analytics for safety metrics
+   - Role-appropriate reporting features
+   - Data visualization enhancements
+   - Status: ⚠️ DEFERRED - security takes precedence
+
+### Long-term Priority
+6. **Performance & Scalability** - LOW PRIORITY
+   - Bundle optimization and code splitting
+   - Advanced caching strategies
+   - Real-time features implementation
+
+7. **Production Readiness** - LOW PRIORITY
+   - Automated testing suite
+   - Error monitoring and logging
+   - Email notification system
+   - Offline support capabilities
+
+### Development Strategy
+**Focus Order**: Security First → Role Features → Production Polish
+- **Current Phase**: Security & Access Control (RBAC/RLS)
+- **Next Phase**: Role-specific interfaces (after security complete)
+- **Final Phase**: Production optimization and advanced features
+
+**Note**: User-friendly features are intentionally deferred until the security foundation (RBAC/RLS) is solid. This prevents building features on an insecure foundation.
 
 ## Architecture Decisions
 1. **Clerk over Supabase Auth**: More reliable authentication flow, better role management
@@ -448,17 +501,18 @@ npm run create-demo-users
 5. **Vercel deployment**: Optimized for React SPAs with proper routing
 
 ## Risk Assessment
-**Current Risk Level: MEDIUM** (Updated 2025-08-25)
+**Current Risk Level: HIGH** (Updated 2025-08-26)
 - ✅ Authentication system fully operational
-- ✅ Application starts without errors
+- ✅ Application starts without errors and performance issues resolved
 - ✅ Role-based routing working correctly
 - ✅ Supabase-Clerk integration functional
-- ✅ Users access appropriate role-based interfaces
-- ✅ Dashboard routing working for all roles
-- ❌ **CRITICAL**: Row-Level Security filtering broken - incidents not displaying
-- ❌ **HIGH**: Company context integration with RLS policies failing
-- ⚠️ **MEDIUM**: Core incident management features affected by RLS issues
-- ✅ Database integration stable but RLS filtering non-functional
+- ❌ **CRITICAL**: Role-Based Access Control (RBAC) incomplete - Super Admins cannot see all incidents
+- ❌ **CRITICAL**: Row-Level Security (RLS) not fully implemented - company data separation failing
+- ❌ **HIGH**: Data security compromised - companies may see each other's data
+- ❌ **HIGH**: Access control vulnerabilities present - role separation incomplete
+- ⚠️ **MEDIUM**: Production deployment blocked until security issues resolved
+- ✅ Database agent improvements reduce development risks
+- ✅ Performance stability achieved
 
 ## Quality Metrics (Updated 2025-08-25)
 - **TypeScript Coverage**: >95% (strict mode enabled)
@@ -489,41 +543,53 @@ npm run create-demo-users
 - **Playwright**: Configured for automated testing
 
 ## Production Readiness
-**Status: READY AFTER MIGRATION** ⚠️
-IMPORTANT: Database migration must be applied before production use
+**Status: NOT READY FOR PRODUCTION** ❌
+CRITICAL: Security vulnerabilities must be resolved before deployment
 
-The application has working authentication and frontend fixes are complete:
+**SECURITY BLOCKERS** (Must fix before production):
+- ❌ **RBAC Incomplete**: Role 1 (Super Admin) cannot access all business incidents
+- ❌ **RLS Not Working**: Company data separation not enforced
+- ❌ **Data Isolation Failing**: Companies may access each other's sensitive data
+- ❌ **Access Control Vulnerabilities**: Role permissions not properly implemented
 
 **WORKING SYSTEMS**:
 - ✅ Authentication system operational with Clerk
-- ✅ Role-based routing fixed - Super Admins see dashboard with incidents
-- ✅ Frontend employer filtering implemented correctly
-- ✅ IncidentsList component properly uses employer context
-- ✅ User management interface working properly
-- ✅ Navigation and UI components functioning
+- ✅ Application performance optimized (no crashes, fast load times)
+- ✅ Database agent improvements for reliable development
+- ✅ User interface and navigation components functional
+- ✅ Frontend components and routing working correctly
 
-**PENDING ACTION**:
-- 🔴 Database migration must be run in Supabase Dashboard
-- 🔴 See `/FIX_RLS_NOW.md` for step-by-step instructions
+**CRITICAL SECURITY REQUIREMENTS** (Before production):
+1. **Complete RBAC Implementation**
+   - Fix Super Admin access to all business incidents
+   - Implement proper role separation and permissions
+   - Test all role-based access scenarios
+   - Verify data scope for each role type
 
-**PERFORMANCE IMPROVEMENTS ACHIEVED**:
-- ✅ Dashboard load times: < 1 second (down from 3-5 seconds)
-- ✅ Incident queries: 70-80% faster with optimized functions
-- ✅ Builder switching: Instant without page reload
-- ✅ Statistics calculation: Near-instant with materialized views
-- ✅ Memory usage: Reduced by 30% with better caching
+2. **Implement Functional RLS**
+   - Ensure company data separation works properly
+   - Test data isolation between companies
+   - Verify no cross-company data access
+   - Implement and test company context switching
 
-**MIGRATION DEPLOYMENT REQUIRED**:
-1. **RUN MIGRATION**: Execute SQL in `/supabase/migrations/20250826_performance_optimizations.sql`
-2. **VERIFY**: Check indexes, functions, and materialized view creation
-3. **SCHEDULE**: Set up hourly refresh for mv_employer_metrics
-4. **MONITOR**: Track performance improvements in production
-5. **DOCUMENTATION**: See `/DEPLOY_MIGRATION.md` for detailed instructions
+3. **Security Validation**
+   - Comprehensive security testing of access controls
+   - Penetration testing for data leaks
+   - Role-based permission verification
+   - Data access audit across all user types
+
+**DEPLOYMENT TIMELINE**:
+- **Phase 1**: Complete RBAC/RLS implementation (CRITICAL)
+- **Phase 2**: Security testing and validation (HIGH PRIORITY)
+- **Phase 3**: Production deployment preparation (MEDIUM PRIORITY)
+
+**ESTIMATED TIMELINE**: 1-2 weeks for security foundation completion
 
 ---
 
-**Last Updated**: August 26, 2025 - PERFORMANCE OPTIMIZED, BUILDER SELECTION FIXED  
-**Version**: 2.5.0 (Major Performance Improvements, Optimized Queries)  
+**Last Updated**: August 26, 2025 - RBAC/RLS SECURITY FOCUS  
+**Version**: 2.6.0 (Security Implementation Phase - RBAC/RLS In Progress)  
 **Maintainer**: Development Team  
-**Status**: ✅ PRODUCTION READY (deploy migration first)  
-**Next Review**: After migration deployment and performance monitoring
+**Status**: ❌ NOT PRODUCTION READY - Critical Security Issues  
+**Priority**: RBAC/RLS Implementation (1-2 weeks estimated)  
+**Next Review**: Daily until security foundation complete
