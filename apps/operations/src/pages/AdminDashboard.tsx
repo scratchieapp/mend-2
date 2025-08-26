@@ -19,7 +19,8 @@ import {
   Upload,
   Shield,
   Building,
-  DollarSign
+  DollarSign,
+  Calculator
 } from 'lucide-react';
 
 interface AdminCardProps {
@@ -142,6 +143,13 @@ export default function AdminDashboard() {
       description: 'Configure cost estimates and benchmarks',
       icon: <DollarSign className="h-5 w-5" />,
       link: '/admin/data-configuration',
+      requiredRole: 'super' as const
+    },
+    {
+      title: 'Cost Configuration',
+      description: 'Manage incident cost assumptions and calculations',
+      icon: <Calculator className="h-5 w-5" />,
+      link: '/admin/cost-configuration',
       requiredRole: 'super' as const
     },
     {

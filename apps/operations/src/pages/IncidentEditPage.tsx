@@ -22,6 +22,7 @@ import { TreatmentDetailsSection } from "@/components/incident-report/TreatmentD
 import { ActionsTakenSection } from "@/components/incident-report/ActionsTakenSection";
 import { CaseNotesSection } from "@/components/incident-report/CaseNotesSection";
 import { DocumentsSection } from "@/components/incident-report/DocumentsSection";
+import IncidentCostEstimate from "@/components/incident-report/cost/IncidentCostEstimate";
 
 // Hooks and validation
 import { incidentReportSchema, type IncidentReportFormData } from "@/lib/validations/incident";
@@ -265,6 +266,7 @@ const IncidentEditPage = () => {
     { id: "treatment", title: "Treatment", required: true },
     { id: "actions", title: "Actions Taken", required: true },
     { id: "notes", title: "Case Notes", required: false },
+    { id: "cost", title: "Cost Estimate", required: false },
     { id: "documents", title: "Documents", required: false },
   ];
 
@@ -337,7 +339,7 @@ const IncidentEditPage = () => {
             <Form {...form}>
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList className="grid grid-cols-4 lg:grid-cols-8 mb-6">
+                  <TabsList className="grid grid-cols-5 lg:grid-cols-9 mb-6">
                     {tabOrder.map((tab, index) => (
                       <TabsTrigger
                         key={tab.id}
@@ -376,6 +378,17 @@ const IncidentEditPage = () => {
 
                   <TabsContent value="notes">
                     <CaseNotesSection form={form} />
+                  </TabsContent>
+
+                  <TabsContent value="cost">
+                    <IncidentCostEstimate
+                      incidentId={parseInt(id || '0')}
+                      classification={incidentData?.classification}
+                      daysLost={incidentData?.total_days_lost || 0}
+                      bodyPartId={incidentData?.body_part_id}
+                      isFatality={incidentData?.fatality}
+                      readOnly={false}
+                    />
                   </TabsContent>
 
                   <TabsContent value="documents">

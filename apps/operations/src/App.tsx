@@ -45,6 +45,7 @@ import HoursWorkedAdmin from "./pages/HoursWorkedAdmin";
 import UserManagementAdmin from "./pages/UserManagementAdmin";
 import EmployerManagementAdmin from "./pages/EmployerManagementAdmin";
 import SuperUserManagement from "./pages/SuperUserManagement";
+import CostConfigurationAdmin from "./pages/CostConfigurationAdmin";
 import IncidentReport from "./pages/IncidentReport";
 import IncidentReportDev from "./pages/IncidentReportDev";
 import IncidentDetailsPage from "./pages/IncidentDetailsPage";
@@ -136,6 +137,7 @@ function App() {
           <Route path="admin/storage-setup" element={<StorageSetupAdmin />} />
           <Route path="admin/data" element={<DataAdmin />} />
           <Route path="admin/data-configuration" element={<DataConfigurationAdmin />} />
+          <Route path="admin/cost-configuration" element={<CostConfigurationAdmin />} />
           <Route path="admin/data-import" element={<DataImportAdmin />} />
           <Route path="admin/reference-tables" element={<ReferenceTablesAdmin />} />
           <Route path="admin/search-verify" element={<SearchVerifyAdmin />} />

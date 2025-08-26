@@ -14,6 +14,7 @@ import type { Tables } from "@/integrations/supabase/types";
 import { geocodeAndUpdateSite, geocodeCityFallback, updateSiteCoordinates } from "@/lib/mapbox/geocoding";
 import { useEffect, useState } from "react";
 import { BodyInjuryViewer } from "@/components/incident-report/BodyInjuryViewer";
+import IncidentCostEstimate from "@/components/incident-report/cost/IncidentCostEstimate";
 
 // Type for the incident with all joined relations
 type IncidentWithRelations = Tables<'incidents'> & {
@@ -406,6 +407,18 @@ const IncidentDetailsPage = () => {
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Cost Estimate */}
+          <div className="lg:col-span-3">
+            <IncidentCostEstimate
+              incidentId={incident?.incident_id}
+              classification={incident?.classification}
+              daysLost={incident?.total_days_lost || 0}
+              bodyPartId={incident?.body_part_id}
+              isFatality={incident?.fatality}
+              readOnly={true}
+            />
+          </div>
+
           {/* Worker Information */}
           <Card className="border-l-4 border-l-blue-500">
             <CardHeader>
