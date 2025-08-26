@@ -27,27 +27,29 @@ export const useEmployerContext = () => {
   const { userData } = useAuth();
   const queryClient = useQueryClient();
 
-  // Get current employer context from database
+  // Since we're using Clerk auth, we'll manage context client-side
+  // Use the user's employer_id as the default context
   const { data: currentContext, isLoading: isLoadingContext } = useQuery({
     queryKey: ['employer-context', userData?.user_id],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_employer_context');
-      
-      if (error) {
-        console.error('Error fetching employer context:', error);
-        return null;
-      }
-      
-      return data as number | null;
+      // For now, return the user's employer_id directly
+      // Super Admins can switch context, others use their assigned employer
+      return userData?.employer_id || null;
     },
     enabled: !!userData,
   });
 
-  // Get statistics for the current employer context
+  // Get statistics for the current employer context using direct function
   const { data: statistics, isLoading: isLoadingStats, refetch: refetchStats } = useQuery({
-    queryKey: ['employer-statistics', currentContext],
+    queryKey: ['employer-statistics', currentContext, userData?.role_id],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_employer_statistics');
+      if (!currentContext) return null;
+      
+      // Use the direct function that doesn't depend on Supabase auth
+      const { data, error } = await supabase.rpc('get_employer_statistics_direct', {
+        p_employer_id: currentContext,
+        p_user_role: userData?.role_id
+      });
       
       if (error) {
         console.error('Error fetching employer statistics:', error);
@@ -57,29 +59,31 @@ export const useEmployerContext = () => {
       // The function returns an array, get the first item
       return data?.[0] as EmployerStatistics | null;
     },
-    enabled: !!currentContext,
+    enabled: !!currentContext && !!userData,
     staleTime: 30 * 1000, // Consider data stale after 30 seconds
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
 
-  // Mutation to set employer context
+  // Mutation to set employer context (client-side only for now)
   const setContext = useMutation({
     mutationFn: async (employerId: number) => {
-      const { error } = await supabase.rpc('set_employer_context', {
-        employer_id: employerId
-      });
-      
-      if (error) throw error;
+      // For Super Admins, validate they can access this employer
+      if (userData?.role_id === 1) {
+        // Super Admin can access any employer
+        return employerId;
+      } else if (userData?.employer_id && userData.employer_id !== employerId) {
+        // Other users can only access their assigned employer
+        throw new Error('Access denied to this employer');
+      }
       return employerId;
     },
     onSuccess: async (employerId) => {
-      // Only invalidate the most critical queries to prevent cascading re-fetches
-      // Using setQueryData to update context immediately without re-fetch
+      // Update context immediately
       queryClient.setQueryData(['employer-context', userData?.user_id], employerId);
       
-      // Invalidate only data queries, not the context itself
+      // Invalidate related queries
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['employer-statistics', employerId] }),
+        queryClient.invalidateQueries({ queryKey: ['employer-statistics', employerId, userData?.role_id] }),
         queryClient.invalidateQueries({ queryKey: ['incidents'] }),
       ]);
       
@@ -92,7 +96,7 @@ export const useEmployerContext = () => {
       console.error('Failed to set employer context:', error);
       toast({
         title: "Error",
-        description: "Failed to set employer context. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to set employer context",
         variant: "destructive"
       });
     }
@@ -101,11 +105,11 @@ export const useEmployerContext = () => {
   // Mutation to clear employer context
   const clearContext = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.rpc('clear_employer_context');
-      if (error) throw error;
+      // Reset to user's default employer
+      return userData?.employer_id || null;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['employer-context'] });
+    onSuccess: (defaultEmployerId) => {
+      queryClient.setQueryData(['employer-context', userData?.user_id], defaultEmployerId);
       queryClient.invalidateQueries({ queryKey: ['employer-statistics'] });
       
       toast({
