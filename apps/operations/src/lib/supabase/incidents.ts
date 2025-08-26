@@ -79,9 +79,11 @@ export async function getIncidentsWithDetails(params: IncidentsListParams = {}):
       userEmployerId = null
     } = params;
 
-    // Get incidents with details - pass user context for RLS
+    // Use the new RBAC function that properly handles role-based access
+    // Super Admin (role_id = 1) will see ALL incidents
+    // Builder Admin (role_id = 5) will see only their employer's incidents
     const { data: incidents, error: incidentsError } = await supabase
-      .rpc('get_incidents_with_details', {
+      .rpc('get_incidents_with_details_rbac', {
         page_size: pageSize,
         page_offset: pageOffset,
         filter_employer_id: employerId,
@@ -94,12 +96,41 @@ export async function getIncidentsWithDetails(params: IncidentsListParams = {}):
 
     if (incidentsError) {
       console.error('Error fetching incidents:', incidentsError);
+      // Fallback to old function if new one doesn't exist yet
+      if (incidentsError.message.includes('function get_incidents_with_details_rbac')) {
+        console.warn('RBAC function not found, falling back to standard function');
+        const { data: fallbackIncidents, error: fallbackError } = await supabase
+          .rpc('get_incidents_with_details', {
+            page_size: pageSize,
+            page_offset: pageOffset,
+            filter_employer_id: employerId,
+            filter_worker_id: workerId,
+            filter_start_date: startDate,
+            filter_end_date: endDate
+          });
+        
+        if (fallbackError) throw new Error(`Failed to fetch incidents: ${fallbackError.message}`);
+        
+        // For fallback, apply frontend filtering for Super Admin
+        const filteredIncidents = userRoleId === 1 ? fallbackIncidents : 
+          (fallbackIncidents || []).filter((inc: IncidentWithDetails) => 
+            !userEmployerId || inc.employer_id === userEmployerId
+          );
+        
+        return {
+          incidents: filteredIncidents || [],
+          totalCount: filteredIncidents?.length || 0,
+          pageSize,
+          currentPage: 1,
+          totalPages: 1
+        };
+      }
       throw new Error(`Failed to fetch incidents: ${incidentsError.message}`);
     }
 
-    // Get total count for pagination - pass user context for RLS
+    // Get total count for pagination using RBAC function
     const { data: countData, error: countError } = await supabase
-      .rpc('get_incidents_count', {
+      .rpc('get_incidents_count_rbac', {
         filter_employer_id: employerId,
         filter_worker_id: workerId,
         filter_start_date: startDate,
@@ -110,6 +141,17 @@ export async function getIncidentsWithDetails(params: IncidentsListParams = {}):
 
     if (countError) {
       console.error('Error fetching incidents count:', countError);
+      // Fallback count if RBAC function doesn't exist
+      if (countError.message.includes('function get_incidents_count_rbac')) {
+        const totalCount = incidents?.length || 0;
+        return {
+          incidents: incidents || [],
+          totalCount,
+          pageSize,
+          currentPage: 1,
+          totalPages: Math.ceil(totalCount / pageSize)
+        };
+      }
       throw new Error(`Failed to fetch incidents count: ${countError.message}`);
     }
 

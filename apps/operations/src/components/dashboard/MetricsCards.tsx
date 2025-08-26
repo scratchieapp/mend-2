@@ -17,7 +17,7 @@ export const MetricsCards = ({ selectedEmployerId, selectedMonth }: Props) => {
   const { data: avgLostTimeData, isLoading: isLoadingAvgTime } = useQuery({
     queryKey: ['avg-lost-time', selectedEmployerId, selectedMonth],
     queryFn: async () => {
-      let query = supabase
+      const query = supabase
         .from('incidents')
         .select('total_days_lost, date_of_injury')
         .gt('total_days_lost', 0);
@@ -44,7 +44,7 @@ export const MetricsCards = ({ selectedEmployerId, selectedMonth }: Props) => {
   const { data: claimCostsData, isLoading: isLoadingCosts } = useQuery({
     queryKey: ['claim-costs', selectedEmployerId, selectedMonth],
     queryFn: async () => {
-      let query = supabase
+      const query = supabase
         .from('incidents')
         .select('estimated_cost, date_of_injury')
         .not('estimated_cost', 'is', null);
@@ -66,7 +66,7 @@ export const MetricsCards = ({ selectedEmployerId, selectedMonth }: Props) => {
   const { data: psychosocialData, isLoading: isLoadingPsycho } = useQuery({
     queryKey: ['psychosocial-flags', selectedEmployerId, selectedMonth],
     queryFn: async () => {
-      let query = supabase
+      const query = supabase
         .from('incidents')
         .select('psychosocial_factors, date_of_injury')
         .eq('psychosocial_factors', true);

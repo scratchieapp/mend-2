@@ -35,7 +35,7 @@ class ClerkSupabaseClient {
   }
 
   // Wrapper for RPC calls that injects Clerk user context
-  async rpc(fn: string, params: any = {}) {
+  async rpc(fn: string, params: Record<string, unknown> = {}) {
     // For functions that need auth context, pass the Clerk user info
     const authFunctions = ['set_employer_context', 'get_employer_context', 'clear_employer_context', 
                           'get_employer_statistics', 'get_incidents_with_details', 'get_incidents_count'];
