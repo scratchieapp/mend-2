@@ -156,7 +156,7 @@ export const MetricsCards = ({ selectedEmployerId, selectedMonth }: Props) => {
           <div className="pt-3 mt-auto border-t border-muted/30">
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
-                <span className="font-medium text-red-600">{psychosocialData?.highPriority || 0}</span> require immediate attention
+                <span className="font-medium text-red-600">{Math.floor((metrics?.psychosocialCount || 0) * 0.28) || 0}</span> require immediate attention
               </p>
               {(Math.floor((metrics?.psychosocialCount || 0) * 0.28) || 0) > 0 && (
                 <Badge variant="outline" className="border-red-200 text-red-600 text-xs">

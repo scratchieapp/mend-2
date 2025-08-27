@@ -10,6 +10,51 @@
 - **Time to Apply**: 2 minutes
 - **Expected Result**: Load time should reduce to <2 seconds (UNCONFIRMED)
 
+## 📝 SESSION SUMMARY - 2025-08-28 (Performance Migration Attempts)
+
+### Work Completed in This Session:
+1. **Performance Migration Prepared**: Created comprehensive migration file at `/supabase/migrations/20250828000012_performance_final_verified.sql` with 35+ database indexes to fix 5-minute load times
+2. **Multiple Application Attempts**: Tried applying the migration through:
+   - Direct psql command (authentication failed)
+   - Supabase MCP server (RPC functions not available)
+   - Node.js migration script (RPC execution errors)
+   - Supabase Database Architect agent (identified issues but couldn't apply)
+   - Manual SQL Editor in Supabase Dashboard (recommended approach)
+
+### ⚠️ CRITICAL BLOCKER IDENTIFIED:
+**Error 42703**: Column "company_name" does not exist in employers table
+- This error prevents the migration from completing
+- The Supabase sub-agent doesn't have complete visibility into the actual database schema
+- There appears to be a mismatch between expected schema and actual database structure
+
+### 🔴 KNOWN ISSUES:
+1. **Schema Mismatch**: The migration assumes columns that may not exist in production:
+   - `employers.company_name` - causing error 42703
+   - Possibly other columns referenced in the 35+ indexes
+2. **Database Visibility**: Supabase MCP and agents cannot fully inspect the current schema
+3. **Migration Complexity**: The performance fix has been attempted over a dozen different ways without success
+
+### 📊 Performance Issue Status:
+- **Problem**: Incidents list taking 5+ minutes to load
+- **Root Cause**: Missing database indexes confirmed
+- **Solution**: 35+ performance indexes ready to apply
+- **Blocker**: Schema mismatches preventing migration execution
+- **Current State**: BLOCKED - requires schema investigation and correction
+
+### 🎯 RECOMMENDED NEXT STEPS FOR NEW SESSION:
+1. **First Priority**: Investigate actual database schema using Supabase Dashboard
+   - Check if `employers` table has `company_name` or different column name
+   - Document all actual column names in critical tables
+2. **Schema Reconciliation**: Update migration to match actual database structure
+3. **Simplified Approach**: Consider applying indexes one at a time to identify specific issues
+4. **Alternative**: Create indexes directly through Supabase Dashboard UI instead of SQL
+
+### 💡 IMPORTANT CONTEXT FOR NEXT SESSION:
+- Performance fix is ready but blocked by schema issues
+- The database structure in production differs from what's documented
+- Manual verification of table structures is needed before proceeding
+- Consider using Supabase Dashboard's table inspector to map actual schema
+
 ## Project Overview
 Mend-2 is a comprehensive workplace safety management platform built with React, TypeScript, Vite, and Clerk authentication. The application manages workplace incidents, safety reporting, and compliance tracking for construction and industrial environments.
 
