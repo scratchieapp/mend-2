@@ -33,20 +33,14 @@ export const useEmployerSelectionOptimized = () => {
       try {
         // If Super Admin has selected "View All" mode (null), set context to null
         if (selectedEmployerId === null && userData.role_id === 1) {
-          const { error } = await supabase.rpc('set_employer_context_with_clerk', {
-            employer_id: null,
-            clerk_user_id: clerkUserId || null,
-            clerk_email: clerkEmail
-          });
+          const { error } = await supabase.rpc('clear_employer_context');
           if (error) {
             console.error('Error setting View All context:', error);
           }
         } else if (selectedEmployerId) {
           // Set specific employer context
-          const { error } = await supabase.rpc('set_employer_context_with_clerk', {
-            employer_id: selectedEmployerId,
-            clerk_user_id: clerkUserId || null,
-            clerk_email: clerkEmail
+          const { error } = await supabase.rpc('set_employer_context', {
+            p_employer_id: selectedEmployerId
           });
           
           if (error) {
@@ -54,10 +48,8 @@ export const useEmployerSelectionOptimized = () => {
             // If error, try to set to user's default employer
             if (userData.employer_id) {
               const defaultEmployerId = parseInt(userData.employer_id);
-              await supabase.rpc('set_employer_context_with_clerk', {
-                employer_id: defaultEmployerId,
-                clerk_user_id: clerkUserId || null,
-                clerk_email: clerkEmail
+              await supabase.rpc('set_employer_context', {
+                p_employer_id: defaultEmployerId
               });
               setSelectedEmployerId(defaultEmployerId);
               localStorage.setItem("selectedEmployerId", defaultEmployerId.toString());
@@ -114,11 +106,7 @@ export const useEmployerSelectionOptimized = () => {
         }
         
         // Set employer context to null for View All mode
-        const { error } = await supabase.rpc('set_employer_context_with_clerk', {
-          employer_id: null,
-          clerk_user_id: clerkUserId || null,
-          clerk_email: clerkEmail
-        });
+        const { error } = await supabase.rpc('clear_employer_context');
         
         if (error) {
           console.error('Error setting View All context:', error);
@@ -134,10 +122,8 @@ export const useEmployerSelectionOptimized = () => {
         });
       } else {
         // Set specific employer context
-        const { error } = await supabase.rpc('set_employer_context_with_clerk', {
-          employer_id: employerId,
-          clerk_user_id: clerkUserId || null,
-          clerk_email: clerkEmail
+        const { error } = await supabase.rpc('set_employer_context', {
+          p_employer_id: employerId
         });
         
         if (error) {
