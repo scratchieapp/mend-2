@@ -21,6 +21,14 @@ export function EmployerContextSelector() {
     handleEmployerChange,
   } = useEmployerSelection();
 
+  // Debug logging
+  console.log('EmployerContextSelector state:', {
+    selectedEmployerId,
+    employers: employers.length,
+    userData: userData?.role_id,
+    isLoadingEmployers
+  });
+
   // Set default employer for non-super admins
   useEffect(() => {
     if (userData && !selectedEmployerId) {
@@ -48,9 +56,6 @@ export function EmployerContextSelector() {
       <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-md">
         <Building2 className="h-4 w-4 text-muted-foreground" />
         <span className="text-sm font-medium">{selectedEmployer?.employer_name || 'Loading...'}</span>
-        <Badge variant="secondary" className="ml-2 text-xs">
-          Your Company
-        </Badge>
       </div>
     );
   }
@@ -61,10 +66,25 @@ export function EmployerContextSelector() {
       <Select
         value={selectedEmployerId?.toString() || (isSuperAdmin ? "all" : "")}
         onValueChange={(value) => {
+          console.log('=== SELECT CHANGE DEBUG ===');
+          console.log('Raw value from Select:', value);
+          console.log('Type of value:', typeof value);
+          console.log('Value === "all":', value === "all");
+          
           if (value === "all") {
+            console.log('Calling handleEmployerChange(null) for View All');
             handleEmployerChange(null);
           } else {
-            handleEmployerChange(parseInt(value));
+            const employerId = parseInt(value);
+            console.log('Parsed employer ID:', employerId);
+            console.log('Is NaN?:', isNaN(employerId));
+            
+            if (isNaN(employerId)) {
+              console.error('Failed to parse employer ID from value:', value);
+            } else {
+              console.log('Calling handleEmployerChange with employer ID:', employerId);
+              handleEmployerChange(employerId);
+            }
           }
         }}
         disabled={isLoadingEmployers}
@@ -88,73 +108,62 @@ export function EmployerContextSelector() {
                 selectedEmployerId === null && "bg-primary/5"
               )}
             >
-              <div className="flex items-center justify-between w-full">
-                <span className="flex items-center gap-2">
-                  {selectedEmployerId === null && (
-                    <Check className="h-4 w-4 text-primary absolute left-2" />
-                  )}
-                  📊 View All Companies
-                </span>
-                <Badge variant="outline" className="text-xs h-5 ml-2">
-                  All Data
+              <Check 
+                className={cn(
+                  "absolute left-2 h-4 w-4",
+                  selectedEmployerId === null ? "opacity-100" : "opacity-0"
+                )}
+              />
+              <div className="flex items-center gap-2">
+                <span>📊 View All Companies</span>
+                <Badge variant="secondary" className="ml-auto text-xs">
+                  {employers.length}
                 </Badge>
               </div>
             </SelectItem>
           )}
-          {isSuperAdmin && (
-            <div className="my-1 border-t" />
-          )}
-          {availableEmployers.map((employer) => {
-            const isSelected = employer.employer_id === selectedEmployerId;
-            const isUserDefault = employer.employer_id === userEmployerId;
-            
-            return (
-              <SelectItem
-                key={employer.employer_id}
-                value={employer.employer_id.toString()}
-                className={cn(
-                  "relative pl-8",
-                  isUserDefault && "font-medium"
-                )}
-              >
-                <div className="flex items-center justify-between w-full">
-                  <span className="flex items-center gap-2">
-                    {isSelected && (
-                      <Check className="h-4 w-4 text-primary absolute left-2" />
+          <div className="border-t">
+            {availableEmployers.map((employer) => {
+              console.log('Rendering employer option:', {
+                id: employer.employer_id,
+                name: employer.employer_name,
+                valueString: employer.employer_id.toString()
+              });
+              
+              return (
+                <SelectItem
+                  key={employer.employer_id}
+                  value={employer.employer_id.toString()}
+                  className={cn(
+                    "relative pl-8",
+                    selectedEmployerId === employer.employer_id && "bg-primary/5"
+                  )}
+                >
+                  <Check 
+                    className={cn(
+                      "absolute left-2 h-4 w-4",
+                      selectedEmployerId === employer.employer_id ? "opacity-100" : "opacity-0"
                     )}
-                    {employer.employer_name}
-                  </span>
-                  <div className="flex items-center gap-1 ml-2">
-                    {isUserDefault && (
-                      <Badge variant="outline" className="text-xs h-5">
-                        Default
+                  />
+                  <div className="flex items-center justify-between">
+                    <span>{employer.employer_name}</span>
+                    {employer.employer_id === userEmployerId && !isSuperAdmin && (
+                      <Badge variant="outline" className="ml-2 text-xs">
+                        Your Company
                       </Badge>
                     )}
-                    <Badge variant="secondary" className="text-xs h-5">
-                      ID: {employer.employer_id}
-                    </Badge>
                   </div>
-                </div>
-              </SelectItem>
-            );
-          })}
-          {availableEmployers.length === 0 && !isLoadingEmployers && (
-            <div className="px-2 py-4 text-sm text-muted-foreground text-center">
-              No employers available
-            </div>
-          )}
-          {isLoadingEmployers && (
-            <div className="px-2 py-4 text-sm text-muted-foreground text-center">
-              Loading employers...
-            </div>
-          )}
+                </SelectItem>
+              );
+            })}
+          </div>
         </SelectContent>
       </Select>
-      {isSuperAdmin && (
-        <Badge variant="default" className="ml-2">
-          Super Admin
-        </Badge>
+      {isLoadingEmployers && (
+        <div className="text-xs text-muted-foreground animate-pulse">
+          Loading companies...
+        </div>
       )}
     </div>
   );
-}export { EmployerContextSelector } from "./EmployerContextSelectorDebug";
+}

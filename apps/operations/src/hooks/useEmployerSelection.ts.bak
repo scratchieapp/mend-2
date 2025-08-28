@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth as useClerkAuth, useUser as useClerkUser } from "@clerk/clerk-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth/AuthContext";
 
@@ -10,13 +9,9 @@ interface Employer {
   employer_name: string;
 }
 
-export const useEmployerSelectionFixed = () => {
+export const useEmployerSelection = () => {
   const { userData } = useAuth();
-  const { userId: clerkUserId } = useClerkAuth();
-  const { user: clerkUser } = useClerkUser();
-  const clerkEmail = clerkUser?.primaryEmailAddress?.emailAddress || null;
   const queryClient = useQueryClient();
-  
   const [selectedEmployerId, setSelectedEmployerId] = useState<number | null>(() => {
     const stored = localStorage.getItem("selectedEmployerId");
     // If stored value is "null" string, return null for View All mode
@@ -27,42 +22,30 @@ export const useEmployerSelectionFixed = () => {
   // Initialize employer context on mount or when user data changes
   useEffect(() => {
     const initializeContext = async () => {
-      // Only initialize if we have both user data and Clerk auth
-      if (!userData || (!clerkUserId && !clerkEmail)) return;
+      // Only initialize if we have user data
+      if (!userData) return;
+      
+      // Check if we already have a selection
+      const currentSelection = localStorage.getItem("selectedEmployerId");
+      if (currentSelection !== null && currentSelection !== "null") {
+        // Already have a selection, don't re-initialize
+        return;
+      }
       
       try {
-        // If Super Admin has selected "View All" mode (null), clear context
-        if (selectedEmployerId === null && userData.role_id === 1) {
-          const { error } = await supabase.rpc('clear_employer_context');
-          if (error) {
-            console.error('Error clearing employer context:', error);
-          }
-        } else if (selectedEmployerId) {
-          // Set specific employer context using the existing function
-          const { error } = await supabase.rpc('set_employer_context', {
-            p_employer_id: selectedEmployerId
-          });
-          
-          if (error) {
-            console.error('Error initializing employer context:', error);
-            // If error, try to set to user's default employer
-            if (userData.employer_id) {
-              const defaultEmployerId = parseInt(userData.employer_id);
-              await supabase.rpc('set_employer_context', {
-                p_employer_id: defaultEmployerId
-              });
-              setSelectedEmployerId(defaultEmployerId);
-              localStorage.setItem("selectedEmployerId", defaultEmployerId.toString());
-            }
-          }
-        } else if (!selectedEmployerId && userData.employer_id) {
-          // No selection yet, set to user's default employer
+        // No selection yet and user has a default employer
+        if (userData.employer_id) {
           const defaultEmployerId = parseInt(userData.employer_id);
           await supabase.rpc('set_employer_context', {
-            p_employer_id: defaultEmployerId
+            employer_id: defaultEmployerId
           });
           setSelectedEmployerId(defaultEmployerId);
           localStorage.setItem("selectedEmployerId", defaultEmployerId.toString());
+        } else if (userData.role_id === 1) {
+          // Super Admin without default employer - set to View All mode
+          await supabase.rpc('clear_employer_context');
+          setSelectedEmployerId(null);
+          localStorage.setItem("selectedEmployerId", "null");
         }
       } catch (err) {
         console.error('Failed to initialize employer context:', err);
@@ -70,7 +53,7 @@ export const useEmployerSelectionFixed = () => {
     };
 
     initializeContext();
-  }, [userData, selectedEmployerId, clerkUserId, clerkEmail]);
+  }, [userData]); // Only depend on userData, not selectedEmployerId
 
   const { data: employers = [], isLoading: isLoadingEmployers } = useQuery({
     queryKey: ['employers'],
@@ -81,7 +64,6 @@ export const useEmployerSelectionFixed = () => {
         .order('employer_name');
 
       if (error) {
-        console.error('Error fetching employers:', error);
         return [];
       }
 
@@ -90,17 +72,7 @@ export const useEmployerSelectionFixed = () => {
   });
 
   const handleEmployerChange = async (employerId: number | null) => {
-    console.log('=== handleEmployerChange called ===');
-    console.log('employerId:', employerId);
-    console.log('type:', typeof employerId);
-    console.log('userData?.role_id:', userData?.role_id);
-    
     try {
-      // Ensure we have Clerk auth
-      if (!clerkUserId && !clerkEmail) {
-        throw new Error("User not authenticated with Clerk");
-      }
-      
       // Handle "View All" mode for Super Admins
       if (employerId === null) {
         // Only Super Admins can use View All mode
@@ -108,7 +80,7 @@ export const useEmployerSelectionFixed = () => {
           throw new Error("Only Super Admins can view all companies");
         }
         
-        // Clear employer context for View All mode
+        // Clear the employer context
         const { error } = await supabase.rpc('clear_employer_context');
         
         if (error) {
@@ -126,7 +98,7 @@ export const useEmployerSelectionFixed = () => {
       } else {
         // Set specific employer context
         const { error } = await supabase.rpc('set_employer_context', {
-          p_employer_id: employerId
+          employer_id: employerId
         });
         
         if (error) {
@@ -146,19 +118,15 @@ export const useEmployerSelectionFixed = () => {
         }
       }
 
-      // FIXED: Only invalidate specific queries that depend on employer context
-      // This is the key fix - no more window.location.reload()!
+      // FIX: Only invalidate specific queries that depend on employer context
+      // Instead of invalidating ALL queries
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['dashboard-incidents'] }),
         queryClient.invalidateQueries({ queryKey: ['incidents-ultra'] }),
         queryClient.invalidateQueries({ queryKey: ['employer-statistics'] }),
-        queryClient.invalidateQueries({ queryKey: ['employer-statistics-clerk'] }),
         queryClient.invalidateQueries({ queryKey: ['workers'] }),
         queryClient.invalidateQueries({ queryKey: ['sites'] }),
         queryClient.invalidateQueries({ queryKey: ['site-safety'] }),
-        queryClient.invalidateQueries({ queryKey: ['builderStats'] }),
-        queryClient.invalidateQueries({ queryKey: ['incidents'] }),
-        queryClient.invalidateQueries({ queryKey: ['incidents-clerk'] })
+        queryClient.invalidateQueries({ queryKey: ['builderStats'] })
       ]);
       
     } catch (error) {
@@ -175,12 +143,6 @@ export const useEmployerSelectionFixed = () => {
     selectedEmployerId,
     employers,
     isLoadingEmployers,
-    handleEmployerChange,
-    isAuthenticated: !!clerkUserId || !!clerkEmail,
+    handleEmployerChange
   };
 };
-
-// Export with both names for compatibility
-export const useEmployerSelectionWithClerk = useEmployerSelectionFixed;
-export const useEmployerSelectionOptimized = useEmployerSelectionFixed;
-export const useEmployerSelection = useEmployerSelectionFixed;
