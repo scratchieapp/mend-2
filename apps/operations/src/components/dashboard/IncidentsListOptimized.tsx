@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import { useIncidentsUltraOptimized } from '@/hooks/useIncidentsUltraOptimized';
+import { useIncidentsUltraOptimized } from '@/hooks/useIncidentsDashboardOptimized';
 import { cn } from '@/lib/utils';
 import debounce from 'lodash/debounce';
 
