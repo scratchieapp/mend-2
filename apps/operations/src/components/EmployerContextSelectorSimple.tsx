@@ -12,11 +12,7 @@ export function EmployerContextSelector() {
     handleEmployerChange,
   } = useEmployerSelection();
 
-  console.log('EmployerContextSelector render:', {
-    selectedEmployerId,
-    employersCount: employers.length,
-    isLoadingEmployers
-  });
+  // Removed console.log to prevent spam in production
 
   const isSuperAdmin = userData?.role_id === 1;
 
@@ -31,14 +27,14 @@ export function EmployerContextSelector() {
         value={selectedEmployerId?.toString() || (isSuperAdmin ? "all" : "")}
         onChange={(e) => {
           const value = e.target.value;
-          console.log('Native select onChange:', value);
+          // console.log('Native select onChange:', value);
           
           if (value === "all") {
-            console.log('Calling handleEmployerChange(null)');
+            // console.log('Calling handleEmployerChange(null)');
             handleEmployerChange(null);
           } else {
             const id = parseInt(value);
-            console.log('Calling handleEmployerChange with:', id);
+            // console.log('Calling handleEmployerChange with:', id);
             handleEmployerChange(id);
           }
         }}

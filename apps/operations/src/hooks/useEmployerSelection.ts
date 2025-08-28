@@ -86,10 +86,7 @@ export const useEmployerSelectionFixed = () => {
   });
 
   const handleEmployerChange = async (employerId: number | null) => {
-    console.log('=== handleEmployerChange called ===');
-    console.log('employerId:', employerId);
-    console.log('type:', typeof employerId);
-    console.log('userData?.role_id:', userData?.role_id);
+    // Debug logs removed for production
     
     try {
       // Ensure we have Clerk auth
@@ -121,7 +118,7 @@ export const useEmployerSelectionFixed = () => {
         });
       } else {
         // Set specific employer context
-        console.log('Calling set_employer_context with p_employer_id:', employerId);
+        // console.log('Calling set_employer_context with p_employer_id:', employerId);
         const { error } = await supabase.rpc('set_employer_context', {
           p_employer_id: employerId
         });
