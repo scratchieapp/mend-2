@@ -1,7 +1,8 @@
 import { ModeSelector } from "./navigation/ModeSelector";
 import { NavigationLinks } from "./navigation/NavigationLinks";
 import { EmployerSelector } from "./builder/EmployerSelector";
-import { EmployerContextSelector } from "./EmployerContextSelector";
+// Temporarily use simple version to diagnose issue
+import { EmployerContextSelector } from "./EmployerContextSelectorSimple";
 import { UserBadge } from "./auth/UserBadge";
 import { useUserMode } from "@/hooks/useUserMode";
 import { useEmployerSelection } from "@/hooks/useEmployerSelection";
