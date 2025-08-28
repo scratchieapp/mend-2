@@ -7,7 +7,7 @@ import { useEmployerContext } from "@/hooks/useEmployerContext";
 import { DashboardHeader } from '@/components/layout/DashboardHeader';
 import { EmployerSelector } from '@/components/builder/EmployerSelector';
 import { useAuth } from "@/lib/auth/AuthContext";
-import { IncidentsList } from '@/components/dashboard/IncidentsList';
+import { IncidentsListOptimized } from '@/components/dashboard/IncidentsListOptimized';
 import { useEffect } from 'react';
 
 export default function BuilderDashboard() {
@@ -267,8 +267,9 @@ export default function BuilderDashboard() {
       </div>
 
       {/* Recent Incidents List */}
-      <IncidentsList 
+      <IncidentsListOptimized 
         selectedEmployerId={selectedEmployerId}
+        enableVirtualScroll={true}
         showActions={true}
         maxHeight="500px"
       />

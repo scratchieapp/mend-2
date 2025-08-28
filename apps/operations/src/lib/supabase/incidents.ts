@@ -81,10 +81,15 @@ export async function getIncidentsWithDetails(params: IncidentsListParams = {}):
       userEmployerId = null
     } = params;
 
+    // Add timeout to prevent hanging
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Query timeout - taking too long')), 10000); // 10 second timeout
+    });
+
     // Use the new RBAC function that properly handles role-based access
     // Super Admin (role_id = 1) will see ALL incidents
     // Builder Admin (role_id = 5) will see only their employer's incidents
-    const { data: incidents, error: incidentsError } = await supabase
+    const queryPromise = supabase
       .rpc('get_incidents_with_details_rbac', {
         page_size: pageSize,
         page_offset: pageOffset,
@@ -95,6 +100,12 @@ export async function getIncidentsWithDetails(params: IncidentsListParams = {}):
         user_role_id: userRoleId,
         user_employer_id: userEmployerId
       });
+
+    // Race between query and timeout
+    const { data: incidents, error: incidentsError } = await Promise.race([
+      queryPromise,
+      timeoutPromise
+    ]) as any;
 
     if (incidentsError) {
       console.error('Error fetching incidents:', incidentsError);

@@ -3,7 +3,7 @@ import { IncidentAnalytics } from "@/components/dashboard/IncidentAnalytics";
 import { PerformanceOverview } from "@/components/dashboard/PerformanceOverview";
 import { MedicalProfessionalDashboard } from "@/components/dashboard/MedicalProfessionalDashboard";
 import { IndustryLTIChart } from "@/components/dashboard/charts/IndustryLTIChart";
-import { IncidentsList } from "@/components/dashboard/IncidentsList";
+import { IncidentsListOptimized } from "@/components/dashboard/IncidentsListOptimized";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PlusCircle, Download, CheckCircle } from "lucide-react";
@@ -109,11 +109,12 @@ const Dashboard = () => {
             <>
               {/* Recent Incidents List */}
               <DataErrorBoundary errorTitle="Failed to load recent incidents">
-                <IncidentsList 
+                <IncidentsListOptimized 
                   highlightIncidentId={submittedIncidentId || undefined}
                   showActions={true}
                   maxHeight="400px"
                   selectedEmployerId={selectedEmployerId}
+                  enableVirtualScroll={true}
                 />
               </DataErrorBoundary>
 
