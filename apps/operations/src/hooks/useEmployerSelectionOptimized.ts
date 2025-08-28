@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth as useClerkAuth, useUser as useClerkUser } from "@clerk/clerk-react";
 import { toast } from "@/hooks/use-toast";
@@ -10,11 +10,12 @@ interface Employer {
   employer_name: string;
 }
 
-export const useEmployerSelectionWithClerk = () => {
+export const useEmployerSelectionOptimized = () => {
   const { userData } = useAuth();
   const { userId: clerkUserId } = useClerkAuth();
   const { user: clerkUser } = useClerkUser();
   const clerkEmail = clerkUser?.primaryEmailAddress?.emailAddress || null;
+  const queryClient = useQueryClient();
   
   const [selectedEmployerId, setSelectedEmployerId] = useState<number | null>(() => {
     const stored = localStorage.getItem("selectedEmployerId");
@@ -156,8 +157,21 @@ export const useEmployerSelectionWithClerk = () => {
         }
       }
 
-      // Force reload the page to reset all React states and apply new RLS context
-      window.location.reload();
+      // FIXED: Only invalidate specific queries that depend on employer context
+      // This is the key fix - no more window.location.reload()!
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['dashboard-incidents'] }),
+        queryClient.invalidateQueries({ queryKey: ['incidents-ultra'] }),
+        queryClient.invalidateQueries({ queryKey: ['employer-statistics'] }),
+        queryClient.invalidateQueries({ queryKey: ['employer-statistics-clerk'] }),
+        queryClient.invalidateQueries({ queryKey: ['workers'] }),
+        queryClient.invalidateQueries({ queryKey: ['sites'] }),
+        queryClient.invalidateQueries({ queryKey: ['site-safety'] }),
+        queryClient.invalidateQueries({ queryKey: ['builderStats'] }),
+        queryClient.invalidateQueries({ queryKey: ['incidents'] }),
+        queryClient.invalidateQueries({ queryKey: ['incidents-clerk'] })
+      ]);
+      
     } catch (error) {
       console.error('Failed to change employer:', error);
       toast({
@@ -177,5 +191,6 @@ export const useEmployerSelectionWithClerk = () => {
   };
 };
 
-// Export with the expected name
-export const useEmployerSelection = useEmployerSelectionWithClerk;
+// Export with both names for compatibility
+export const useEmployerSelectionWithClerk = useEmployerSelectionOptimized;
+export const useEmployerSelection = useEmployerSelectionOptimized;
