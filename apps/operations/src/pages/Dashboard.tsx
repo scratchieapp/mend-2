@@ -13,6 +13,7 @@ import { DataErrorBoundary } from "@/components/DataErrorBoundary";
 import { useState, useEffect } from "react";
 import { startOfMonth, subMonths } from "date-fns";
 import { useEmployerSelection } from "@/hooks/useEmployerSelection";
+import { DebugPanel } from "@/components/DebugPanel";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -137,6 +138,7 @@ const Dashboard = () => {
           )}
         </div>
       </div>
+      <DebugPanel />
     </div>
   );
 };
