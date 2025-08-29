@@ -1,19 +1,24 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth as useClerkAuth, useUser as useClerkUser } from "@clerk/clerk-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { createClient } from '@supabase/supabase-js';
 
 interface Employer {
   employer_id: number;
   employer_name: string;
 }
 
-export const useEmployerSelectionQuickFix = () => {
+// Create a Supabase client that uses Clerk's JWT token
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+export const useEmployerSelectionWithClerkAuth = () => {
   const { userData } = useAuth();
-  const { userId: clerkUserId } = useClerkAuth();
+  const { userId: clerkUserId, getToken } = useClerkAuth();
   const { user: clerkUser } = useClerkUser();
+  const clerkEmail = clerkUser?.primaryEmailAddress?.emailAddress || null;
   const queryClient = useQueryClient();
   const isInitialized = useRef(false);
   
@@ -23,35 +28,63 @@ export const useEmployerSelectionQuickFix = () => {
     return stored ? Number(stored) : null;
   });
 
-  // Initialize employer selection on mount
+  // Create Supabase client with Clerk token
+  const getSupabaseClient = async () => {
+    const token = await getToken({ template: 'supabase' });
+    
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    });
+    
+    return supabase;
+  };
+
+  // Initialize employer context ONLY ONCE on mount
   useEffect(() => {
-    const initializeSelection = async () => {
+    const initializeContext = async () => {
       if (!userData || isInitialized.current || !clerkUserId) return;
       
       isInitialized.current = true;
       
-      const storedId = localStorage.getItem("selectedEmployerId");
-      
-      if (!storedId || storedId === "null") {
-        if (userData.role_id === 1) {
-          // Super admin - default to View All
-          setSelectedEmployerId(null);
-          localStorage.setItem("selectedEmployerId", "null");
-        } else if (userData.employer_id) {
-          // Regular user - set to their employer
+      try {
+        const supabase = await getSupabaseClient();
+        const storedId = localStorage.getItem("selectedEmployerId");
+        
+        if (storedId === "null" && userData.role_id === 1) {
+          await supabase.rpc('clear_employer_context');
+        } else if (storedId && storedId !== "null") {
+          const employerId = parseInt(storedId);
+          await supabase.rpc('set_employer_context', {
+            p_employer_id: employerId
+          });
+        } else if (userData.employer_id && userData.role_id !== 1) {
           const defaultEmployerId = parseInt(userData.employer_id);
+          await supabase.rpc('set_employer_context', {
+            p_employer_id: defaultEmployerId
+          });
           setSelectedEmployerId(defaultEmployerId);
           localStorage.setItem("selectedEmployerId", defaultEmployerId.toString());
+        } else if (userData.role_id === 1) {
+          await supabase.rpc('clear_employer_context');
+          setSelectedEmployerId(null);
+          localStorage.setItem("selectedEmployerId", "null");
         }
+      } catch (err) {
+        console.error('Failed to initialize employer context:', err);
       }
     };
 
-    initializeSelection();
-  }, [userData, clerkUserId]);
+    initializeContext();
+  }, [userData, clerkUserId, getToken]);
 
   const { data: employers = [], isLoading: isLoadingEmployers } = useQuery({
     queryKey: ['employers'],
     queryFn: async () => {
+      const supabase = await getSupabaseClient();
       const { data, error } = await supabase
         .from('employers')
         .select('employer_id, employer_name')
@@ -64,18 +97,27 @@ export const useEmployerSelectionQuickFix = () => {
 
       return data || [];
     },
+    enabled: !!clerkUserId,
   });
 
   const handleEmployerChange = async (employerId: number | null) => {
     try {
       if (!clerkUserId) {
-        throw new Error("User not authenticated");
+        throw new Error("User not authenticated with Clerk");
       }
       
-      // For "View All" mode
+      const supabase = await getSupabaseClient();
+      
       if (employerId === null) {
         if (userData?.role_id !== 1) {
           throw new Error("Only Super Admins can view all companies");
+        }
+        
+        const { error } = await supabase.rpc('clear_employer_context');
+        
+        if (error) {
+          console.error('Error clearing employer context:', error);
+          throw error;
         }
         
         setSelectedEmployerId(null);
@@ -86,12 +128,16 @@ export const useEmployerSelectionQuickFix = () => {
           description: "Now viewing data from all companies",
         });
       } else {
-        // For specific employer selection
-        // Verify user has access to this employer
-        if (userData?.role_id !== 1 && userData?.employer_id !== employerId.toString()) {
-          throw new Error("Access denied to this employer");
-        }
+        console.log('Setting employer context with ID:', employerId);
+        const { error } = await supabase.rpc('set_employer_context', {
+          p_employer_id: employerId
+        });
         
+        if (error) {
+          console.error('Error setting employer context:', error);
+          throw error;
+        }
+
         setSelectedEmployerId(employerId);
         localStorage.setItem("selectedEmployerId", employerId.toString());
         
@@ -104,10 +150,7 @@ export const useEmployerSelectionQuickFix = () => {
         }
       }
 
-      // Important: We're NOT calling set_employer_context since it requires Supabase auth
-      // Instead, the queries will use selectedEmployerId directly
-      
-      // Invalidate queries to refetch with new employer filter
+      // Invalidate queries that depend on employer context
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['dashboard-incidents'] }),
         queryClient.invalidateQueries({ queryKey: ['incidents-ultra'] }),
@@ -124,14 +167,6 @@ export const useEmployerSelectionQuickFix = () => {
         description: error instanceof Error ? error.message : "Failed to change employer. Please try again.",
         variant: "destructive"
       });
-      
-      // Reset to previous value on error
-      const stored = localStorage.getItem("selectedEmployerId");
-      if (stored === "null") {
-        setSelectedEmployerId(null);
-      } else if (stored) {
-        setSelectedEmployerId(parseInt(stored));
-      }
     }
   };
 
@@ -145,7 +180,4 @@ export const useEmployerSelectionQuickFix = () => {
 };
 
 // Export with all names for compatibility
-export const useEmployerSelectionWithClerk = useEmployerSelectionQuickFix;
-export const useEmployerSelectionOptimized = useEmployerSelectionQuickFix;
-export const useEmployerSelectionFixed = useEmployerSelectionQuickFix;
-export const useEmployerSelection = useEmployerSelectionQuickFix;
+export const useEmployerSelection = useEmployerSelectionWithClerkAuth;
