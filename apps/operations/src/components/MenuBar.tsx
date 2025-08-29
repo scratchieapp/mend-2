@@ -1,7 +1,8 @@
 import { ModeSelector } from "./navigation/ModeSelector";
 import { NavigationLinks } from "./navigation/NavigationLinks";
 import { EmployerSelector } from "./builder/EmployerSelector";
-import { EmployerContextSelector } from "./EmployerContextSelector";
+// Temporarily use working version with native select
+import { EmployerContextSelector } from "./EmployerContextSelectorWorking";
 import { UserBadge } from "./auth/UserBadge";
 import { useUserMode } from "@/hooks/useUserMode";
 import { useEmployerSelection } from "@/hooks/useEmployerSelection";
