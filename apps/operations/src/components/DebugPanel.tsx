@@ -25,7 +25,7 @@ export function DebugPanel() {
         // @ts-ignore
         setMemoryUsage(Math.round(performance.memory.usedJSHeapSize / 1048576));
       }
-    }, 500);
+    }, 2000); // Reduced frequency to avoid performance impact
     
     return () => clearInterval(interval);
   }, [queryClient]);
