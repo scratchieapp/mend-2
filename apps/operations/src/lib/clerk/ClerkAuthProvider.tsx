@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ClerkProvider, useAuth as useClerkAuth, useUser as useClerkUser } from '@clerk/clerk-react';
 import { supabase } from '@/integrations/supabase/client';
-import { getRoleFromEmail } from '@/lib/auth/roleUtils';
+import { getRoleFromEmail } from './config';
 
 const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 

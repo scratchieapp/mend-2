@@ -1,15 +1,15 @@
 import { SignUp } from '@clerk/clerk-react';
 import { Navigate, useSearchParams } from 'react-router-dom';
-import { useClerkAuthContext } from '@/lib/clerk/ClerkAuthProvider';
+import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { Shield } from 'lucide-react';
 import { getOperationsUrl, isProduction } from '@/lib/config';
 
 export default function ClerkSignup() {
-  const { isAuthenticated, isLoading } = useClerkAuthContext();
+  const { isSignedIn, isLoaded } = useClerkAuth();
   const [searchParams] = useSearchParams();
   const returnUrl = searchParams.get('returnUrl') || '/';
 
-  if (isLoading) {
+  if (!isLoaded) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -17,7 +17,7 @@ export default function ClerkSignup() {
     );
   }
 
-  if (isAuthenticated) {
+  if (isSignedIn) {
     // Always redirect to root to let DashboardRouter handle role-based routing
     return <Navigate to="/" replace />;
   }

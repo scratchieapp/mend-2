@@ -2,7 +2,8 @@ import { SignIn } from '@clerk/clerk-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useClerkAuthContext } from '@/lib/clerk/ClerkAuthProvider';
+import { useAuth } from '@/lib/auth/AuthContext';
+import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { getOperationsUrl, isProduction } from '@/lib/config';
 
 // Simple role-based dashboard mapping
@@ -20,34 +21,36 @@ const ROLE_DASHBOARDS: Record<number, string> = {
 
 export default function ClerkLogin() {
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useClerkAuthContext();
+  const { isSignedIn } = useClerkAuth();
+  const { userData, isLoading } = useAuth();
 
   useEffect(() => {
     console.log('🔍 ClerkLogin useEffect triggered:', { 
-      isAuthenticated, 
-      hasUser: !!user, 
-      userEmail: user?.email,
-      userRole: user?.role?.role_name,
+      isSignedIn, 
+      hasUserData: !!userData, 
+      userEmail: userData?.email,
+      userRole: userData?.role?.role_name,
       currentPath: window.location.pathname,
-      currentUrl: window.location.href
+      currentUrl: window.location.href,
+      isLoading
     });
     
-    if (isAuthenticated && user) {
+    if (isSignedIn && userData && !isLoading) {
       console.log('🔄 ClerkLogin: User authenticated, redirecting to dashboard...');
       console.log('🔄 ClerkLogin: User details:', {
-        role_id: user.role?.role_id,
-        role_name: user.role?.role_name,
-        email: user.email
+        role_id: userData.role_id,
+        role_name: userData.role?.role_name,
+        email: userData.email
       });
       
       // Direct redirect to the correct dashboard based on role
-      const roleId = user.role?.role_id;
+      const roleId = userData.role_id;
       const dashboardPath = roleId ? ROLE_DASHBOARDS[roleId] : '/dashboard';
       
       console.log(`🎯 ClerkLogin: Redirecting role ${roleId} to ${dashboardPath}`);
       navigate(dashboardPath, { replace: true });
     }
-  }, [isAuthenticated, user, navigate]);
+  }, [isSignedIn, userData, isLoading, navigate]);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
