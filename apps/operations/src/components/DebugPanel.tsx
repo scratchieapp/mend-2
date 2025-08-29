@@ -30,7 +30,8 @@ export function DebugPanel() {
     return () => clearInterval(interval);
   }, [queryClient]);
   
-  if (process.env.NODE_ENV === 'production') return null;
+  // Only show in development
+  if (import.meta.env.PROD) return null;
   
   return (
     <Card className="fixed bottom-4 right-4 w-96 z-50 bg-black/90 text-white">
