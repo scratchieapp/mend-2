@@ -23,6 +23,7 @@ import { useNavigate } from 'react-router-dom';
 import { useIncidentsUltraOptimized } from '@/hooks/useIncidentsDashboardOptimized';
 import { cn } from '@/lib/utils';
 import debounce from 'lodash/debounce';
+import type { DebouncedFunc } from 'lodash';
 
 interface IncidentsListOptimizedProps {
   highlightIncidentId?: number;
@@ -210,13 +211,20 @@ export function IncidentsListOptimized({
   }, [incidents, searchTerm, statusFilter]);
 
   // Debounced search handler
-  const handleSearchChange = useMemo(
+  const handleSearchChange: DebouncedFunc<(value: string) => void> = useMemo(
     () => debounce((value: string) => {
       setSearchTerm(value);
       setCurrentPage(1);
     }, 300),
     []
   );
+
+  // Cleanup debounced handler on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      handleSearchChange.cancel();
+    };
+  }, [handleSearchChange]);
 
   // Navigation handlers
   const handleView = useCallback((incidentId: number) => {
