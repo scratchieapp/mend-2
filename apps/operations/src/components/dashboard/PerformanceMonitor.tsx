@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -14,6 +14,10 @@ interface PerformanceMetric {
 export function PerformanceMonitor() {
   const [metrics, setMetrics] = useState<PerformanceMetric[]>([]);
   const [isVisible, setIsVisible] = useState(false);
+  const [fetchLogs, setFetchLogs] = useState<{ url: string; ms: number; at: Date }[]>([]);
+  const [longTasks, setLongTasks] = useState<{ duration: number; start: number }[]>([]);
+  const [maxEventLoopLag, setMaxEventLoopLag] = useState(0);
+  const fetchPatchedRef = useRef(false);
 
   useEffect(() => {
     // Only show in development or if performance issues detected
@@ -68,6 +72,67 @@ export function PerformanceMonitor() {
     }
   }, []);
 
+  // Patch fetch to measure actual network time to Supabase RPC endpoints (dev-only aide)
+  useEffect(() => {
+    if (fetchPatchedRef.current) return;
+    if (import.meta.env.VITE_SHOW_PERF_MONITOR !== 'true') return;
+    if (typeof window === 'undefined' || !window.fetch) return;
+
+    const originalFetch = window.fetch.bind(window);
+    fetchPatchedRef.current = true;
+    window.fetch = async (...args: any[]) => {
+      const url = String(args[0]);
+      const isSupabaseRpc = url.includes('/rpc/');
+      const t0 = performance.now();
+      try {
+        const res = await originalFetch(...args);
+        const t1 = performance.now();
+        if (isSupabaseRpc) {
+          setFetchLogs(prev => [{ url, ms: t1 - t0, at: new Date() }, ...prev.slice(0, 9)]);
+        }
+        return res;
+      } catch (e) {
+        const t1 = performance.now();
+        if (isSupabaseRpc) {
+          setFetchLogs(prev => [{ url, ms: t1 - t0, at: new Date() }, ...prev.slice(0, 9)]);
+        }
+        throw e;
+      }
+    };
+
+    return () => {
+      // Best-effort restore
+      window.fetch = originalFetch;
+    };
+  }, []);
+
+  // Observe long tasks on the main thread
+  useEffect(() => {
+    const supported = (window as any).PerformanceObserver?.supportedEntryTypes?.includes('longtask');
+    if (!supported) return;
+    const observer = new PerformanceObserver((list) => {
+      const entries = list.getEntries();
+      const mapped = entries.map(e => ({ duration: e.duration, start: e.startTime }));
+      setLongTasks(prev => [...mapped.reverse(), ...prev].slice(0, 10));
+    });
+    observer.observe({ entryTypes: ['longtask'] as any });
+    return () => observer.disconnect();
+  }, []);
+
+  // Sample event loop lag
+  useEffect(() => {
+    let mounted = true;
+    let last = performance.now();
+    const interval = setInterval(() => {
+      const now = performance.now();
+      const expected = 100;
+      const lag = now - last - expected;
+      if (lag > 0 && mounted) setMaxEventLoopLag(prev => Math.max(prev, lag));
+      last = now;
+    }, 100);
+    return () => { mounted = false; clearInterval(interval); };
+  }, []);
+
   if (!isVisible || metrics.length === 0) return null;
 
   const averageTime = metrics.reduce((sum, m) => sum + m.duration, 0) / metrics.length;
@@ -103,6 +168,12 @@ export function PerformanceMonitor() {
               {averageTime.toFixed(0)}ms
             </span>
           </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Max Event Loop Lag:</span>
+            <span className={maxEventLoopLag > 500 ? 'text-red-500 font-bold' : ''}>
+              {maxEventLoopLag.toFixed(0)}ms
+            </span>
+          </div>
         </div>
 
         <div className="space-y-1 max-h-48 overflow-auto">
@@ -128,6 +199,36 @@ export function PerformanceMonitor() {
             </div>
           ))}
         </div>
+
+        {/* Fetch logs for Supabase RPCs */}
+        {fetchLogs.length > 0 && (
+          <div className="mt-2 text-xs">
+            <div className="font-semibold mb-1">RPC Fetch (network) timings:</div>
+            <div className="space-y-1 max-h-32 overflow-auto">
+              {fetchLogs.map((f, i) => (
+                <div key={i} className="flex justify-between">
+                  <span className="truncate mr-2">{f.url.split('/rpc/')[1] || f.url}</span>
+                  <span>{f.ms.toFixed(0)}ms</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Long tasks */}
+        {longTasks.length > 0 && (
+          <div className="mt-2 text-xs">
+            <div className="font-semibold mb-1">Long Tasks (main thread):</div>
+            <div className="space-y-1 max-h-32 overflow-auto">
+              {longTasks.map((t, i) => (
+                <div key={i} className={`flex justify-between ${t.duration > 1000 ? 'text-red-500 font-bold' : ''}`}>
+                  <span>Start {t.start.toFixed(0)}ms</span>
+                  <span>{t.duration.toFixed(0)}ms</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {metrics.length > 0 && metrics.every(m => m.name.includes('get_incidents_with_details_rbac')) && (
           <Alert className="py-2 bg-blue-50 border-blue-200">
