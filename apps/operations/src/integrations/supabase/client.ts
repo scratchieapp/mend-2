@@ -15,3 +15,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
   },
 });
+
+// Expose supabase in the browser for dev-only performance instrumentation
+if (typeof window !== 'undefined') {
+  // Attach without breaking production; PerformanceMonitor will guard usage
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (window as any).supabase = supabase;
+}

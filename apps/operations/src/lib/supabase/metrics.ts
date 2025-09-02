@@ -3,27 +3,28 @@ import { startOfMonth, endOfMonth, format } from 'date-fns';
 
 export interface IncidentMetrics {
   totalIncidents: number;
-  avgLostTime: number;
-  totalLostDays: number;
-  totalClaimCosts: number;
+  avgLostTime: number;      // Not provided by DB function; derived/placeholder
+  totalLostDays: number;    // Not provided by DB function; derived/placeholder
+  totalClaimCosts: number;  // Maps from total_cost
   psychosocialCount: number;
-  fatalityCount: number;
-  ltiCount: number;
-  mtiCount: number;
-  faiCount: number;
+  fatalityCount: number;    // Not provided; placeholder
+  ltiCount: number;         // Not provided; placeholder
+  mtiCount: number;         // Not provided; placeholder
+  faiCount: number;         // Not provided; placeholder
 }
 
 /**
  * Get incident metrics with RBAC support
  */
 export async function getIncidentMetrics(params: {
-  userRoleId?: number;
-  userEmployerId?: number;
-  filterEmployerId?: number;
-  selectedMonth?: string;
+  userRoleId?: number;       // kept for compatibility (not used by optimized RPC)
+  userEmployerId?: number;   // kept for compatibility (not used by optimized RPC)
+  filterEmployerId?: number; // maps to p_employer_id
+  selectedMonth?: string;    // kept for compatibility; not used by current RPC
+  dbUserId?: string;         // REQUIRED for optimized metrics RPC
 }): Promise<IncidentMetrics> {
   try {
-    const { userRoleId, userEmployerId, filterEmployerId, selectedMonth } = params;
+    const { dbUserId, filterEmployerId, selectedMonth } = params;
 
     // Calculate date range if month is provided
     let startDate: string | undefined;
@@ -35,60 +36,52 @@ export async function getIncidentMetrics(params: {
       endDate = format(endOfMonth(monthDate), 'yyyy-MM-dd');
     }
 
-    // Call the RBAC metrics function
-    const { data, error } = await supabase.rpc('get_incident_metrics_rbac', {
-      user_role_id: userRoleId || null,
-      user_employer_id: userEmployerId || null,
-      filter_employer_id: filterEmployerId || null,
-      filter_start_date: startDate || null,
-      filter_end_date: endDate || null
+    // Use the optimized metrics function that takes user UUID.
+    // Note: current DB function does not accept date range; we keep those vars for future use.
+    const { data, error } = await supabase.rpc('get_incidents_metrics_rbac', {
+      p_user_id: dbUserId || null,
+      p_employer_id: filterEmployerId || null
     });
 
     if (error) {
       console.error('Error fetching metrics:', error);
       // Return empty metrics on error
-      return {
-        totalIncidents: 0,
-        avgLostTime: 0,
-        totalLostDays: 0,
-        totalClaimCosts: 0,
-        psychosocialCount: 0,
-        fatalityCount: 0,
-        ltiCount: 0,
-        mtiCount: 0,
-        faiCount: 0
-      };
+      return emptyMetrics();
     }
 
-    // The function returns an array with one row
-    const metrics = data && data[0] ? data[0] : {};
+    // The function returns a single row or array; normalize to object
+    const metrics = Array.isArray(data) ? (data[0] || {}) : (data || {});
 
     return {
-      totalIncidents: metrics.total_incidents || 0,
-      avgLostTime: metrics.avg_lost_time || 0,
-      totalLostDays: metrics.total_lost_days || 0,
-      totalClaimCosts: metrics.total_claim_costs || 0,
-      psychosocialCount: metrics.psychosocial_count || 0,
-      fatalityCount: metrics.fatality_count || 0,
-      ltiCount: metrics.lti_count || 0,
-      mtiCount: metrics.mti_count || 0,
-      faiCount: metrics.fai_count || 0
+      totalIncidents: Number(metrics.total_incidents) || 0,
+      avgLostTime: Number(metrics.avg_lost_time) || 0,     // may be 0 if not provided
+      totalLostDays: Number(metrics.total_lost_days) || 0, // may be 0 if not provided
+      totalClaimCosts: Number(metrics.total_cost) || 0,     // maps from total_cost
+      psychosocialCount: Number(metrics.psychosocial_count) || 0,
+      fatalityCount: Number(metrics.fatality_count) || 0,
+      ltiCount: Number(metrics.lti_count) || 0,
+      mtiCount: Number(metrics.mti_count) || 0,
+      faiCount: Number(metrics.fai_count) || 0
     };
   } catch (error) {
     console.error('Error in getIncidentMetrics:', error);
     // Return empty metrics on error
-    return {
-      totalIncidents: 0,
-      avgLostTime: 0,
-      totalLostDays: 0,
-      totalClaimCosts: 0,
-      psychosocialCount: 0,
-      fatalityCount: 0,
-      ltiCount: 0,
-      mtiCount: 0,
-      faiCount: 0
-    };
+    return emptyMetrics();
   }
+}
+
+function emptyMetrics(): IncidentMetrics {
+  return {
+    totalIncidents: 0,
+    avgLostTime: 0,
+    totalLostDays: 0,
+    totalClaimCosts: 0,
+    psychosocialCount: 0,
+    fatalityCount: 0,
+    ltiCount: 0,
+    mtiCount: 0,
+    faiCount: 0
+  };
 }
 
 /**

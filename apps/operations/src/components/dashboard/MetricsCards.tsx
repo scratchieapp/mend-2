@@ -14,7 +14,7 @@ interface Props {
 }
 
 export const MetricsCards = ({ selectedEmployerId, selectedMonth }: Props) => {
-  const { roleId, employerId: userEmployerId } = useUserContext();
+  const { roleId, employerId: userEmployerId, dbUserId } = useUserContext();
 
   // Query for all metrics using RBAC function
   const { data: metrics, isLoading: isLoadingMetrics } = useQuery({
@@ -24,7 +24,8 @@ export const MetricsCards = ({ selectedEmployerId, selectedMonth }: Props) => {
         userRoleId: roleId || undefined,
         userEmployerId: userEmployerId || undefined,
         filterEmployerId: selectedEmployerId || undefined,
-        selectedMonth: selectedMonth || undefined
+        selectedMonth: selectedMonth || undefined,
+        dbUserId: dbUserId || undefined,
       });
     },
     enabled: roleId !== null,
