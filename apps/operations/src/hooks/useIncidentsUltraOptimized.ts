@@ -8,6 +8,7 @@ interface IncidentData {
   incident_id: number;
   incident_number: string;
   date_of_injury: string;
+  date_reported_to_site?: string;  // Added field from optimized function
   time_of_injury: string | null;
   injury_type: string;
   classification: string;
@@ -17,6 +18,7 @@ interface IncidentData {
   returned_to_work: boolean;
   total_days_lost: number;
   created_at: string;
+  updated_at?: string;  // Added from optimized function
   worker_id: number | null;
   worker_name: string;
   worker_occupation: string;
@@ -25,6 +27,8 @@ interface IncidentData {
   site_id: number | null;
   site_name: string;
   document_count: number;
+  estimated_cost?: number;  // Added from optimized function
+  psychosocial_factors?: any;  // Added from optimized function
 }
 
 interface UseIncidentsOptions {
@@ -63,7 +67,7 @@ interface IncidentsResponse {
  */
 export function useIncidentsUltraOptimized(options: UseIncidentsOptions = {}): IncidentsResponse {
   const queryClient = useQueryClient();
-  const { roleId, employerId: userEmployerId } = useUserContext();
+  const { roleId, employerId: userEmployerId, dbUserId } = useUserContext();
   const abortControllerRef = useRef<AbortController | null>(null);
   
   const {
@@ -86,6 +90,7 @@ export function useIncidentsUltraOptimized(options: UseIncidentsOptions = {}): I
     {
       roleId,
       userEmployerId,
+      dbUserId,
       filterEmployerId,
       pageSize,
       pageOffset,
@@ -93,7 +98,7 @@ export function useIncidentsUltraOptimized(options: UseIncidentsOptions = {}): I
       startDate,
       endDate
     }
-  ], [roleId, userEmployerId, filterEmployerId, pageSize, pageOffset, workerId, startDate, endDate]);
+  ], [roleId, userEmployerId, dbUserId, filterEmployerId, pageSize, pageOffset, workerId, startDate, endDate]);
 
   // Main query with optimizations
   const query = useQuery({
@@ -117,29 +122,86 @@ export function useIncidentsUltraOptimized(options: UseIncidentsOptions = {}): I
 
       try {
         // Parallel fetch for incidents and count
-        const [incidentsPromise, countPromise] = await Promise.all([
-          supabase.rpc('get_incidents_with_details_rbac', {
-            page_size: pageSize,
-            page_offset: pageOffset,
-            filter_employer_id: filterEmployerId,
-            filter_worker_id: workerId,
-            filter_start_date: startDate,
-            filter_end_date: endDate,
-            user_role_id: roleId,
-            user_employer_id: userEmployerId
-          }, { signal }),
-          supabase.rpc('get_incidents_count_rbac', {
-            filter_employer_id: filterEmployerId,
-            filter_worker_id: workerId,
-            filter_start_date: startDate,
-            filter_end_date: endDate,
-            user_role_id: roleId,
-            user_employer_id: userEmployerId
-          }, { signal })
-        ]);
+        // Use optimized version when dbUserId is available
+        const incidentsPromise = dbUserId
+          ? supabase.rpc('get_incidents_with_details_rbac_optimized', {
+              p_user_id: dbUserId,
+              p_employer_id: filterEmployerId ?? null,
+              p_limit: pageSize,
+              p_offset: pageOffset
+            }, { signal })
+          : supabase.rpc('get_incidents_with_details_rbac', {
+              page_size: pageSize,
+              page_offset: pageOffset,
+              filter_employer_id: filterEmployerId,
+              filter_worker_id: workerId,
+              filter_start_date: startDate,
+              filter_end_date: endDate,
+              user_role_id: roleId,
+              user_employer_id: userEmployerId
+            }, { signal });
 
-        const { data: incidents, error: incidentsError } = incidentsPromise;
-        const { data: totalCount, error: countError } = countPromise;
+        // Prefer optimized count when dbUserId is available; otherwise fallback
+        const countPromise = (dbUserId
+          ? supabase.rpc('get_incidents_count_rbac_optimized', {
+              p_user_id: dbUserId,
+              p_employer_id: filterEmployerId ?? null
+            }, { signal })
+          : supabase.rpc('get_incidents_count_rbac', {
+              filter_employer_id: filterEmployerId,
+              filter_worker_id: workerId,
+              filter_start_date: startDate,
+              filter_end_date: endDate,
+              user_role_id: roleId,
+              user_employer_id: userEmployerId
+            }, { signal })
+        );
+
+        const [incidentsResult, countResult] = await Promise.all([
+          incidentsPromise,
+          countPromise
+        ]);
+        let { data: incidents, error: incidentsError } = incidentsResult as any;
+        let { data: totalCount, error: countError } = countResult as any;
+
+        // Graceful fallback if optimized count function is missing
+        if (countError && dbUserId) {
+          if (String(countError.message || '').includes('get_incidents_count_rbac_optimized')) {
+            const fallback = await supabase.rpc('get_incidents_count_rbac', {
+              filter_employer_id: filterEmployerId,
+              filter_worker_id: workerId,
+              filter_start_date: startDate,
+              filter_end_date: endDate,
+              user_role_id: roleId,
+              user_employer_id: userEmployerId
+            }, { signal });
+            totalCount = (fallback as any).data;
+            countError = (fallback as any).error;
+          }
+        }
+
+        // Graceful fallback if optimized incidents function is missing or has schema mismatch
+        if (incidentsError && dbUserId) {
+          const msg = String(incidentsError.message || '');
+          if (
+            msg.includes('get_incidents_with_details_rbac_optimized') ||
+            msg.includes('column') ||
+            msg.includes('42703')
+          ) {
+            const fb = await supabase.rpc('get_incidents_with_details_rbac', {
+              page_size: pageSize,
+              page_offset: pageOffset,
+              filter_employer_id: filterEmployerId,
+              filter_worker_id: workerId,
+              filter_start_date: startDate,
+              filter_end_date: endDate,
+              user_role_id: roleId,
+              user_employer_id: userEmployerId
+            }, { signal });
+            incidents = (fb as any).data;
+            incidentsError = (fb as any).error;
+          }
+        }
 
         if (incidentsError) throw incidentsError;
         if (countError) throw countError;
@@ -184,6 +246,7 @@ export function useIncidentsUltraOptimized(options: UseIncidentsOptions = {}): I
           {
             roleId,
             userEmployerId,
+            dbUserId,
             filterEmployerId,
             pageSize,
             pageOffset: nextPageOffset,
@@ -193,16 +256,24 @@ export function useIncidentsUltraOptimized(options: UseIncidentsOptions = {}): I
           }
         ],
         queryFn: async () => {
-          const { data, error } = await supabase.rpc('get_incidents_with_details_rbac', {
-            page_size: pageSize,
-            page_offset: nextPageOffset,
-            filter_employer_id: filterEmployerId,
-            filter_worker_id: workerId,
-            filter_start_date: startDate,
-            filter_end_date: endDate,
-            user_role_id: roleId,
-            user_employer_id: userEmployerId
-          });
+          // Use optimized version when dbUserId is available
+          const { data, error } = dbUserId
+            ? await supabase.rpc('get_incidents_with_details_rbac_optimized', {
+                p_user_id: dbUserId,
+                p_employer_id: filterEmployerId ?? null,
+                p_limit: pageSize,
+                p_offset: nextPageOffset
+              })
+            : await supabase.rpc('get_incidents_with_details_rbac', {
+                page_size: pageSize,
+                page_offset: nextPageOffset,
+                filter_employer_id: filterEmployerId,
+                filter_worker_id: workerId,
+                filter_start_date: startDate,
+                filter_end_date: endDate,
+                user_role_id: roleId,
+                user_employer_id: userEmployerId
+              });
 
           if (error) throw error;
           return { incidents: data || [], totalCount };
@@ -218,6 +289,7 @@ export function useIncidentsUltraOptimized(options: UseIncidentsOptions = {}): I
     queryClient,
     roleId,
     userEmployerId,
+    dbUserId,
     filterEmployerId,
     workerId,
     startDate,

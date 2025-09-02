@@ -5,6 +5,7 @@ interface UserContext {
   employerId: number | null;
   isLoading: boolean;
   isMendStaff: boolean; // roles 1-3
+  dbUserId: string | null;
 }
 
 export function useUserContext(): UserContext {
@@ -13,11 +14,13 @@ export function useUserContext(): UserContext {
   // Get roleId and employerId from AuthContext instead of fetching again
   const roleId = userData?.role_id || null;
   const employerId = userData?.employer_id ? parseInt(userData.employer_id) : null;
+  const dbUserId = userData?.user_id || null;
   
   return {
     roleId,
     employerId,
     isLoading,
-    isMendStaff: roleId !== null && roleId >= 1 && roleId <= 3
+    isMendStaff: roleId !== null && roleId >= 1 && roleId <= 3,
+    dbUserId
   };
 }
