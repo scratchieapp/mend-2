@@ -28,6 +28,9 @@ const Dashboard = () => {
   // Use the employer selection hook for proper context management
   const { selectedEmployerId } = useEmployerSelection();
 
+  // Defer secondary widgets (metrics/charts) until incidents list finishes
+  const [readyForSecondary, setReadyForSecondary] = useState(false);
+
   // Handle success state from incident submission
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [submittedIncidentId, setSubmittedIncidentId] = useState<number | null>(null);
@@ -116,24 +119,29 @@ const Dashboard = () => {
                   maxHeight="400px"
                   selectedEmployerId={selectedEmployerId}
                   enableVirtualScroll={true}
+                  onLoaded={() => setReadyForSecondary(true)}
                 />
               </DataErrorBoundary>
 
-              <DataErrorBoundary errorTitle="Failed to load metrics">
-                <MetricsCards selectedEmployerId={selectedEmployerId} selectedMonth={selectedMonth} />
-              </DataErrorBoundary>
-              
-              <DataErrorBoundary errorTitle="Failed to load LTI chart">
-                <IndustryLTIChart selectedEmployerId={selectedEmployerId} />
-              </DataErrorBoundary>
-              
-              <DataErrorBoundary errorTitle="Failed to load incident analytics">
-                <IncidentAnalytics selectedEmployerId={selectedEmployerId} />
-              </DataErrorBoundary>
-              
-              <DataErrorBoundary errorTitle="Failed to load performance overview">
-                <PerformanceOverview selectedEmployerId={selectedEmployerId} />
-              </DataErrorBoundary>
+              {readyForSecondary && (
+                <>
+                  <DataErrorBoundary errorTitle="Failed to load metrics">
+                    <MetricsCards selectedEmployerId={selectedEmployerId} selectedMonth={selectedMonth} />
+                  </DataErrorBoundary>
+                  
+                  <DataErrorBoundary errorTitle="Failed to load LTI chart">
+                    <IndustryLTIChart selectedEmployerId={selectedEmployerId} />
+                  </DataErrorBoundary>
+                  
+                  <DataErrorBoundary errorTitle="Failed to load incident analytics">
+                    <IncidentAnalytics selectedEmployerId={selectedEmployerId} />
+                  </DataErrorBoundary>
+                  
+                  <DataErrorBoundary errorTitle="Failed to load performance overview">
+                    <PerformanceOverview selectedEmployerId={selectedEmployerId} />
+                  </DataErrorBoundary>
+                </>
+              )}
             </>
           )}
         </div>

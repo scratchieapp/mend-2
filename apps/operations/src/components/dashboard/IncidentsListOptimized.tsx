@@ -31,6 +31,7 @@ interface IncidentsListOptimizedProps {
   maxHeight?: string;
   selectedEmployerId?: number | null;
   enableVirtualScroll?: boolean;
+  onLoaded?: () => void; // notify when initial data is loaded
 }
 
 // Memoized incident row component for better performance
@@ -133,7 +134,8 @@ export function IncidentsListOptimized({
   showActions = true,
   maxHeight = "600px",
   selectedEmployerId,
-  enableVirtualScroll = false
+  enableVirtualScroll = false,
+  onLoaded
 }: IncidentsListOptimizedProps) {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
@@ -191,6 +193,15 @@ export function IncidentsListOptimized({
     endDate,
     prefetchNext: true
   });
+
+  // Notify parent once when initial load completes
+  const hasNotifiedRef = useRef(false);
+  useEffect(() => {
+    if (!isLoading && !hasNotifiedRef.current) {
+      hasNotifiedRef.current = true;
+      onLoaded?.();
+    }
+  }, [isLoading, onLoaded]);
 
   // Filter incidents on the client side for search
   const filteredIncidents = useMemo(() => {
