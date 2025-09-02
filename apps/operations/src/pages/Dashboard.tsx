@@ -120,23 +120,38 @@ const Dashboard = () => {
                   maxHeight="400px"
                   selectedEmployerId={selectedEmployerId}
                   enableVirtualScroll={true}
-                  onLoaded={() => setReadyForSecondary(true)}
+                  onLoaded={() => {
+                    // Schedule secondary widgets to mount when the browser is idle
+                    const schedule = (cb: () => void) => {
+                      // @ts-ignore
+                      const ric = window.requestIdleCallback as any;
+                      if (typeof ric === 'function') ric(cb, { timeout: 500 });
+                      else setTimeout(cb, 0);
+                    };
+                    schedule(() => setReadyForSecondary(true));
+                  }}
                 />
               </DataErrorBoundary>
 
               {readyForSecondary && (
                 <>
-                  <DataErrorBoundary errorTitle="Failed to load metrics">
-                    <MetricsCards selectedEmployerId={selectedEmployerId} selectedMonth={selectedMonth} />
-                  </DataErrorBoundary>
+                  {import.meta.env.VITE_DISABLE_METRICS !== 'true' && (
+                    <DataErrorBoundary errorTitle="Failed to load metrics">
+                      <MetricsCards selectedEmployerId={selectedEmployerId} selectedMonth={selectedMonth} />
+                    </DataErrorBoundary>
+                  )}
                   
-                  <DataErrorBoundary errorTitle="Failed to load LTI chart">
-                    <IndustryLTIChart selectedEmployerId={selectedEmployerId} />
-                  </DataErrorBoundary>
+                  {import.meta.env.VITE_DISABLE_CHARTS !== 'true' && (
+                    <DataErrorBoundary errorTitle="Failed to load LTI chart">
+                      <IndustryLTIChart selectedEmployerId={selectedEmployerId} />
+                    </DataErrorBoundary>
+                  )}
                   
-                  <DataErrorBoundary errorTitle="Failed to load incident analytics">
-                    <IncidentAnalytics selectedEmployerId={selectedEmployerId} />
-                  </DataErrorBoundary>
+                  {import.meta.env.VITE_DISABLE_CHARTS !== 'true' && (
+                    <DataErrorBoundary errorTitle="Failed to load incident analytics">
+                      <IncidentAnalytics selectedEmployerId={selectedEmployerId} />
+                    </DataErrorBoundary>
+                  )}
                   
                   <DataErrorBoundary errorTitle="Failed to load performance overview">
                     <PerformanceOverview selectedEmployerId={selectedEmployerId} />
