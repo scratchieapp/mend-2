@@ -57,6 +57,37 @@ export function useIncidentsDashboardOptimized(options: UseIncidentsOptions = {}
   const queryClient = useQueryClient();
   const { roleId, employerId: userEmployerId } = useUserContext();
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Optional direct RPC path to bypass supabase-js for debugging heavy client behavior
+  const directRpc = useCallback(async (
+    fn: string,
+    params: Record<string, any>,
+    signal?: AbortSignal
+  ) => {
+    const useDirect = import.meta.env.VITE_DIRECT_RPC === 'true';
+    if (!useDirect) {
+      // Normal supabase-js call
+      return supabase.rpc(fn, params);
+    }
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/${fn}`;
+    const apikey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        apikey,
+        Authorization: `Bearer ${apikey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(params),
+      signal,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`RPC ${fn} failed: ${res.status} ${text}`);
+    }
+    const data = await res.json().catch(() => null);
+    return { data, error: null } as { data: any; error: any };
+  }, []);
   
   const {
     pageSize = 25,
@@ -115,7 +146,7 @@ export function useIncidentsDashboardOptimized(options: UseIncidentsOptions = {}
           console.time('[rpc] get_dashboard_data');
           console.info('[rpc] get_dashboard_data:start', new Date().toISOString());
         }
-        const { data, error } = await supabase.rpc('get_dashboard_data', {
+        const { data, error } = await directRpc('get_dashboard_data', {
           page_size: pageSize,
           page_offset: pageOffset,
           filter_employer_id: filterEmployerId,
@@ -124,7 +155,7 @@ export function useIncidentsDashboardOptimized(options: UseIncidentsOptions = {}
           filter_end_date: endDate,
           user_role_id: roleId,
           user_employer_id: userEmployerId
-        }, { signal });
+        }, signal);
         if (logTiming) {
           console.info('[rpc] get_dashboard_data:end', new Date().toISOString());
           console.timeEnd('[rpc] get_dashboard_data');

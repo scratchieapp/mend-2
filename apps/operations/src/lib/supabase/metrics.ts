@@ -43,10 +43,37 @@ export async function getIncidentMetrics(params: {
       console.time('[rpc] get_incidents_metrics_rbac');
       console.info('[rpc] get_incidents_metrics_rbac:start', new Date().toISOString());
     }
-    const { data, error } = await supabase.rpc('get_incidents_metrics_rbac', {
-      p_user_id: dbUserId || null,
-      p_employer_id: filterEmployerId || null
-    });
+    const useDirect = import.meta.env.VITE_DIRECT_RPC === 'true';
+    let data: any = null;
+    let error: any = null;
+    if (useDirect) {
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/get_incidents_metrics_rbac`;
+      const apikey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          apikey,
+          Authorization: `Bearer ${apikey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          p_user_id: dbUserId || null,
+          p_employer_id: filterEmployerId || null
+        })
+      });
+      if (!res.ok) {
+        error = new Error(`RPC get_incidents_metrics_rbac failed: ${res.status}`);
+      } else {
+        data = await res.json().catch(() => null);
+      }
+    } else {
+      const resp = await supabase.rpc('get_incidents_metrics_rbac', {
+        p_user_id: dbUserId || null,
+        p_employer_id: filterEmployerId || null
+      });
+      data = resp.data;
+      error = resp.error;
+    }
     if (logTiming) {
       console.info('[rpc] get_incidents_metrics_rbac:end', new Date().toISOString());
       console.timeEnd('[rpc] get_incidents_metrics_rbac');
