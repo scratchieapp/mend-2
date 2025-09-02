@@ -110,6 +110,11 @@ export function useIncidentsDashboardOptimized(options: UseIncidentsOptions = {}
 
       try {
         // Single RPC call that returns both data and count
+        const logTiming = import.meta.env.VITE_LOG_RPC_TIMING === 'true';
+        if (logTiming) {
+          console.time('[rpc] get_dashboard_data');
+          console.info('[rpc] get_dashboard_data:start', new Date().toISOString());
+        }
         const { data, error } = await supabase.rpc('get_dashboard_data', {
           page_size: pageSize,
           page_offset: pageOffset,
@@ -120,6 +125,10 @@ export function useIncidentsDashboardOptimized(options: UseIncidentsOptions = {}
           user_role_id: roleId,
           user_employer_id: userEmployerId
         }, { signal });
+        if (logTiming) {
+          console.info('[rpc] get_dashboard_data:end', new Date().toISOString());
+          console.timeEnd('[rpc] get_dashboard_data');
+        }
 
         if (error) throw error;
         if (!data) throw new Error('No data returned');

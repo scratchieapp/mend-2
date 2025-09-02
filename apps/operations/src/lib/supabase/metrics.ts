@@ -38,10 +38,19 @@ export async function getIncidentMetrics(params: {
 
     // Use the optimized metrics function that takes user UUID.
     // Note: current DB function does not accept date range; we keep those vars for future use.
+    const logTiming = import.meta.env.VITE_LOG_RPC_TIMING === 'true';
+    if (logTiming) {
+      console.time('[rpc] get_incidents_metrics_rbac');
+      console.info('[rpc] get_incidents_metrics_rbac:start', new Date().toISOString());
+    }
     const { data, error } = await supabase.rpc('get_incidents_metrics_rbac', {
       p_user_id: dbUserId || null,
       p_employer_id: filterEmployerId || null
     });
+    if (logTiming) {
+      console.info('[rpc] get_incidents_metrics_rbac:end', new Date().toISOString());
+      console.timeEnd('[rpc] get_incidents_metrics_rbac');
+    }
 
     if (error) {
       console.error('Error fetching metrics:', error);
