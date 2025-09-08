@@ -2,14 +2,15 @@
 
 ## 🚨 CRITICAL ISSUES REQUIRING IMMEDIATE ATTENTION
 
-### ✅ PERFORMANCE CRISIS SOLUTION READY (2025-08-28)
-- **Problem Identified**: Dashboard taking 5-10 minutes to load
-- **Root Cause**: Missing function `get_incident_metrics_rbac` causing error "column i.total_claim_cost does not exist"
-- **Solution Created**: Complete performance fix with corrected functions
-- **Fix Location**: `/COMPLETE_PERFORMANCE_FIX.sql` - Apply entire script in Supabase
-- **Application Time**: 2 minutes
-- **Expected Result**: <1 second load times (from 5-10 minutes)
-- **Newcastle Builders**: Specific optimization for employer_id = 8
+### 🔧 PERFORMANCE FIX READY FOR APPLICATION (2025-09-08)
+- **Problem Identified**: Dashboard taking 57+ seconds to load 25 rows
+- **Root Cause**: Missing indexes, unoptimized queries, multiple duplicate fix attempts
+- **Solution Created**: Consolidated ultra-optimized function with all necessary indexes
+- **Fix Location**: `/ULTIMATE_PERFORMANCE_FIX.sql` - Apply entire script in Supabase
+- **Action Plan**: `/ACTION_PLAN_PERFORMANCE_FIX.md` - Step-by-step instructions
+- **Application Time**: 5 minutes
+- **Expected Result**: <1 second load times (from 57 seconds)
+- **Cleanup Required**: 30+ duplicate SQL files and 5 duplicate React hooks to remove
 
 ### 🔧 CRITICAL FIXES READY FOR TESTING
 - **Frontend Fix**: ✅ DEPLOYED - psychosocialData undefined error resolved (deployment ID: dpl_GRshuRvB58ENG5ofHughm4S5n2Ru)
@@ -45,10 +46,11 @@ Mend-2 is a workplace safety management platform built with React, TypeScript, V
 ## 🎯 IMMEDIATE ACTIONS REQUIRED
 
 ### Next Steps for User
-1. **Performance Fix**: Apply migration via Supabase Dashboard SQL Editor
-   - File: `/APPLY_INDEXES_NOW.md`
-   - Time: 2 minutes
-   - Fix schema mismatches first (company_name vs employer_name)
+1. **Performance Fix**: Apply complete solution via Supabase Dashboard SQL Editor
+   - File: `/ULTIMATE_PERFORMANCE_FIX.sql`
+   - Action Plan: `/ACTION_PLAN_PERFORMANCE_FIX.md`
+   - Time: 5 minutes total
+   - Expected improvement: 57x faster (57 seconds → <1 second)
 
 2. **Security Testing**: Validate Builder Admin role isolation
    - Login: role5@scratchie.com (Builder Admin)
@@ -110,8 +112,10 @@ npm run preview      # Preview build
 ## Key File Locations
 
 ### Performance & Critical Fixes
-- `/APPLY_PERFORMANCE_FIX_NOW.md` - Performance migration guide
-- `/CRITICAL_PERFORMANCE_FIX_FINAL.sql` - Database indexes migration
+- `/ULTIMATE_PERFORMANCE_FIX.sql` - Complete consolidated performance solution
+- `/ACTION_PLAN_PERFORMANCE_FIX.md` - Step-by-step implementation guide
+- `/TEST_PERFORMANCE_IMPROVEMENTS.sql` - Performance test suite
+- `/CLEANUP_DUPLICATE_FILES.md` - Guide to remove 30+ duplicate files
 - `/supabase/info/` - Schema documentation (7 files)
 
 ### Super Admin Features
@@ -125,6 +129,7 @@ npm run preview      # Preview build
 - `/src/pages/IncidentReport.tsx` - Incident management
 - `/src/components/auth/UserBadge.tsx` - User authentication display
 - `/src/lib/supabase/companyFilter.ts` - RLS security utility
+- `/apps/operations/src/hooks/useIncidentsDashboard.ts` - Consolidated optimized dashboard hook
 
 ### Database & Security
 - `/supabase/migrations/` - Database migrations directory
@@ -163,7 +168,7 @@ npm run preview      # Preview build
 
 ---
 
-**Last Updated**: August 28, 2025  
-**Version**: 3.2.0-beta  
-**Status**: CRITICAL FIXES READY - User testing required  
-**Priority**: 🚨 URGENT - Apply performance migration, test security boundaries
+**Last Updated**: September 8, 2025  
+**Version**: 3.3.0-beta  
+**Status**: PERFORMANCE FIX CONSOLIDATED - Ready for application  
+**Priority**: 🚨 URGENT - Apply ULTIMATE_PERFORMANCE_FIX.sql, achieve 57x speedup

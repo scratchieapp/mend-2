@@ -1,0 +1,283 @@
+/**
+ * Consolidated and optimized dashboard incidents hook
+ * This is the ONLY hook that should be used for dashboard incident data
+ * 
+ * Performance optimizations:
+ * - Single RPC call for both data and count
+ * - Abort controller for request cancellation
+ * - Smart caching with stale-while-revalidate
+ * - Optional direct RPC path for debugging
+ * - Optimized React Query settings
+ */
+
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useMemo, useRef, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useUserContext } from './useUserContext';
+
+interface IncidentData {
+  incident_id: number;
+  incident_number: string;
+  date_of_injury: string;
+  time_of_injury: string | null;
+  injury_type: string;
+  classification: string;
+  incident_status: string;
+  injury_description: string;
+  fatality: boolean;
+  returned_to_work: boolean;
+  total_days_lost: number;
+  created_at: string;
+  updated_at: string;
+  worker_id: number | null;
+  worker_name: string;
+  worker_occupation: string;
+  employer_id: number;
+  employer_name: string;
+  site_id: number | null;
+  site_name: string;
+  department_id: number | null;
+  department_name: string;
+  document_count: number;
+  estimated_cost: number;
+  psychosocial_factors?: any;
+}
+
+interface UseIncidentsOptions {
+  pageSize?: number;
+  page?: number;
+  employerId?: number | null;
+  workerId?: number | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  enabled?: boolean;
+}
+
+interface IncidentsResponse {
+  incidents: IncidentData[];
+  totalCount: number;
+  pageSize: number;
+  currentPage: number;
+  totalPages: number;
+  isLoading: boolean;
+  isError: boolean;
+  error: Error | null;
+  isFetching: boolean;
+  refetch: () => void;
+  executionTime?: number;
+}
+
+/**
+ * Main dashboard incidents hook
+ * Fetches paginated incident data with filtering and RBAC support
+ */
+export function useIncidentsDashboard(options: UseIncidentsOptions = {}): IncidentsResponse {
+  const queryClient = useQueryClient();
+  const { roleId, employerId: userEmployerId } = useUserContext();
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const {
+    pageSize = 25,
+    page = 1,
+    employerId: filterEmployerId,
+    workerId,
+    startDate,
+    endDate,
+    enabled = true
+  } = options;
+
+  // Calculate page offset
+  const pageOffset = (page - 1) * pageSize;
+
+  // Optional direct RPC for performance debugging
+  const executeRpc = useCallback(async (
+    functionName: string,
+    params: Record<string, any>,
+    signal?: AbortSignal
+  ) => {
+    const useDirectRpc = import.meta.env.VITE_DIRECT_RPC === 'true';
+    const logTiming = import.meta.env.VITE_LOG_RPC_TIMING === 'true';
+    
+    if (logTiming) {
+      console.time(`[RPC] ${functionName}`);
+      console.info(`[RPC] ${functionName}:start`, new Date().toISOString());
+    }
+
+    try {
+      if (useDirectRpc) {
+        // Direct fetch bypassing supabase-js client overhead
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/${functionName}`;
+        const apikey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'apikey': apikey,
+            'Authorization': `Bearer ${apikey}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify(params),
+          signal
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => 'Unknown error');
+          throw new Error(`RPC ${functionName} failed: ${response.status} ${errorText}`);
+        }
+
+        const data = await response.json();
+        return { data, error: null };
+      } else {
+        // Standard supabase-js RPC call
+        return await supabase.rpc(functionName, params);
+      }
+    } finally {
+      if (logTiming) {
+        console.info(`[RPC] ${functionName}:end`, new Date().toISOString());
+        console.timeEnd(`[RPC] ${functionName}`);
+      }
+    }
+  }, []);
+
+  // Create stable query key
+  const queryKey = useMemo(() => [
+    'dashboard-incidents-v2',
+    {
+      roleId,
+      userEmployerId,
+      filterEmployerId,
+      pageSize,
+      pageOffset,
+      workerId,
+      startDate,
+      endDate
+    }
+  ], [roleId, userEmployerId, filterEmployerId, pageSize, pageOffset, workerId, startDate, endDate]);
+
+  // Main query
+  const query = useQuery({
+    queryKey,
+    queryFn: async ({ signal }) => {
+      // Cancel any pending requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      
+      // Create new abort controller
+      abortControllerRef.current = new AbortController();
+      
+      // Don't fetch if no role
+      if (roleId === null) {
+        return {
+          incidents: [],
+          totalCount: 0,
+          pageSize,
+          pageOffset,
+          executionTime: 0
+        };
+      }
+
+      try {
+        // Execute optimized RPC call
+        const { data, error } = await executeRpc('get_dashboard_data', {
+          page_size: pageSize,
+          page_offset: pageOffset,
+          filter_employer_id: filterEmployerId,
+          filter_worker_id: workerId,
+          filter_start_date: startDate,
+          filter_end_date: endDate,
+          user_role_id: roleId,
+          user_employer_id: userEmployerId
+        }, signal);
+
+        if (error) {
+          console.error('[Dashboard] RPC error:', error);
+          throw error;
+        }
+        
+        if (!data) {
+          throw new Error('No data returned from get_dashboard_data');
+        }
+
+        // Parse and validate response
+        const incidents = Array.isArray(data.incidents) ? data.incidents : [];
+        const totalCount = typeof data.totalCount === 'number' ? data.totalCount : 0;
+        const executionTime = typeof data.executionTime === 'number' ? data.executionTime : undefined;
+
+        return {
+          incidents,
+          totalCount,
+          pageSize: data.pageSize || pageSize,
+          pageOffset: data.pageOffset || pageOffset,
+          executionTime
+        };
+      } catch (error: any) {
+        // Don't throw on abort
+        if (error.name === 'AbortError') {
+          return {
+            incidents: [],
+            totalCount: 0,
+            pageSize,
+            pageOffset,
+            executionTime: 0
+          };
+        }
+        throw error;
+      }
+    },
+    enabled: enabled && roleId !== null,
+    staleTime: 30 * 1000, // Data is fresh for 30 seconds
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    refetchOnWindowFocus: false, // Don't refetch on tab focus
+    refetchOnReconnect: true, // Refetch on network reconnect
+    retry: (failureCount, error: any) => {
+      // Don't retry on 4xx errors
+      if (error?.status >= 400 && error?.status < 500) {
+        return false;
+      }
+      // Retry up to 2 times for other errors
+      return failureCount < 2;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000)
+  });
+
+  // Cleanup abort controller on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
+  // Calculate pagination data
+  const totalCount = query.data?.totalCount || 0;
+  const totalPages = Math.ceil(totalCount / pageSize);
+
+  // Log execution time in development
+  useEffect(() => {
+    if (query.data?.executionTime && import.meta.env.DEV) {
+      console.info(`[Dashboard] Query execution time: ${query.data.executionTime}ms`);
+    }
+  }, [query.data?.executionTime]);
+
+  return {
+    incidents: query.data?.incidents || [],
+    totalCount,
+    pageSize,
+    currentPage: page,
+    totalPages,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    isFetching: query.isFetching,
+    refetch: query.refetch,
+    executionTime: query.data?.executionTime
+  };
+}
+
+// Export convenience aliases for backward compatibility
+export const useIncidentsOptimized = useIncidentsDashboard;
+export const useIncidentsUltraOptimized = useIncidentsDashboard;
+export const useIncidentsDashboardOptimized = useIncidentsDashboard;

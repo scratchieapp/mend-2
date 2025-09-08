@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import { useIncidentsUltraOptimized } from '@/hooks/useIncidentsDashboardOptimized';
+import { useIncidentsDashboard } from '@/hooks/useIncidentsDashboard';
 import { cn } from '@/lib/utils';
 import debounce from 'lodash/debounce';
 import type { DebouncedFunc } from 'lodash';
@@ -185,7 +185,7 @@ export function IncidentsListOptimized({
     isFetching,
     refetch,
     prefetchNextPage
-  } = useIncidentsUltraOptimized({
+  } = useIncidentsDashboard({
     pageSize,
     page: currentPage,
     employerId: selectedEmployerId,
