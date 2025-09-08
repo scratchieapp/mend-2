@@ -103,9 +103,15 @@ export const useEmployerSelectionEmergencyFix = () => {
         }
       }
       
-      // Invalidate ONLY the most essential queries
+      // Invalidate dashboard queries to trigger auto-refresh
       await queryClient.invalidateQueries({ 
-        queryKey: ['dashboard-incidents'],
+        queryKey: ['dashboard-incidents-v2'], // Updated to match new query key
+        exact: false 
+      });
+      
+      // Also invalidate metrics and other dashboard data
+      await queryClient.invalidateQueries({ 
+        queryKey: ['dashboard-metrics'],
         exact: false 
       });
       
