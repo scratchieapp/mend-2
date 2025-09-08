@@ -24,7 +24,7 @@ const Dashboard = () => {
   
   // Get last month as the default month for metrics
   const defaultMonth = startOfMonth(subMonths(new Date(), 1)).toISOString();
-  const [selectedMonth] = useState(defaultMonth);
+  const selectedMonth = defaultMonth; // Changed from useState to const since it's never updated
   
   // Use the employer selection hook for proper context management
   const { selectedEmployerId } = useEmployerSelection();
@@ -123,8 +123,8 @@ const Dashboard = () => {
                   onLoaded={() => {
                     // Schedule secondary widgets to mount when the browser is idle
                     const schedule = (cb: () => void) => {
-                      // @ts-ignore
-                      const ric = window.requestIdleCallback as any;
+                      // @ts-expect-error - requestIdleCallback may not be available in all browsers
+                      const ric = window.requestIdleCallback as ((callback: IdleRequestCallback, options?: IdleRequestOptions) => number) | undefined;
                       if (typeof ric === 'function') ric(cb, { timeout: 500 });
                       else setTimeout(cb, 0);
                     };

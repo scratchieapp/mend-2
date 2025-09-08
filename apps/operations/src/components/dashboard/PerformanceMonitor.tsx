@@ -20,10 +20,10 @@ export function PerformanceMonitor() {
   const fetchPatchedRef = useRef(false);
 
   useEffect(() => {
-    // Only show in development or if performance issues detected
+    // Only show in development - disable in production to prevent memory issues
     const isDev = process.env.NODE_ENV === 'development';
-    const hasSlowQueries = metrics.some(m => m.status === 'critical');
-    setIsVisible(isDev || hasSlowQueries);
+    const forceShow = import.meta.env.VITE_SHOW_PERF_MONITOR === 'true';
+    setIsVisible(isDev && forceShow); // Must explicitly enable even in dev
   }, [metrics]);
 
   useEffect(() => {
@@ -31,7 +31,8 @@ export function PerformanceMonitor() {
     if (import.meta.env.VITE_DISABLE_PERF_MONITOR === 'true') return;
     
     // Monitor RPC calls - FIXED to prevent recursive calls
-    const supabaseClient = (window as any).supabase;
+    type RpcFunction = (...args: unknown[]) => Promise<unknown>;
+    const supabaseClient = (window as Window & { supabase?: { rpc?: RpcFunction; _originalRpc?: RpcFunction } }).supabase;
     if (!supabaseClient || !supabaseClient.rpc) return;
     
     // Check if already patched to prevent double-patching
@@ -42,7 +43,7 @@ export function PerformanceMonitor() {
     supabaseClient._originalRpc = originalRpc;
     
     // Create the monitoring wrapper
-    supabaseClient.rpc = async function(...args: any[]) {
+    supabaseClient.rpc = async function(...args: unknown[]) {
       const functionName = args[0];
       const startTime = performance.now();
       
@@ -78,7 +79,7 @@ export function PerformanceMonitor() {
           duration,
           status: 'critical',
           timestamp: new Date()
-        }, ...prev.slice(0, 9)]);
+        }, ...prev.slice(0, 2)]); // FIXED: Keep only 3 metrics max to prevent memory leak
         throw error;
       }
     };
@@ -100,7 +101,7 @@ export function PerformanceMonitor() {
 
     const originalFetch = window.fetch.bind(window);
     fetchPatchedRef.current = true;
-    window.fetch = async (...args: any[]) => {
+    window.fetch = async (...args: Parameters<typeof fetch>) => {
       const url = String(args[0]);
       const isSupabaseRpc = url.includes('/rpc/');
       const t0 = performance.now();
@@ -108,13 +109,13 @@ export function PerformanceMonitor() {
         const res = await originalFetch(...args);
         const t1 = performance.now();
         if (isSupabaseRpc) {
-          setFetchLogs(prev => [{ url, ms: t1 - t0, at: new Date() }, ...prev.slice(0, 9)]);
+          setFetchLogs(prev => [{ url, ms: t1 - t0, at: new Date() }, ...prev.slice(0, 4)]); // Limit to 5 entries
         }
         return res;
       } catch (e) {
         const t1 = performance.now();
         if (isSupabaseRpc) {
-          setFetchLogs(prev => [{ url, ms: t1 - t0, at: new Date() }, ...prev.slice(0, 9)]);
+          setFetchLogs(prev => [{ url, ms: t1 - t0, at: new Date() }, ...prev.slice(0, 4)]); // Limit to 5 entries
         }
         throw e;
       }
@@ -128,19 +129,21 @@ export function PerformanceMonitor() {
 
   // Observe long tasks on the main thread
   useEffect(() => {
-    const supported = (window as any).PerformanceObserver?.supportedEntryTypes?.includes('longtask');
+    const supported = (window as Window & { PerformanceObserver?: { supportedEntryTypes?: string[] } }).PerformanceObserver?.supportedEntryTypes?.includes('longtask');
     if (!supported) return;
     const observer = new PerformanceObserver((list) => {
       const entries = list.getEntries();
       const mapped = entries.map(e => ({ duration: e.duration, start: e.startTime }));
-      setLongTasks(prev => [...mapped.reverse(), ...prev].slice(0, 10));
+      setLongTasks(prev => [...mapped.reverse(), ...prev].slice(0, 5)); // Limit to 5 entries
     });
-    observer.observe({ entryTypes: ['longtask'] as any });
+    observer.observe({ entryTypes: ['longtask'] as PerformanceObserverInit['entryTypes'] });
     return () => observer.disconnect();
   }, []);
 
-  // Sample event loop lag
+  // Sample event loop lag - disabled by default to prevent memory issues
   useEffect(() => {
+    if (import.meta.env.VITE_SHOW_PERF_MONITOR !== 'true') return;
+    
     let mounted = true;
     let last = performance.now();
     const interval = setInterval(() => {

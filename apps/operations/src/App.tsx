@@ -27,6 +27,8 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import UserManagementPage from "./pages/UserManagementPage";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import SuperAdminDashboard from "./pages/SuperAdminDashboard";
+import PublicDashboard from "./pages/PublicDashboard";
 import BuilderSeniorDashboard from "./pages/BuilderSeniorDashboard";
 import BuilderDashboard from "./pages/BuilderDashboard";
 import SiteAdmin from "./pages/roles/SiteAdmin";
@@ -45,6 +47,7 @@ import HoursWorkedAdmin from "./pages/HoursWorkedAdmin";
 import UserManagementAdmin from "./pages/UserManagementAdmin";
 import EmployerManagementAdmin from "./pages/EmployerManagementAdmin";
 import SuperUserManagement from "./pages/SuperUserManagement";
+import AdminUsersPage from "./pages/AdminUsersPage";
 import CostConfigurationAdmin from "./pages/CostConfigurationAdmin";
 import IncidentReport from "./pages/IncidentReport";
 import IncidentReportDev from "./pages/IncidentReportDev";
@@ -94,6 +97,8 @@ function App() {
           
           {/* Role-specific dashboard routes */}
           <Route path="dashboard" element={<Dashboard />} />
+          <Route path="superadmin-dashboard" element={<SuperAdminDashboard />} />
+          <Route path="public-dashboard" element={<PublicDashboard />} />
           <Route path="admin" element={<AdminDashboard />} />
           <Route path="account-manager" element={<AccountManager />} />
           <Route path="user-management" element={<UserManagementPage />} />
@@ -134,6 +139,7 @@ function App() {
           />
 
           {/* Admin routes */}
+          <Route path="admin/users" element={<AdminUsersPage />} />
           <Route path="admin/storage-setup" element={<StorageSetupAdmin />} />
           <Route path="admin/data" element={<DataAdmin />} />
           <Route path="admin/data-configuration" element={<DataConfigurationAdmin />} />

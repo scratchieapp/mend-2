@@ -103,16 +103,28 @@ export const useEmployerSelectionEmergencyFix = () => {
         }
       }
       
-      // Invalidate dashboard queries to trigger auto-refresh
+      // Invalidate all dashboard-related queries to trigger auto-refresh
+      // Use predicate to match all variations of query keys that might include employer data
       await queryClient.invalidateQueries({ 
-        queryKey: ['dashboard-incidents-v2'], // Updated to match new query key
-        exact: false 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          // Invalidate any query that could contain employer-specific data
+          return typeof key === 'string' && (
+            key.startsWith('dashboard-') ||
+            key === 'incidents' ||
+            key === 'metrics' ||
+            key === 'safety-summary' ||
+            key === 'employer-data'
+          );
+        }
       });
       
-      // Also invalidate metrics and other dashboard data
-      await queryClient.invalidateQueries({ 
-        queryKey: ['dashboard-metrics'],
-        exact: false 
+      // Force refetch to ensure fresh data
+      await queryClient.refetchQueries({
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return key === 'dashboard-incidents-v2';
+        }
       });
       
     } catch (error) {

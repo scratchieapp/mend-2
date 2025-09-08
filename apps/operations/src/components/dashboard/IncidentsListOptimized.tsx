@@ -25,6 +25,35 @@ import { cn } from '@/lib/utils';
 import debounce from 'lodash/debounce';
 import type { DebouncedFunc } from 'lodash';
 
+// Import the IncidentData type from the hook
+interface IncidentData {
+  incident_id: number;
+  incident_number: string;
+  date_of_injury: string;
+  time_of_injury: string | null;
+  injury_type: string;
+  classification: string;
+  incident_status: string;
+  injury_description: string;
+  fatality: boolean;
+  returned_to_work: boolean;
+  total_days_lost: number;
+  created_at: string;
+  updated_at: string;
+  worker_id: number | null;
+  worker_name: string;
+  worker_occupation: string;
+  employer_id: number;
+  employer_name: string;
+  site_id: number | null;
+  site_name: string;
+  department_id: number | null;
+  department_name: string;
+  document_count: number;
+  estimated_cost: number;
+  psychosocial_factors?: unknown;
+}
+
 interface IncidentsListOptimizedProps {
   highlightIncidentId?: number;
   showActions?: boolean;
@@ -42,7 +71,7 @@ const IncidentRow = React.memo(({
   onView, 
   onEdit 
 }: {
-  incident: any;
+  incident: IncidentData;
   isHighlighted: boolean;
   showActions: boolean;
   onView: (id: number) => void;
@@ -151,7 +180,7 @@ export function IncidentsListOptimized({
     
     const now = new Date();
     let start: Date | null = null;
-    let end: Date | null = new Date();
+    const end: Date | null = new Date();
     
     switch (dateFilter) {
       case 'today':

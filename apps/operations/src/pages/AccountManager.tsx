@@ -31,47 +31,62 @@ export default function AccountManager() {
   const [showAddUserDialog, setShowAddUserDialog] = useState(false);
   const { toast } = useToast();
 
-  // Fetch users with proper field selection
-  const fetchUsers = async () => {
-    const { data, error } = await supabase
-      .from("users")
-      .select(`
-        user_id,
-        display_name,
-        email,
-        created_at,
-        role_id,
-        user_roles (
+  // Combined fetch function to prevent parallel query issues
+  const fetchAccountManagerData = async () => {
+    try {
+      // Fetch users and roles in sequence to avoid race conditions
+      const { data: usersData, error: usersError } = await supabase
+        .from("users")
+        .select(`
+          user_id,
+          display_name,
+          email,
+          created_at,
           role_id,
-          role_name,
-          role_label
-        )
-      `)
-      .order("created_at", { ascending: false });
+          user_roles (
+            role_id,
+            role_name,
+            role_label
+          )
+        `)
+        .order("created_at", { ascending: false });
 
-    if (error) throw error;
-    return data as UserData[];
+      if (usersError) throw usersError;
+
+      const { data: rolesData, error: rolesError } = await supabase
+        .from("user_roles")
+        .select("*")
+        .order("role_id");
+
+      if (rolesError) throw rolesError;
+
+      return {
+        users: (usersData || []) as UserData[],
+        roles: (rolesData || []) as UserRole[]
+      };
+    } catch (error) {
+      console.error('Error fetching account manager data:', error);
+      throw error;
+    }
   };
 
-  // Fetch roles
-  const fetchRoles = async () => {
-    const { data, error } = await supabase
-      .from("user_roles")
-      .select("*")
-      .order("role_id");
-
-    if (error) throw error;
-    return data as UserRole[];
-  };
-
-  const { data: fetchedUsers, isLoading: isLoadingUsers, error: usersError } = useQuery({
-    queryKey: ['users'],
-    queryFn: fetchUsers
+  // Single query to fetch all data
+  const { data: accountData, isLoading, error } = useQuery({
+    queryKey: ['account-manager-data'],
+    queryFn: fetchAccountManagerData,
+    retry: 1,
+    retryDelay: 1000,
+    staleTime: 30 * 1000, // 30 seconds
+    gcTime: 60 * 1000, // 1 minute cache
+    refetchOnWindowFocus: false
   });
-  const { data: fetchedRoles, isLoading: isLoadingRoles, error: rolesError } = useQuery({
-    queryKey: ['roles'],
-    queryFn: fetchRoles
-  });
+
+  const fetchedUsers = accountData?.users;
+  const fetchedRoles = accountData?.roles;
+  const isLoadingUsers = isLoading;
+  const isLoadingRoles = isLoading;
+  const usersError = error;
+  const rolesError = error;
 
   useEffect(() => {
     if (fetchedUsers) {
@@ -224,19 +239,27 @@ const createUserMutation = useMutation({
     }
   };
 
-  if (isLoadingUsers || isLoadingRoles) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading user management...</p>
+        </div>
       </div>
     );
   }
 
-  if (usersError || rolesError) {
+  if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-red-600">
-          {usersError instanceof Error ? usersError.message : rolesError instanceof Error ? rolesError.message : 'Failed to load data'}
+        <div className="text-center">
+          <div className="text-red-600 mb-4">
+            {error instanceof Error ? error.message : 'Failed to load data'}
+          </div>
+          <Button onClick={() => window.location.reload()} variant="outline">
+            Retry
+          </Button>
         </div>
       </div>
     );
