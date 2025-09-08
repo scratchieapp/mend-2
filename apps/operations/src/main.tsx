@@ -38,12 +38,6 @@ const queryClient = new QueryClient({
       retryDelay: 1000,
     },
   },
-  // Add query cache configuration to limit memory usage
-  queryCache: {
-    onError: (error) => {
-      console.error('Query error:', error);
-    },
-  },
 });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
