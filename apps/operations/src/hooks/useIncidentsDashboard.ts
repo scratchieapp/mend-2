@@ -95,7 +95,8 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
     params: Record<string, any>,
     signal?: AbortSignal
   ) => {
-    const useDirectRpc = import.meta.env.VITE_DIRECT_RPC === 'true';
+    // Force direct RPC to bypass Supabase client issues
+    const useDirectRpc = true; // FORCED ON - Supabase client is slow
     const logTiming = import.meta.env.VITE_LOG_RPC_TIMING === 'true';
     
     if (logTiming) {
@@ -106,9 +107,11 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
     try {
       if (useDirectRpc) {
         // Direct fetch bypassing supabase-js client overhead
+        console.log('[Direct RPC] Bypassing Supabase client for better performance');
         const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/${functionName}`;
         const apikey = import.meta.env.VITE_SUPABASE_ANON_KEY;
         
+        const fetchStart = performance.now();
         const response = await fetch(url, {
           method: 'POST',
           headers: {
@@ -120,6 +123,8 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
           body: JSON.stringify(params),
           signal
         });
+        const fetchTime = performance.now() - fetchStart;
+        console.log(`[Direct RPC] Network time: ${fetchTime.toFixed(0)}ms`);
 
         if (!response.ok) {
           const errorText = await response.text().catch(() => 'Unknown error');
@@ -130,7 +135,7 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
         return { data, error: null };
       } else {
         // Standard supabase-js RPC call with timeout
-        const timeoutMs = 5000; // 5 second timeout
+        const timeoutMs = 15000; // 15 second timeout (temporary - to diagnose issue)
         const timeoutPromise = new Promise((_, reject) => 
           setTimeout(() => reject(new Error(`RPC timeout after ${timeoutMs}ms`)), timeoutMs)
         );
