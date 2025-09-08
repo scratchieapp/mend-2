@@ -129,8 +129,16 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
         const data = await response.json();
         return { data, error: null };
       } else {
-        // Standard supabase-js RPC call
-        return await supabase.rpc(functionName, params);
+        // Standard supabase-js RPC call with timeout
+        const timeoutMs = 5000; // 5 second timeout
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error(`RPC timeout after ${timeoutMs}ms`)), timeoutMs)
+        );
+        
+        const rpcPromise = supabase.rpc(functionName, params);
+        
+        // Race between RPC call and timeout
+        return await Promise.race([rpcPromise, timeoutPromise]) as any;
       }
     } finally {
       if (logTiming) {
@@ -231,15 +239,8 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
     refetchOnWindowFocus: false, // Don't refetch on tab focus
     refetchOnReconnect: true, // Refetch on network reconnect
-    retry: (failureCount, error: any) => {
-      // Don't retry on 4xx errors
-      if (error?.status >= 400 && error?.status < 500) {
-        return false;
-      }
-      // Retry up to 2 times for other errors
-      return failureCount < 2;
-    },
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000)
+    retry: false, // DISABLED - was causing 37-second delays due to 3x retries
+    // Previous retry logic was: 3 attempts x ~12 seconds each = ~37 seconds total
   });
 
   // Cleanup abort controller on unmount
