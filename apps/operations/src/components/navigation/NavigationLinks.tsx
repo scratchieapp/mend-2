@@ -10,7 +10,7 @@ interface NavigationLinksProps {
 
 export function NavigationLinks({ currentMode }: NavigationLinksProps) {
   const homeRoute = {
-    mend: "/dashboard",
+    mend: "/superadmin-dashboard",
     builder: "/builder",
     medical: "/medical"
   }[currentMode];

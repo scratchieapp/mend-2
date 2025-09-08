@@ -222,6 +222,11 @@ export function IncidentsListOptimized({
     endDate,
     prefetchNext: true
   });
+  
+  // Force refetch when employer changes
+  useEffect(() => {
+    refetch();
+  }, [selectedEmployerId, refetch]);
 
   // Notify parent once when initial load completes
   const hasNotifiedRef = useRef(false);

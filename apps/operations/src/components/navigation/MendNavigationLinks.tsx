@@ -5,7 +5,7 @@ import { Database, Users } from "lucide-react";
 export function MendNavigationLinks() {
   return (
     <>
-      <Link to="/account-manager">
+      <Link to="/admin/users">
         <Button variant="ghost">
           <Users className="h-4 w-4 mr-2" />
           User Management

@@ -83,7 +83,7 @@ export const useEmployerSelectionEmergencyFix = () => {
         }
       }
       
-      // Update state
+      // Update state first
       setSelectedEmployerId(employerId);
       localStorage.setItem("selectedEmployerId", employerId === null ? "null" : employerId.toString());
       
@@ -103,28 +103,22 @@ export const useEmployerSelectionEmergencyFix = () => {
         }
       }
       
-      // Invalidate all dashboard-related queries to trigger auto-refresh
-      // Use predicate to match all variations of query keys that might include employer data
-      await queryClient.invalidateQueries({ 
-        predicate: (query) => {
-          const key = query.queryKey[0];
-          // Invalidate any query that could contain employer-specific data
-          return typeof key === 'string' && (
-            key.startsWith('dashboard-') ||
-            key === 'incidents' ||
-            key === 'metrics' ||
-            key === 'safety-summary' ||
-            key === 'employer-data'
-          );
-        }
-      });
+      // Small delay to ensure state has propagated
+      await new Promise(resolve => setTimeout(resolve, 50));
       
-      // Force refetch to ensure fresh data
+      // Invalidate ALL queries to ensure complete refresh
+      await queryClient.invalidateQueries();
+      
+      // Force immediate refetch of dashboard data
       await queryClient.refetchQueries({
         predicate: (query) => {
           const key = query.queryKey[0];
-          return key === 'dashboard-incidents-v2';
-        }
+          return key === 'dashboard-incidents-v2' || 
+                 key === 'dashboard-metrics' ||
+                 key === 'admin-users-data' ||
+                 key === 'account-manager-data';
+        },
+        type: 'active'
       });
       
     } catch (error) {
