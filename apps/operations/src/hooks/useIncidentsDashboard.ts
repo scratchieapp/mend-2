@@ -86,16 +86,27 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
     enabled = true
   } = options;
   
-  // Cleanup previous queries when employer changes
+  // Cleanup previous queries and force refetch when employer changes
   useEffect(() => {
+    // Cancel any pending requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    
+    // Invalidate queries when employer changes to force refetch
+    if (filterEmployerId !== undefined) {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-incidents-v2'] });
+    }
+    
     return () => {
-      // Cancel any pending requests when employer changes
+      // Cleanup on unmount
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
         abortControllerRef.current = null;
       }
     };
-  }, [filterEmployerId]);
+  }, [filterEmployerId, queryClient]);
 
   // Calculate page offset
   const pageOffset = (page - 1) * pageSize;
@@ -174,7 +185,7 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
     {
       roleId,
       userEmployerId,
-      filterEmployerId: filterEmployerId ?? 'all', // Ensure null becomes 'all' for proper key differentiation
+      filterEmployerId, // Keep as null or number for proper cache differentiation
       pageSize,
       pageOffset,
       workerId,
@@ -187,14 +198,6 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
   const query = useQuery({
     queryKey,
     queryFn: async ({ signal }) => {
-      // Cancel any pending requests
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      
-      // Create new abort controller
-      abortControllerRef.current = new AbortController();
-      
       // Don't fetch if no role
       if (roleId === null) {
         return {
@@ -207,7 +210,7 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
       }
 
       try {
-        // Execute optimized RPC call
+        // Execute optimized RPC call with the React Query signal
         const { data, error } = await executeRpc('get_dashboard_data', {
           page_size: pageSize,
           page_offset: pageOffset,
@@ -217,7 +220,7 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
           filter_end_date: endDate,
           user_role_id: roleId,
           user_employer_id: userEmployerId
-        }, signal);
+        }, signal); // Use React Query's signal directly
 
         if (error) {
           console.error('[Dashboard] RPC error:', error);
@@ -264,14 +267,16 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
     structuralSharing: false // DISABLED - prevent memory accumulation from deep object comparisons
   });
 
-  // Cleanup abort controller on unmount
+  // Cleanup abort controller on unmount or when dependencies change
   useEffect(() => {
+    const currentController = abortControllerRef.current;
     return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
+      if (currentController) {
+        currentController.abort();
+        abortControllerRef.current = null;
       }
     };
-  }, []);
+  }, [filterEmployerId, workerId, startDate, endDate]); // Cleanup when filters change
 
   // Calculate pagination data
   const totalCount = query.data?.totalCount || 0;

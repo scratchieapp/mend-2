@@ -30,6 +30,11 @@ const SuperAdminDashboard = () => {
 
   // Defer secondary widgets (metrics/charts) until incidents list finishes
   const [readyForSecondary, setReadyForSecondary] = useState(false);
+  
+  // Reset secondary widgets when employer changes to ensure proper re-render
+  useEffect(() => {
+    setReadyForSecondary(false);
+  }, [selectedEmployerId]);
 
   // Handle success state from incident submission
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
@@ -185,6 +190,7 @@ const SuperAdminDashboard = () => {
           {/* Recent Incidents List */}
           <DataErrorBoundary errorTitle="Failed to load recent incidents">
             <IncidentsListOptimized 
+              key={`incidents-${selectedEmployerId || 'all'}`} // Force re-mount when employer changes
               highlightIncidentId={submittedIncidentId || undefined}
               showActions={true}
               maxHeight="400px"
@@ -207,7 +213,11 @@ const SuperAdminDashboard = () => {
             <>
               {import.meta.env.VITE_DISABLE_METRICS !== 'true' && (
                 <DataErrorBoundary errorTitle="Failed to load metrics">
-                  <MetricsCards selectedEmployerId={selectedEmployerId} selectedMonth={selectedMonth} />
+                  <MetricsCards 
+                    key={`metrics-${selectedEmployerId || 'all'}`} // Force re-mount when employer changes
+                    selectedEmployerId={selectedEmployerId} 
+                    selectedMonth={selectedMonth} 
+                  />
                 </DataErrorBoundary>
               )}
               

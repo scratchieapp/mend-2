@@ -150,6 +150,7 @@ function App() {
           <Route path="admin/system-logs" element={<SystemLogsAdmin />} />
           <Route path="admin/medical-professionals" element={<MedicalProfessionalsAdmin />} />
           <Route path="admin/hours-worked" element={<HoursWorkedAdmin />} />
+          <Route path="admin/users" element={<AdminUsersPage />} />
           <Route path="admin/user-management" element={<UserManagementAdmin />} />
           <Route path="admin/super-user-management" element={<SuperUserManagement />} />
           <Route path="admin/employer-management" element={<EmployerManagementAdmin />} />
