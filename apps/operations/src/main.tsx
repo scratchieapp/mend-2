@@ -26,14 +26,22 @@ if (!clerkPubKey) {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 3,
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      retry: false, // DISABLED globally to prevent delays
+      staleTime: 30 * 1000, // 30 seconds (reduced from 5 minutes)
+      gcTime: 60 * 1000, // 1 minute garbage collection (was cacheTime)
       refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      structuralSharing: false, // Prevent deep object comparison memory leaks
     },
     mutations: {
-      retry: 2,
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+      retry: 1,
+      retryDelay: 1000,
+    },
+  },
+  // Add query cache configuration to limit memory usage
+  queryCache: {
+    onError: (error) => {
+      console.error('Query error:', error);
     },
   },
 });

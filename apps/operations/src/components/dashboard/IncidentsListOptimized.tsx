@@ -223,10 +223,11 @@ export function IncidentsListOptimized({
     prefetchNext: true
   });
   
-  // Force refetch when employer changes
+  // Force refetch when employer changes - add a key reset to ensure full re-render
   useEffect(() => {
+    setCurrentPage(1); // Reset to first page
     refetch();
-  }, [selectedEmployerId, refetch]);
+  }, [selectedEmployerId]);
 
   // Notify parent once when initial load completes
   const hasNotifiedRef = useRef(false);

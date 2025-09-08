@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuthContext } from "@/lib/auth/authConfig";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { UserData, UserRole } from "@/types/auth";
 import { getAvailableRolesToCreate } from "@/lib/auth/roles";
 import { Input } from "@/components/ui/input";
@@ -43,7 +43,7 @@ interface UserWithEmployers extends UserData {
 
 export default function AdminUsersPage() {
   const navigate = useNavigate();
-  const { user: userData } = useAuthContext();
+  const { userData } = useAuth();
   const [users, setUsers] = useState<UserWithEmployers[]>([]);
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [employers, setEmployers] = useState<Employer[]>([]);

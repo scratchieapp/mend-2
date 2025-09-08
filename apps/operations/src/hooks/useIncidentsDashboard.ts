@@ -85,6 +85,17 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
     endDate,
     enabled = true
   } = options;
+  
+  // Cleanup previous queries when employer changes
+  useEffect(() => {
+    return () => {
+      // Cancel any pending requests when employer changes
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
+  }, [filterEmployerId]);
 
   // Calculate page offset
   const pageOffset = (page - 1) * pageSize;
@@ -157,13 +168,13 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
     }
   }, []);
 
-  // Create stable query key
+  // Create stable query key - ensure filterEmployerId is properly included
   const queryKey = useMemo(() => [
     'dashboard-incidents-v2',
     {
       roleId,
       userEmployerId,
-      filterEmployerId,
+      filterEmployerId: filterEmployerId ?? 'all', // Ensure null becomes 'all' for proper key differentiation
       pageSize,
       pageOffset,
       workerId,
@@ -244,12 +255,13 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
       }
     },
     enabled: enabled && roleId !== null,
-    staleTime: 30 * 1000, // Data is fresh for 30 seconds
-    gcTime: 30 * 1000, // REDUCED from 5 minutes to 30 seconds to prevent memory leak
+    staleTime: 10 * 1000, // Data is fresh for 10 seconds (reduced from 30)
+    gcTime: 15 * 1000, // Garbage collect after 15 seconds (reduced from 30)
     refetchOnWindowFocus: false, // Don't refetch on tab focus
     refetchOnReconnect: false, // DISABLED to prevent duplicate fetches
     retry: false, // DISABLED - was causing 37-second delays due to 3x retries
     refetchInterval: false, // DISABLED - no automatic refetching
+    structuralSharing: false // DISABLED - prevent memory accumulation from deep object comparisons
   });
 
   // Cleanup abort controller on unmount
