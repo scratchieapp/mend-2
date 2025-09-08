@@ -27,49 +27,69 @@ export function PerformanceMonitor() {
   }, [metrics]);
 
   useEffect(() => {
-    // Monitor RPC calls
-    const originalRpc = (window as any).supabase?.rpc;
-    if (originalRpc) {
-      (window as any).supabase.rpc = async function(...args: any[]) {
-        const functionName = args[0];
-        const startTime = performance.now();
+    // Skip if disabled via environment variable
+    if (import.meta.env.VITE_DISABLE_PERF_MONITOR === 'true') return;
+    
+    // Monitor RPC calls - FIXED to prevent recursive calls
+    const supabaseClient = (window as any).supabase;
+    if (!supabaseClient || !supabaseClient.rpc) return;
+    
+    // Check if already patched to prevent double-patching
+    if (supabaseClient._originalRpc) return;
+    
+    // Store the original function
+    const originalRpc = supabaseClient.rpc.bind(supabaseClient);
+    supabaseClient._originalRpc = originalRpc;
+    
+    // Create the monitoring wrapper
+    supabaseClient.rpc = async function(...args: any[]) {
+      const functionName = args[0];
+      const startTime = performance.now();
+      
+      try {
+        // Call the ORIGINAL function, not the patched one
+        const result = await originalRpc(...args);
+        const duration = performance.now() - startTime;
         
-        try {
-          const result = await originalRpc.apply(this, args);
-          const duration = performance.now() - startTime;
-          
-          // Log performance metrics
-          const status = duration < 500 ? 'good' : duration < 2000 ? 'warning' : 'critical';
-          
-          setMetrics(prev => [{
-            name: functionName,
-            duration,
-            status,
-            timestamp: new Date()
-          }, ...prev.slice(0, 9)]); // Keep last 10 metrics
-          
-          // Log slow queries to console
-          if (status === 'critical') {
-            console.warn(`SLOW QUERY DETECTED: ${functionName} took ${duration.toFixed(0)}ms`, {
-              function: functionName,
-              params: args[1],
-              duration: `${duration.toFixed(0)}ms`
-            });
-          }
-          
-          return result;
-        } catch (error) {
-          const duration = performance.now() - startTime;
-          setMetrics(prev => [{
-            name: `${functionName} (FAILED)`,
-            duration,
-            status: 'critical',
-            timestamp: new Date()
-          }, ...prev.slice(0, 9)]);
-          throw error;
+        // Log performance metrics
+        const status = duration < 500 ? 'good' : duration < 2000 ? 'warning' : 'critical';
+        
+        setMetrics(prev => [{
+          name: functionName,
+          duration,
+          status,
+          timestamp: new Date()
+        }, ...prev.slice(0, 9)]); // Keep last 10 metrics
+        
+        // Log slow queries to console
+        if (status === 'critical') {
+          console.warn(`SLOW QUERY DETECTED: ${functionName} took ${duration.toFixed(0)}ms`, {
+            function: functionName,
+            params: args[1],
+            duration: `${duration.toFixed(0)}ms`
+          });
         }
-      };
-    }
+        
+        return result;
+      } catch (error) {
+        const duration = performance.now() - startTime;
+        setMetrics(prev => [{
+          name: `${functionName} (FAILED)`,
+          duration,
+          status: 'critical',
+          timestamp: new Date()
+        }, ...prev.slice(0, 9)]);
+        throw error;
+      }
+    };
+    
+    // Cleanup on unmount
+    return () => {
+      if (supabaseClient._originalRpc) {
+        supabaseClient.rpc = supabaseClient._originalRpc;
+        delete supabaseClient._originalRpc;
+      }
+    };
   }, []);
 
   // Patch fetch to measure actual network time to Supabase RPC endpoints (dev-only aide)

@@ -1,77 +1,8 @@
-#!/usr/bin/env node
+-- Fix for ERROR: 22023: ROWS is not applicable when function does not return a set
+-- This is the corrected version of the get_dashboard_data function
 
-// Script to apply performance fix directly to Supabase
-const https = require('https');
+DROP FUNCTION IF EXISTS public.get_dashboard_data CASCADE;
 
-const SUPABASE_URL = 'https://rkzcybthcszeusrohbtc.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJremN5YnRoY3N6ZXVzcm9oYnRjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwODQ1MDAsImV4cCI6MjA0OTY2MDUwMH0.4It46NhFTc0q1KkXDUT5iMvQ9ewlTiEbqb0kLRs-sd0';
-
-async function executeSQL(sql) {
-  return new Promise((resolve, reject) => {
-    const data = JSON.stringify({ query: sql });
-    
-    const options = {
-      hostname: 'rkzcybthcszeusrohbtc.supabase.co',
-      path: '/rest/v1/rpc/query',
-      method: 'POST',
-      headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json',
-        'Content-Length': data.length,
-        'Prefer': 'return=representation'
-      }
-    };
-
-    const req = https.request(options, (res) => {
-      let responseData = '';
-      
-      res.on('data', (chunk) => {
-        responseData += chunk;
-      });
-      
-      res.on('end', () => {
-        if (res.statusCode === 200 || res.statusCode === 201 || res.statusCode === 204) {
-          resolve(responseData);
-        } else {
-          reject(new Error(`HTTP ${res.statusCode}: ${responseData}`));
-        }
-      });
-    });
-
-    req.on('error', (error) => {
-      reject(error);
-    });
-
-    req.write(data);
-    req.end();
-  });
-}
-
-async function applyPerformanceFix() {
-  console.log('Starting performance fix application...\n');
-
-  try {
-    // Step 1: Clean up old functions
-    console.log('Step 1: Cleaning up old functions...');
-    const cleanupSQL = `
-      DROP FUNCTION IF EXISTS public.get_dashboard_data CASCADE;
-      DROP FUNCTION IF EXISTS public.get_incidents_with_details CASCADE;
-      DROP FUNCTION IF EXISTS public.get_incidents_optimized CASCADE;
-      DROP FUNCTION IF EXISTS public.get_incidents_ultra_optimized CASCADE;
-      DROP FUNCTION IF EXISTS public.get_incident_metrics_rbac CASCADE;
-    `;
-    
-    try {
-      await executeSQL(cleanupSQL);
-      console.log('✓ Old functions removed\n');
-    } catch (err) {
-      console.log('Note: Functions might not exist, continuing...\n');
-    }
-
-    // Step 2: Create optimized function
-    console.log('Step 2: Creating optimized dashboard function...');
-    const functionSQL = `
 CREATE OR REPLACE FUNCTION public.get_dashboard_data(
     page_size INTEGER DEFAULT 25,
     page_offset INTEGER DEFAULT 0,
@@ -86,7 +17,7 @@ RETURNS JSON
 LANGUAGE plpgsql
 STABLE
 PARALLEL SAFE
-ROWS 1
+-- Note: ROWS clause removed - only applies to set-returning functions
 AS $$
 DECLARE
     v_incidents JSON;
@@ -108,6 +39,7 @@ BEGIN
     END IF;
     
     -- OPTIMIZED COUNT QUERY
+    -- Use index-only scan when possible
     IF v_employer_filter IS NOT NULL THEN
         SELECT COUNT(*)
         INTO v_total_count
@@ -126,6 +58,7 @@ BEGIN
     END IF;
     
     -- OPTIMIZED DATA QUERY
+    -- Use minimal joins and efficient ordering
     SELECT COALESCE(json_agg(row_to_json(t) ORDER BY t.date_of_injury DESC, t.incident_id DESC), '[]'::json)
     INTO v_incidents
     FROM (
@@ -144,6 +77,7 @@ BEGIN
             i.created_at,
             i.updated_at,
             i.worker_id,
+            -- Inline worker name to avoid subquery
             CASE 
                 WHEN w.worker_id IS NOT NULL THEN 
                     COALESCE(w.given_name || ' ' || w.family_name, 'Unknown Worker')
@@ -156,7 +90,7 @@ BEGIN
             COALESCE(s.site_name, 'No Site') as site_name,
             i.department_id,
             COALESCE(d.department_name, 'No Department') as department_name,
-            0::BIGINT as document_count,
+            0::BIGINT as document_count, -- Placeholder for now
             COALESCE(i.estimated_cost, 0) as estimated_cost,
             i.psychosocial_factors
         FROM incidents i
@@ -188,33 +122,11 @@ BEGIN
     );
 END;
 $$;
-    `;
-    
-    await executeSQL(functionSQL);
-    console.log('✓ Optimized function created\n');
 
-    // Step 3: Grant permissions
-    console.log('Step 3: Granting permissions...');
-    const grantSQL = `
-      GRANT EXECUTE ON FUNCTION public.get_dashboard_data TO authenticated;
-      GRANT EXECUTE ON FUNCTION public.get_dashboard_data TO anon;
-      GRANT EXECUTE ON FUNCTION public.get_dashboard_data TO service_role;
-    `;
-    
-    await executeSQL(grantSQL);
-    console.log('✓ Permissions granted\n');
+-- Grant appropriate permissions
+GRANT EXECUTE ON FUNCTION public.get_dashboard_data TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_dashboard_data TO anon;
+GRANT EXECUTE ON FUNCTION public.get_dashboard_data TO service_role;
 
-    console.log('✅ Performance fix applied successfully!');
-    console.log('\nNext steps:');
-    console.log('1. Create indexes (run separately to avoid blocking)');
-    console.log('2. Test the function performance');
-    console.log('3. Update frontend to use get_dashboard_data function');
-    
-  } catch (error) {
-    console.error('❌ Error applying performance fix:', error.message);
-    process.exit(1);
-  }
-}
-
-// Run the fix
-applyPerformanceFix();
+-- Test the function to ensure it works
+SELECT get_dashboard_data(5, 0, NULL, NULL, NULL, NULL, 1, NULL);

@@ -1,0 +1,38 @@
+indexname,indexdef,tablename
+departments_pkey,CREATE UNIQUE INDEX departments_pkey ON public.departments USING btree (department_id),departments
+idx_departments_department_id,CREATE INDEX idx_departments_department_id ON public.departments USING btree (department_id),departments
+idx_departments_name,CREATE INDEX idx_departments_name ON public.departments USING btree (department_name),departments
+employers_pkey,CREATE UNIQUE INDEX employers_pkey ON public.employers USING btree (employer_id),employers
+idx_employers_employer_id,CREATE INDEX idx_employers_employer_id ON public.employers USING btree (employer_id),employers
+idx_employers_employer_name,CREATE INDEX idx_employers_employer_name ON public.employers USING btree (employer_name),employers
+idx_employers_name,CREATE INDEX idx_employers_name ON public.employers USING btree (employer_name),employers
+idx_employers_state,CREATE INDEX idx_employers_state ON public.employers USING btree (employer_state),employers
+idx_incidents_classification,CREATE INDEX idx_incidents_classification ON public.incidents USING btree (classification) WHERE (classification IS NOT NULL),incidents
+idx_incidents_cost_calculation_date,CREATE INDEX idx_incidents_cost_calculation_date ON public.incidents USING btree (cost_last_calculated_at),incidents
+idx_incidents_cost_override,CREATE INDEX idx_incidents_cost_override ON public.incidents USING btree (cost_override) WHERE (cost_override IS NOT NULL),incidents
+idx_incidents_created_at,CREATE INDEX idx_incidents_created_at ON public.incidents USING btree (created_at DESC),incidents
+idx_incidents_date_id,"CREATE INDEX idx_incidents_date_id ON public.incidents USING btree (date_of_injury DESC NULLS LAST, incident_id DESC)",incidents
+idx_incidents_date_of_injury,CREATE INDEX idx_incidents_date_of_injury ON public.incidents USING btree (date_of_injury DESC),incidents
+idx_incidents_date_range,CREATE INDEX idx_incidents_date_range ON public.incidents USING btree (date_of_injury) WHERE (date_of_injury IS NOT NULL),incidents
+idx_incidents_department_id,CREATE INDEX idx_incidents_department_id ON public.incidents USING btree (department_id) WHERE (department_id IS NOT NULL),incidents
+idx_incidents_employer_date_desc,"CREATE INDEX idx_incidents_employer_date_desc ON public.incidents USING btree (employer_id, date_of_injury DESC, incident_id DESC) WHERE (employer_id IS NOT NULL)",incidents
+idx_incidents_employer_date_id,"CREATE INDEX idx_incidents_employer_date_id ON public.incidents USING btree (employer_id, date_of_injury DESC NULLS LAST, incident_id DESC) WHERE (employer_id IS NOT NULL)",incidents
+idx_incidents_employer_id,CREATE INDEX idx_incidents_employer_id ON public.incidents USING btree (employer_id),incidents
+idx_incidents_employer_status_date,"CREATE INDEX idx_incidents_employer_status_date ON public.incidents USING btree (employer_id, incident_status, date_of_injury DESC)",incidents
+idx_incidents_estimated_cost,CREATE INDEX idx_incidents_estimated_cost ON public.incidents USING btree (estimated_cost),incidents
+idx_incidents_medical_professional_id,CREATE INDEX idx_incidents_medical_professional_id ON public.incidents USING btree (medical_professional_id),incidents
+idx_incidents_site_id,CREATE INDEX idx_incidents_site_id ON public.incidents USING btree (site_id) WHERE (site_id IS NOT NULL),incidents
+idx_incidents_status,CREATE INDEX idx_incidents_status ON public.incidents USING btree (incident_status),incidents
+idx_incidents_worker_id,CREATE INDEX idx_incidents_worker_id ON public.incidents USING btree (worker_id) WHERE (worker_id IS NOT NULL),incidents
+incidents_pkey,CREATE UNIQUE INDEX incidents_pkey ON public.incidents USING btree (incident_id),incidents
+idx_sites_coordinates,"CREATE INDEX idx_sites_coordinates ON public.sites USING btree (longitude, latitude) WHERE ((longitude IS NOT NULL) AND (latitude IS NOT NULL))",sites
+idx_sites_employer_id,CREATE INDEX idx_sites_employer_id ON public.sites USING btree (employer_id),sites
+idx_sites_name,CREATE INDEX idx_sites_name ON public.sites USING btree (site_name),sites
+idx_sites_site_id,CREATE INDEX idx_sites_site_id ON public.sites USING btree (site_id),sites
+workplace_locations_pkey,CREATE UNIQUE INDEX workplace_locations_pkey ON public.sites USING btree (site_id),sites
+idx_workers_employer_id,CREATE INDEX idx_workers_employer_id ON public.workers USING btree (employer_id),workers
+idx_workers_family_name,CREATE INDEX idx_workers_family_name ON public.workers USING btree (family_name),workers
+idx_workers_given_name,CREATE INDEX idx_workers_given_name ON public.workers USING btree (given_name),workers
+idx_workers_name,"CREATE INDEX idx_workers_name ON public.workers USING btree (given_name, family_name)",workers
+idx_workers_worker_id,CREATE INDEX idx_workers_worker_id ON public.workers USING btree (worker_id),workers
+workers_pkey,CREATE UNIQUE INDEX workers_pkey ON public.workers USING btree (worker_id),workers
