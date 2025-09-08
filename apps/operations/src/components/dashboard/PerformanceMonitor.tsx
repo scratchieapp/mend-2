@@ -59,7 +59,7 @@ export function PerformanceMonitor() {
           duration,
           status,
           timestamp: new Date()
-        }, ...prev.slice(0, 9)]); // Keep last 10 metrics
+        }, ...prev.slice(0, 2)]); // REDUCED to 3 metrics max to prevent memory leak
         
         // Log slow queries to console
         if (status === 'critical') {

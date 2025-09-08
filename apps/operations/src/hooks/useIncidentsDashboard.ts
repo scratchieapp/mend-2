@@ -99,7 +99,7 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
     const useDirectRpc = true; // FORCED ON - Supabase client is slow
     const logTiming = import.meta.env.VITE_LOG_RPC_TIMING === 'true';
     
-    if (logTiming) {
+    if (logTiming && import.meta.env.DEV) { // Only log in development
       console.time(`[RPC] ${functionName}`);
       console.info(`[RPC] ${functionName}:start`, new Date().toISOString());
     }
@@ -107,7 +107,9 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
     try {
       if (useDirectRpc) {
         // Direct fetch bypassing supabase-js client overhead
-        console.log('[Direct RPC] Bypassing Supabase client for better performance');
+        if (import.meta.env.DEV) {
+          console.log('[Direct RPC] Bypassing Supabase client for better performance');
+        }
         const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/${functionName}`;
         const apikey = import.meta.env.VITE_SUPABASE_ANON_KEY;
         
@@ -124,7 +126,9 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
           signal
         });
         const fetchTime = performance.now() - fetchStart;
-        console.log(`[Direct RPC] Network time: ${fetchTime.toFixed(0)}ms`);
+        if (import.meta.env.DEV) {
+          console.log(`[Direct RPC] Network time: ${fetchTime.toFixed(0)}ms`);
+        }
 
         if (!response.ok) {
           const errorText = await response.text().catch(() => 'Unknown error');
@@ -241,11 +245,11 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
     },
     enabled: enabled && roleId !== null,
     staleTime: 30 * 1000, // Data is fresh for 30 seconds
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    gcTime: 30 * 1000, // REDUCED from 5 minutes to 30 seconds to prevent memory leak
     refetchOnWindowFocus: false, // Don't refetch on tab focus
-    refetchOnReconnect: true, // Refetch on network reconnect
+    refetchOnReconnect: false, // DISABLED to prevent duplicate fetches
     retry: false, // DISABLED - was causing 37-second delays due to 3x retries
-    // Previous retry logic was: 3 attempts x ~12 seconds each = ~37 seconds total
+    refetchInterval: false, // DISABLED - no automatic refetching
   });
 
   // Cleanup abort controller on unmount
