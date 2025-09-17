@@ -227,7 +227,7 @@ export function IncidentsListOptimized({
   useEffect(() => {
     setCurrentPage(1); // Reset to first page
     refetch();
-  }, [selectedEmployerId]);
+  }, [selectedEmployerId, refetch]);
 
   // Notify parent once when initial load completes
   const hasNotifiedRef = useRef(false);

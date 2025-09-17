@@ -106,16 +106,23 @@ export const useEmployerSelectionEmergencyFix = () => {
       // Small delay to ensure state has propagated
       await new Promise(resolve => setTimeout(resolve, 50));
       
-      // Invalidate specific queries first to ensure complete refresh
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['dashboard-incidents-v2'] }),
-        queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] }),
-        queryClient.invalidateQueries({ queryKey: ['employer-statistics'] }),
-        queryClient.invalidateQueries({ queryKey: ['admin-users-data'] }),
-        queryClient.invalidateQueries({ queryKey: ['account-manager-data'] })
-      ]);
+      // Invalidate and refetch all relevant queries when employer changes
+      await queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          // Invalidate all dashboard and employer-specific queries
+          return key === 'dashboard-incidents-v2' || 
+                 key === 'dashboard-metrics' ||
+                 key === 'employer-statistics' ||
+                 key === 'admin-users-data' ||
+                 key === 'account-manager-data' ||
+                 key === 'incidents' ||
+                 key === 'workers' ||
+                 key === 'statistics';
+        }
+      });
       
-      // Then force refetch of active queries
+      // Force immediate refetch of active queries
       await queryClient.refetchQueries({
         predicate: (query) => {
           const key = query.queryKey[0];
@@ -123,7 +130,10 @@ export const useEmployerSelectionEmergencyFix = () => {
                  key === 'dashboard-metrics' ||
                  key === 'employer-statistics' ||
                  key === 'admin-users-data' ||
-                 key === 'account-manager-data';
+                 key === 'account-manager-data' ||
+                 key === 'incidents' ||
+                 key === 'workers' ||
+                 key === 'statistics';
         },
         type: 'active'
       });

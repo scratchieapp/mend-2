@@ -12,23 +12,32 @@ interface PerformanceMetric {
 }
 
 export function PerformanceMonitor() {
+  // Check if enabled FIRST, before any state or effects
+  const isEnabled = process.env.NODE_ENV === 'development' && import.meta.env.VITE_SHOW_PERF_MONITOR === 'true';
+  
   const [metrics, setMetrics] = useState<PerformanceMetric[]>([]);
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(isEnabled);
   const [fetchLogs, setFetchLogs] = useState<{ url: string; ms: number; at: Date }[]>([]);
   const [longTasks, setLongTasks] = useState<{ duration: number; start: number }[]>([]);
   const [maxEventLoopLag, setMaxEventLoopLag] = useState(0);
   const fetchPatchedRef = useRef(false);
 
   useEffect(() => {
-    // Only show in development - disable in production to prevent memory issues
-    const isDev = process.env.NODE_ENV === 'development';
-    const forceShow = import.meta.env.VITE_SHOW_PERF_MONITOR === 'true';
-    setIsVisible(isDev && forceShow); // Must explicitly enable even in dev
-  }, [metrics]);
+    // Cleanup metrics periodically to prevent memory leak
+    if (!isEnabled) return;
+    
+    const cleanupInterval = setInterval(() => {
+      setMetrics(prev => prev.slice(0, 5)); // Keep only last 5 metrics
+      setFetchLogs(prev => prev.slice(0, 5)); // Keep only last 5 fetch logs
+      setLongTasks(prev => prev.slice(0, 5)); // Keep only last 5 long tasks
+    }, 30000); // Cleanup every 30 seconds
+    
+    return () => clearInterval(cleanupInterval);
+  }, [isEnabled]);
 
   useEffect(() => {
-    // Skip if disabled via environment variable
-    if (import.meta.env.VITE_DISABLE_PERF_MONITOR === 'true') return;
+    // Skip if not enabled
+    if (!isEnabled) return;
     
     // Monitor RPC calls - FIXED to prevent recursive calls
     type RpcFunction = (...args: unknown[]) => Promise<unknown>;
@@ -91,12 +100,12 @@ export function PerformanceMonitor() {
         delete supabaseClient._originalRpc;
       }
     };
-  }, []);
+  }, [isEnabled]);
 
   // Patch fetch to measure actual network time to Supabase RPC endpoints (dev-only aide)
   useEffect(() => {
     if (fetchPatchedRef.current) return;
-    if (import.meta.env.VITE_SHOW_PERF_MONITOR !== 'true') return;
+    if (!isEnabled) return;
     if (typeof window === 'undefined' || !window.fetch) return;
 
     const originalFetch = window.fetch.bind(window);
@@ -125,10 +134,11 @@ export function PerformanceMonitor() {
       // Best-effort restore
       window.fetch = originalFetch;
     };
-  }, []);
+  }, [isEnabled]);
 
   // Observe long tasks on the main thread
   useEffect(() => {
+    if (!isEnabled) return;
     const supported = (window as Window & { PerformanceObserver?: { supportedEntryTypes?: string[] } }).PerformanceObserver?.supportedEntryTypes?.includes('longtask');
     if (!supported) return;
     const observer = new PerformanceObserver((list) => {
@@ -138,11 +148,11 @@ export function PerformanceMonitor() {
     });
     observer.observe({ entryTypes: ['longtask'] as PerformanceObserverInit['entryTypes'] });
     return () => observer.disconnect();
-  }, []);
+  }, [isEnabled]);
 
   // Sample event loop lag - disabled by default to prevent memory issues
   useEffect(() => {
-    if (import.meta.env.VITE_SHOW_PERF_MONITOR !== 'true') return;
+    if (!isEnabled) return;
     
     let mounted = true;
     let last = performance.now();
@@ -154,8 +164,10 @@ export function PerformanceMonitor() {
       last = now;
     }, 100);
     return () => { mounted = false; clearInterval(interval); };
-  }, []);
+  }, [isEnabled]);
 
+  // Return null early if not enabled
+  if (!isEnabled) return null;
   if (!isVisible || metrics.length === 0) return null;
 
   const averageTime = metrics.reduce((sum, m) => sum + m.duration, 0) / metrics.length;

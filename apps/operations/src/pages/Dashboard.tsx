@@ -13,8 +13,9 @@ import { DataErrorBoundary } from "@/components/DataErrorBoundary";
 import { useState, useEffect } from "react";
 import { startOfMonth, subMonths } from "date-fns";
 import { useEmployerSelection } from "@/hooks/useEmployerSelection";
-import { DebugPanel } from "@/components/DebugPanel";
-import { PerformanceMonitor } from "@/components/dashboard/PerformanceMonitor";
+// Debug components disabled to prevent memory leaks
+// import { DebugPanel } from "@/components/DebugPanel";
+// import { PerformanceMonitor } from "@/components/dashboard/PerformanceMonitor";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -162,8 +163,9 @@ const Dashboard = () => {
           )}
         </div>
       </div>
-      <DebugPanel />
-      {import.meta.env.VITE_SHOW_PERF_MONITOR === 'true' && <PerformanceMonitor />}
+      {/* Debug components disabled to prevent memory leaks */}
+      {/* <DebugPanel /> */}
+      {/* {import.meta.env.VITE_SHOW_PERF_MONITOR === 'true' && <PerformanceMonitor />} */}
     </div>
   );
 };

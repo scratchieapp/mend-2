@@ -14,7 +14,8 @@ import { DataErrorBoundary } from "@/components/DataErrorBoundary";
 import { useState, useEffect } from "react";
 import { startOfMonth, subMonths } from "date-fns";
 import { useEmployerSelection } from "@/hooks/useEmployerSelection";
-import { DebugPanel } from "@/components/DebugPanel";
+// Debug component disabled to prevent memory leaks
+// import { DebugPanel } from "@/components/DebugPanel";
 import { Badge } from "@/components/ui/badge";
 
 const SuperAdminDashboard = () => {
@@ -240,7 +241,8 @@ const SuperAdminDashboard = () => {
           )}
         </div>
       </div>
-      <DebugPanel />
+      {/* Debug component disabled to prevent memory leaks */}
+      {/* <DebugPanel /> */}
     </div>
   );
 };

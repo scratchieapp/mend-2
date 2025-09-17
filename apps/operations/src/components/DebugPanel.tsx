@@ -4,6 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
 export function DebugPanel() {
+  // Only render in development AND when explicitly enabled
+  const isEnabled = !import.meta.env.PROD && import.meta.env.VITE_DEBUG_PANEL === 'true';
+  
   const queryClient = useQueryClient();
   const [activeQueries, setActiveQueries] = useState<string[]>([]);
   const [memoryUsage, setMemoryUsage] = useState<number>(0);
@@ -12,26 +15,30 @@ export function DebugPanel() {
   renderCount.current++;
   
   useEffect(() => {
+    // Don't run interval if not enabled
+    if (!isEnabled) return;
+    
     const interval = setInterval(() => {
       // Get active queries
       const queries = queryClient.getQueryCache().getAll();
       const activeKeys = queries
         .filter(q => q.state.fetchStatus === 'fetching')
-        .map(q => JSON.stringify(q.queryKey));
+        .map(q => JSON.stringify(q.queryKey))
+        .slice(0, 5); // Limit to 5 queries max
       setActiveQueries(activeKeys);
       
       // Estimate memory usage
       if (performance && 'memory' in performance) {
-        // @ts-ignore
+        // @ts-expect-error - performance.memory is a non-standard API
         setMemoryUsage(Math.round(performance.memory.usedJSHeapSize / 1048576));
       }
-    }, 2000); // Reduced frequency to avoid performance impact
+    }, 5000); // Increased interval to reduce performance impact
     
     return () => clearInterval(interval);
-  }, [queryClient]);
+  }, [queryClient, isEnabled]);
   
-  // Only show in development
-  if (import.meta.env.PROD) return null;
+  // Return null if not enabled
+  if (!isEnabled) return null;
   
   return (
     <Card className="fixed bottom-4 right-4 w-96 z-50 bg-black/90 text-white">
