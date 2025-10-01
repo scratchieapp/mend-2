@@ -226,7 +226,7 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
           console.error('[Dashboard] RPC error:', error);
           throw error;
         }
-        
+
         if (!data) {
           throw new Error('No data returned from get_dashboard_data');
         }
@@ -258,13 +258,13 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
       }
     },
     enabled: enabled && roleId !== null,
-    staleTime: 10 * 1000, // Data is fresh for 10 seconds (reduced from 30)
-    gcTime: 15 * 1000, // Garbage collect after 15 seconds (reduced from 30)
+    staleTime: 30 * 1000, // Data is fresh for 30 seconds - aligned with global config
+    gcTime: 5 * 60 * 1000, // 5 minutes - aligned with global config
     refetchOnWindowFocus: false, // Don't refetch on tab focus
     refetchOnReconnect: false, // DISABLED to prevent duplicate fetches
     retry: false, // DISABLED - was causing 37-second delays due to 3x retries
     refetchInterval: false, // DISABLED - no automatic refetching
-    structuralSharing: false // DISABLED - prevent memory accumulation from deep object comparisons
+    structuralSharing: true // Re-enabled - let global config handle this with proper memoization
   });
 
   // Cleanup abort controller on unmount or when dependencies change

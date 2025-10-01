@@ -71,7 +71,7 @@ export const useEmployerSelectionEmergencyFix = () => {
       if (!clerkUserId) {
         throw new Error("User not authenticated");
       }
-      
+
       // Validate access
       if (employerId === null) {
         if (userData?.role_id !== 1) {
@@ -82,12 +82,49 @@ export const useEmployerSelectionEmergencyFix = () => {
           throw new Error("Access denied to this employer");
         }
       }
-      
-      // Update state first
+
+      // CRITICAL FIX: Clear all old employer data BEFORE state update
+      // This prevents stale data from being displayed during the transition
+      await queryClient.cancelQueries({
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return key === 'dashboard-incidents-v2' ||
+                 key === 'dashboard-metrics' ||
+                 key === 'employer-statistics' ||
+                 key === 'admin-users-data' ||
+                 key === 'account-manager-data' ||
+                 key === 'incidents' ||
+                 key === 'workers' ||
+                 key === 'statistics';
+        }
+      });
+
+      // Remove all old queries completely to force fresh fetch
+      queryClient.removeQueries({
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          const queryData = query.queryKey[1] as any;
+
+          // Remove queries that belong to the OLD employer context
+          const isOldEmployerQuery = queryData?.filterEmployerId !== undefined &&
+                                     queryData.filterEmployerId !== employerId;
+
+          return (key === 'dashboard-incidents-v2' ||
+                  key === 'dashboard-metrics' ||
+                  key === 'employer-statistics' ||
+                  key === 'admin-users-data' ||
+                  key === 'account-manager-data' ||
+                  key === 'incidents' ||
+                  key === 'workers' ||
+                  key === 'statistics') && isOldEmployerQuery;
+        }
+      });
+
+      // NOW update state - components will re-render with new context
       setSelectedEmployerId(employerId);
       localStorage.setItem("selectedEmployerId", employerId === null ? "null" : employerId.toString());
-      
-      // Show toast
+
+      // Show toast notification
       if (employerId === null) {
         toast({
           title: "View All Mode",
@@ -102,31 +139,15 @@ export const useEmployerSelectionEmergencyFix = () => {
           });
         }
       }
-      
-      // Small delay to ensure state has propagated
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
-      // Invalidate and refetch all relevant queries when employer changes
-      await queryClient.invalidateQueries({
-        predicate: (query) => {
-          const key = query.queryKey[0];
-          // Invalidate all dashboard and employer-specific queries
-          return key === 'dashboard-incidents-v2' || 
-                 key === 'dashboard-metrics' ||
-                 key === 'employer-statistics' ||
-                 key === 'admin-users-data' ||
-                 key === 'account-manager-data' ||
-                 key === 'incidents' ||
-                 key === 'workers' ||
-                 key === 'statistics';
-        }
-      });
-      
-      // Force immediate refetch of active queries
+
+      // Small delay to ensure React state has updated
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Force immediate refetch with new employer context
       await queryClient.refetchQueries({
         predicate: (query) => {
           const key = query.queryKey[0];
-          return key === 'dashboard-incidents-v2' || 
+          return key === 'dashboard-incidents-v2' ||
                  key === 'dashboard-metrics' ||
                  key === 'employer-statistics' ||
                  key === 'admin-users-data' ||
@@ -137,9 +158,20 @@ export const useEmployerSelectionEmergencyFix = () => {
         },
         type: 'active'
       });
-      
+
+      if (import.meta.env.DEV) {
+        console.log(`[Employer Switch] Successfully switched to ${employerId === null ? 'All Companies' : `employer ${employerId}`}`);
+      }
+
     } catch (error) {
       console.error('Failed to change employer:', error);
+
+      // Rollback state on error
+      const storedId = localStorage.getItem("selectedEmployerId");
+      if (storedId) {
+        setSelectedEmployerId(storedId === "null" ? null : Number(storedId));
+      }
+
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to change employer",
