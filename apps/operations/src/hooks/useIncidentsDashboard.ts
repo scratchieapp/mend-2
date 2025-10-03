@@ -122,10 +122,18 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
     // Force direct RPC to bypass Supabase client issues
     const useDirectRpc = true; // FORCED ON - Supabase client is slow
     const logTiming = import.meta.env.VITE_LOG_RPC_TIMING === 'true';
-    
+
+    // FIXED: Track timer state to avoid console.timeEnd errors
+    let timerStarted = false;
+
     if (logTiming && import.meta.env.DEV) { // Only log in development
-      console.time(`[RPC] ${functionName}`);
-      console.info(`[RPC] ${functionName}:start`, new Date().toISOString());
+      try {
+        console.time(`[RPC] ${functionName}`);
+        timerStarted = true;
+        console.info(`[RPC] ${functionName}:start`, new Date().toISOString());
+      } catch (e) {
+        // Ignore timer errors
+      }
     }
 
     try {
@@ -136,7 +144,7 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
         }
         const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/${functionName}`;
         const apikey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-        
+
         const fetchStart = performance.now();
         const response = await fetch(url, {
           method: 'POST',
@@ -164,19 +172,23 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
       } else {
         // Standard supabase-js RPC call with timeout
         const timeoutMs = 15000; // 15 second timeout (temporary - to diagnose issue)
-        const timeoutPromise = new Promise((_, reject) => 
+        const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error(`RPC timeout after ${timeoutMs}ms`)), timeoutMs)
         );
-        
+
         const rpcPromise = supabase.rpc(functionName, params);
-        
+
         // Race between RPC call and timeout
         return await Promise.race([rpcPromise, timeoutPromise]) as any;
       }
     } finally {
-      if (logTiming) {
-        console.info(`[RPC] ${functionName}:end`, new Date().toISOString());
-        console.timeEnd(`[RPC] ${functionName}`);
+      if (logTiming && timerStarted) {
+        try {
+          console.info(`[RPC] ${functionName}:end`, new Date().toISOString());
+          console.timeEnd(`[RPC] ${functionName}`);
+        } catch (e) {
+          // Ignore timer errors
+        }
       }
     }
   }, []);

@@ -113,7 +113,7 @@ export function RoleBasedHeader({ className }: RoleBasedHeaderProps) {
 
           {/* Employer Selector - ONLY for Super Admin */}
           {showEmployerSelector && (
-            <EmployerContextSelector />
+            <EmployerContextSelectorWorking />
           )}
 
           {/* Navigation Links */}

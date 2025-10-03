@@ -36,10 +36,17 @@ export function UserBadge() {
   const handleSignOut = async () => {
     setIsSigningOut(true);
     try {
-      await signOut();
-      navigate('/sign-in');
+      // Clear all React Query cache to prevent memory leaks
+      const queryClient = (await import('@tanstack/react-query')).QueryClient;
+      const client = new queryClient();
+      client.clear();
+
+      // Sign out from Clerk and redirect to login
+      await signOut({ redirectUrl: '/sign-in' });
     } catch (error) {
       console.error('Sign out error:', error);
+      // Force navigation even if sign out fails
+      navigate('/sign-in');
     } finally {
       setIsSigningOut(false);
     }
