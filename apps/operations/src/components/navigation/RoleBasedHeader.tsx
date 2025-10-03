@@ -1,7 +1,7 @@
 import React from 'react';
 import { Building2, Shield, Users, Briefcase } from 'lucide-react';
 import { NavigationLinks } from './NavigationLinks';
-import { EmployerContextSelectorWorking } from '../EmployerContextSelectorWorking';
+import { EmployerContextSelector } from '../EmployerContextSelectorWorking';
 import { UserBadge } from '../auth/UserBadge';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { Badge } from '@/components/ui/badge';
@@ -113,7 +113,7 @@ export function RoleBasedHeader({ className }: RoleBasedHeaderProps) {
 
           {/* Employer Selector - ONLY for Super Admin */}
           {showEmployerSelector && (
-            <EmployerContextSelectorWorking />
+            <EmployerContextSelector />
           )}
 
           {/* Navigation Links */}
