@@ -265,20 +265,33 @@ export function IncidentsListOptimized({
     []
   );
 
-  // Cleanup debounced handler on unmount to prevent memory leaks
+  // CRITICAL: Cleanup all references on unmount to prevent memory leaks
   useEffect(() => {
-    return () => {
-      handleSearchChange.cancel();
-    };
-  }, [handleSearchChange]);
+    const currentSearchHandler = handleSearchChange;
+    const currentSearchRef = searchInputRef.current;
 
-  // Navigation handlers
+    return () => {
+      // Cancel debounced function to prevent memory leak
+      currentSearchHandler.cancel();
+
+      // Clear ref to prevent memory retention
+      if (currentSearchRef) {
+        currentSearchRef.value = '';
+      }
+
+      // Reset state to prevent stale closures
+      setSearchTerm('');
+      setCurrentPage(1);
+    };
+  }, []); // Empty deps - only cleanup on unmount
+
+  // Navigation handlers - Fixed routes to match App.tsx
   const handleView = useCallback((incidentId: number) => {
-    navigate(`/incidents/${incidentId}`);
+    navigate(`/incident/${incidentId}`); // Fixed: removed 's' to match route definition
   }, [navigate]);
 
   const handleEdit = useCallback((incidentId: number) => {
-    navigate(`/incidents/${incidentId}/edit`);
+    navigate(`/incident/${incidentId}/edit`); // Fixed: removed 's' to match route definition
   }, [navigate]);
 
   // Pagination handlers

@@ -93,18 +93,20 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    
+
     // Invalidate queries when employer changes to force refetch
     if (filterEmployerId !== undefined) {
       queryClient.invalidateQueries({ queryKey: ['dashboard-incidents-v2'] });
     }
-    
+
     return () => {
-      // Cleanup on unmount
+      // Cleanup on unmount - CRITICAL for memory leak prevention
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
         abortControllerRef.current = null;
       }
+      // Remove this specific query from cache on unmount
+      queryClient.removeQueries({ queryKey: ['dashboard-incidents-v2'], exact: false });
     };
   }, [filterEmployerId, queryClient]);
 
@@ -267,16 +269,21 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
     structuralSharing: true // Re-enabled - let global config handle this with proper memoization
   });
 
-  // Cleanup abort controller on unmount or when dependencies change
+  // Cleanup abort controller on unmount or when dependencies change - MEMORY LEAK FIX
   useEffect(() => {
-    const currentController = abortControllerRef.current;
     return () => {
-      if (currentController) {
-        currentController.abort();
+      // CRITICAL: Cleanup on unmount to prevent memory accumulation
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
         abortControllerRef.current = null;
       }
+      // Force garbage collection of query data
+      queryClient.removeQueries({
+        queryKey: ['dashboard-incidents-v2'],
+        predicate: (query) => query.getObserversCount() === 0
+      });
     };
-  }, [filterEmployerId, workerId, startDate, endDate]); // Cleanup when filters change
+  }, [queryClient]); // Only cleanup on unmount, not on filter changes
 
   // Calculate pagination data
   const totalCount = query.data?.totalCount || 0;

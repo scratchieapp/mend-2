@@ -44,51 +44,85 @@ const queryClient = new QueryClient({
   },
 });
 
-// Aggressive cache cleanup to prevent memory leaks
+// ENHANCED: More aggressive memory leak prevention
 if (typeof window !== 'undefined') {
-  // Cleanup stale queries every 30 seconds
-  setInterval(() => {
+  const memoryCleanupTimers: number[] = [];
+
+  // Aggressive query cleanup every 20 seconds
+  memoryCleanupTimers.push(setInterval(() => {
     const allQueries = queryClient.getQueryCache().getAll();
     const now = Date.now();
+    let removedCount = 0;
 
     allQueries.forEach(query => {
       const state = query.state;
-      const isStale = state.dataUpdatedAt && (now - state.dataUpdatedAt > 5 * 60 * 1000); // 5 minutes
+      const dataAge = state.dataUpdatedAt ? (now - state.dataUpdatedAt) : Infinity;
+      const isStale = dataAge > 2 * 60 * 1000; // 2 minutes (more aggressive)
       const isIdle = state.fetchStatus === 'idle';
       const hasNoObservers = query.getObserversCount() === 0;
 
-      // Remove queries that are stale, idle, and have no active observers
-      if (isStale && isIdle && hasNoObservers) {
+      // More aggressive removal conditions
+      if ((isStale && hasNoObservers) || (isIdle && hasNoObservers && dataAge > 60000)) {
         queryClient.removeQueries({ queryKey: query.queryKey, exact: true });
+        removedCount++;
       }
     });
 
-    // Log cache size in development
-    if (import.meta.env.DEV) {
-      const remaining = queryClient.getQueryCache().getAll().length;
-      if (remaining > 20) {
-        console.warn(`[Memory] ${remaining} queries in cache - potential memory accumulation`);
-      }
+    if (import.meta.env.DEV && removedCount > 0) {
+      console.log(`[Memory] Cleaned ${removedCount} stale queries`);
     }
-  }, 30 * 1000); // Run every 30 seconds
+  }, 20 * 1000)); // Run every 20 seconds
 
-  // Nuclear option: Clear all inactive queries every 3 minutes
-  setInterval(() => {
+  // Clear inactive queries every minute (more frequent)
+  memoryCleanupTimers.push(setInterval(() => {
     const allQueries = queryClient.getQueryCache().getAll();
     const activeCount = allQueries.filter(q => q.getObserversCount() > 0).length;
     const totalCount = allQueries.length;
 
-    // If we have more than 30 cached queries and less than 30% are active, clear inactive ones
-    if (totalCount > 30 && (activeCount / totalCount) < 0.3) {
-      queryClient.removeQueries({
+    // More aggressive threshold: clear if more than 15 queries
+    if (totalCount > 15) {
+      const removed = queryClient.removeQueries({
         predicate: (query) => query.getObserversCount() === 0
       });
 
-      if (import.meta.env.DEV) {
-        console.log(`[Memory] Cleared ${totalCount - activeCount} inactive queries`);
+      if (import.meta.env.DEV && removed) {
+        console.log(`[Memory] Aggressive cleanup: ${totalCount - activeCount} inactive queries removed`);
       }
     }
-  }, 3 * 60 * 1000); // Run every 3 minutes
+
+    // CRITICAL: Monitor total memory usage
+    if (import.meta.env.DEV && totalCount > 10) {
+      console.warn(`[Memory Warning] ${totalCount} queries in cache (${activeCount} active)`);
+    }
+  }, 60 * 1000)); // Run every minute
+
+  // CRITICAL: Nuclear cleanup every 2 minutes to prevent Chrome crashes
+  memoryCleanupTimers.push(setInterval(() => {
+    const allQueries = queryClient.getQueryCache().getAll();
+
+    // Force clear all queries with no observers
+    allQueries.forEach(query => {
+      if (query.getObserversCount() === 0) {
+        query.destroy(); // Use destroy for immediate cleanup
+      }
+    });
+
+    // Force garbage collection hint (browser may ignore)
+    if ('gc' in window && typeof (window as any).gc === 'function') {
+      (window as any).gc();
+    }
+
+    if (import.meta.env.DEV) {
+      const remaining = queryClient.getQueryCache().getAll().length;
+      console.log(`[Memory] Nuclear cleanup complete. ${remaining} queries remain.`);
+    }
+  }, 2 * 60 * 1000)); // Run every 2 minutes
+
+  // Cleanup intervals on window unload
+  window.addEventListener('beforeunload', () => {
+    memoryCleanupTimers.forEach(timer => clearInterval(timer));
+    queryClient.clear(); // Clear entire cache on unload
+  });
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
