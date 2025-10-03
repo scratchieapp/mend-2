@@ -9,8 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { MenuBar } from "@/components/MenuBar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, UserPlus, Search, Filter, Building2, Shield, Edit, Trash2, Users } from "lucide-react";
+import { UserPlus, Search, Filter, Building2, Shield, Edit, Trash2, Users } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -305,25 +306,16 @@ export default function AdminUsersPage() {
   const availableRoles = userData ? getAvailableRolesToCreate(userData) : [];
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Navigation Header */}
-      <div className="flex items-center mb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate('/superadmin-dashboard')}
-          className="mr-4 p-2"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Dashboard
-        </Button>
-        <div className="text-sm text-muted-foreground">
+    <div className="min-h-screen bg-background">
+      <MenuBar />
+      <div className="container mx-auto px-4 py-8 pt-20">
+        {/* Breadcrumb */}
+        <div className="text-sm text-muted-foreground mb-6">
           Super Admin / User Management
         </div>
-      </div>
 
-      {/* Page Header */}
-      <div className="flex justify-between items-center mb-8">
+        {/* Page Header */}
+        <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Users className="h-8 w-8" />
@@ -577,6 +569,7 @@ export default function AdminUsersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

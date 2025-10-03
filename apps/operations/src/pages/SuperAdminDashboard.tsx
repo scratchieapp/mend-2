@@ -5,8 +5,7 @@ import { IndustryLTIChart } from "@/components/dashboard/charts/IndustryLTIChart
 import { IncidentsListOptimized } from "@/components/dashboard/IncidentsListOptimized";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { PlusCircle, Download, CheckCircle, Users, Building2, Shield, Activity } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { MenuBar } from "@/components/MenuBar";
@@ -16,7 +15,6 @@ import { startOfMonth, subMonths } from "date-fns";
 import { useEmployerSelection } from "@/hooks/useEmployerSelection";
 // Debug component disabled to prevent memory leaks
 // import { DebugPanel } from "@/components/DebugPanel";
-import { Badge } from "@/components/ui/badge";
 
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
@@ -95,13 +93,10 @@ const SuperAdminDashboard = () => {
             </Alert>
           )}
 
-          {/* Header with Super Admin badge */}
+          {/* Simplified page header - no badges or duplicate selectors */}
           <div className="flex justify-between items-center">
             <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-4xl font-bold">Super Admin Dashboard</h1>
-                <Badge className="bg-purple-600 text-white">SUPER ADMIN</Badge>
-              </div>
+              <h1 className="text-4xl font-bold">Super Admin Dashboard</h1>
               <p className="mt-2 text-muted-foreground">
                 Complete system oversight and management capabilities
               </p>
@@ -121,47 +116,6 @@ const SuperAdminDashboard = () => {
               </Button>
             </div>
           </div>
-
-          {/* Employer Selector - Always visible for Super Admin */}
-          <Card className="border-purple-200 bg-purple-50/50">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                Company Context
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-4">
-                <Select
-                  value={selectedEmployerId?.toString() || "all"}
-                  onValueChange={(value) => handleEmployerChange(value === "all" ? null : Number(value))}
-                  disabled={isLoadingEmployers}
-                >
-                  <SelectTrigger className="w-[300px]">
-                    <SelectValue placeholder="Select employer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      <div className="flex items-center gap-2">
-                        <Shield className="h-4 w-4" />
-                        View All Companies
-                      </div>
-                    </SelectItem>
-                    {employers.map((employer) => (
-                      <SelectItem key={employer.employer_id} value={employer.employer_id.toString()}>
-                        {employer.employer_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <span className="text-sm text-muted-foreground">
-                  {selectedEmployerId === null 
-                    ? "Viewing data from all companies" 
-                    : `Viewing data for ${employers.find(e => e.employer_id === selectedEmployerId)?.employer_name || 'selected company'}`}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Quick Stats for Super Admin */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
