@@ -59,7 +59,10 @@ export default function AdminUsersPage() {
   // Combined fetch function for all data
   const fetchAdminUsersData = async () => {
     try {
+      console.log('[AdminUsersPage] Starting data fetch...');
+
       // Fetch users with their roles and employer assignments
+      console.log('[AdminUsersPage] Fetching users...');
       const { data: usersData, error: usersError } = await supabase
         .from("users")
         .select(`
@@ -77,39 +80,74 @@ export default function AdminUsersPage() {
         `)
         .order("created_at", { ascending: false });
 
-      if (usersError) throw usersError;
+      console.log('[AdminUsersPage] Users result:', { data: usersData, error: usersError });
+      if (usersError) {
+        console.error('[AdminUsersPage] Users error:', usersError);
+        throw usersError;
+      }
 
       // Fetch roles
+      console.log('[AdminUsersPage] Fetching roles...');
       const { data: rolesData, error: rolesError } = await supabase
         .from("user_roles")
         .select("*")
         .order("role_id");
 
-      if (rolesError) throw rolesError;
+      console.log('[AdminUsersPage] Roles result:', { data: rolesData, error: rolesError });
+      if (rolesError) {
+        console.error('[AdminUsersPage] Roles error:', rolesError);
+        throw rolesError;
+      }
 
       // Fetch employers
+      console.log('[AdminUsersPage] Fetching employers...');
       const { data: employersData, error: employersError } = await supabase
         .from("employers")
         .select("employer_id, employer_name")
         .order("employer_name");
 
-      if (employersError) throw employersError;
+      console.log('[AdminUsersPage] Employers result:', { data: employersData, error: employersError });
+      if (employersError) {
+        console.error('[AdminUsersPage] Employers error:', employersError);
+        throw employersError;
+      }
 
-      return {
+      const result = {
         users: (usersData || []) as UserWithEmployers[],
         roles: (rolesData || []) as UserRole[],
         employers: (employersData || []) as Employer[]
       };
+
+      console.log('[AdminUsersPage] Fetch complete:', result);
+      return result;
     } catch (error) {
-      console.error('Error fetching admin users data:', error);
+      console.error('[AdminUsersPage] Error fetching admin users data:', error);
       throw error;
     }
   };
 
-  // Single query to fetch all data
+  // Single query to fetch all data with timeout protection
   const { data: adminData, isLoading, error, refetch } = useQuery({
     queryKey: ['admin-users-data'],
-    queryFn: fetchAdminUsersData,
+    queryFn: async () => {
+      console.log('[AdminUsersPage] Query starting...');
+      // Add timeout protection
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout after 10 seconds')), 10000)
+      );
+
+      try {
+        const result = await Promise.race([
+          fetchAdminUsersData(),
+          timeoutPromise
+        ]);
+        console.log('[AdminUsersPage] Query succeeded');
+        return result as Awaited<ReturnType<typeof fetchAdminUsersData>>;
+      } catch (err) {
+        console.error('[AdminUsersPage] Query failed:', err);
+        throw err;
+      }
+    },
     retry: 1,
     retryDelay: 1000,
     staleTime: 30 * 1000,
