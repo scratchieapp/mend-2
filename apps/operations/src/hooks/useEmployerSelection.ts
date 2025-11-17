@@ -99,24 +99,22 @@ export const useEmployerSelectionEmergencyFix = () => {
         }
       });
 
-      // Remove all old queries completely to force fresh fetch
+      // Remove ALL queries completely to force fresh fetch with new employer context
+      // CRITICAL FIX: Previously failed when switching between null values (e.g., "View All" -> specific -> "View All")
+      // Now we simply remove ALL employer-related queries when any employer change occurs
       queryClient.removeQueries({
         predicate: (query) => {
           const key = query.queryKey[0];
-          const queryData = query.queryKey[1] as any;
 
-          // Remove queries that belong to the OLD employer context
-          const isOldEmployerQuery = queryData?.filterEmployerId !== undefined &&
-                                     queryData.filterEmployerId !== employerId;
-
-          return (key === 'dashboard-incidents-v2' ||
-                  key === 'dashboard-metrics' ||
-                  key === 'employer-statistics' ||
-                  key === 'admin-users-data' ||
-                  key === 'account-manager-data' ||
-                  key === 'incidents' ||
-                  key === 'workers' ||
-                  key === 'statistics') && isOldEmployerQuery;
+          // Remove all employer-contextual queries to ensure fresh data
+          return key === 'dashboard-incidents-v2' ||
+                 key === 'dashboard-metrics' ||
+                 key === 'employer-statistics' ||
+                 key === 'admin-users-data' ||
+                 key === 'account-manager-data' ||
+                 key === 'incidents' ||
+                 key === 'workers' ||
+                 key === 'statistics';
         }
       });
 
