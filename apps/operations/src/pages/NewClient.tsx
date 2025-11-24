@@ -1,4 +1,3 @@
-import { MenuBar } from "@/components/MenuBar";
 import { NewClientForm } from "@/components/forms/NewClientForm";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
@@ -9,7 +8,7 @@ const NewClient = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <MenuBar />
+      
       <div className="pt-16 p-8">
         <div className="max-w-2xl mx-auto space-y-8">
           <div className="flex items-center space-x-4">

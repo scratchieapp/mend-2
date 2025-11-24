@@ -1,11 +1,8 @@
-import { MenuBar } from "@/components/MenuBar";
-import { ImportForm } from "@/components/data-import/ImportForm";
-import { ImportGuidelines } from "@/components/data-import/ImportGuidelines";
 
 export default function DataImportAdmin() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <MenuBar />
+      
       <div className="pt-16 p-8">
         <div className="max-w-7xl mx-auto space-y-8">
           <div>

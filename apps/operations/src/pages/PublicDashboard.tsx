@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Info, TrendingUp, AlertTriangle, CheckCircle, Calendar } from "lucide-react";
-import { MenuBar } from "@/components/MenuBar";
+
 import { DataErrorBoundary } from "@/components/DataErrorBoundary";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -70,7 +70,7 @@ const PublicDashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <MenuBar />
+      
       <div className="pt-16 p-8">
         <div className="max-w-7xl mx-auto space-y-8">
           {/* Header */}

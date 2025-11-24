@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { FileText, TrendingUp } from "lucide-react";
-import { MenuBar } from "@/components/MenuBar";
+
 import { supabase } from "@/integrations/supabase/client";
 import { format, subMonths, startOfMonth } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
