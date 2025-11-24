@@ -85,7 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [sessionExpiresAt, setSessionExpiresAt] = useState<Date | null>(null);
   const [isSessionExpiring, setIsSessionExpiring] = useState(false);
   
-  // Refs to prevent memory leaks
+  // Refs to prevent memory leaks and loops
   const updateTimeoutRef = useRef<NodeJS.Timeout>();
   const sessionCheckIntervalRef = useRef<NodeJS.Timeout>();
   const lastFetchedUserId = useRef<string | null>(null);
@@ -126,9 +126,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const currentUserId = clerkUserId;
       
       // Check if values have changed to prevent unnecessary API calls
+      // Use refs for cache checks to avoid dependency loops
       if (currentEmail === lastClerkEmail.current && 
           currentUserId === lastClerkUserId.current && 
-          userData) {
+          userData) { // Only skip if we already have data
         return;
       }
       
@@ -181,11 +182,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     // Fall back to Supabase user
     if (!user) {
-      setUserData(null);
+      // Only clear if we actually have data to clear
+      if (userData !== null) {
+        setUserData(null);
+      }
       return;
     }
     
-    // Prevent duplicate fetches
+    // Prevent duplicate fetches for Supabase user
     if (user.id === lastFetchedUserId.current && userData) {
       return;
     }
@@ -256,7 +260,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       isUpdatingUserData.current = false;
     }
-  }, [user, userData, clearError, clerkSignedIn, clerkUser?.primaryEmailAddress?.emailAddress, clerkUserId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, userData, clearError, clerkSignedIn, clerkUserId, clerkUser?.primaryEmailAddress?.emailAddress]); 
 
   // Refresh session
   const refreshSession = useCallback(async () => {
@@ -267,7 +271,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (session) {
         setSession(session);
-        setUser(session.user);
+        // Only update user if ID changed to prevent loop
+        if (session.user.id !== user?.id) {
+          setUser(session.user);
+        }
         updateSessionExpiry(session);
         setIsAuthenticated(true);
       }
@@ -277,9 +284,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(null);
       setUser(null);
       setIsAuthenticated(false);
-      clearSessionExpiry();
+      setSessionExpiresAt(null);
     }
-  }, [updateSessionExpiry]);
+  }, [updateSessionExpiry, user?.id]);
 
   // Sign in
   const signIn = useCallback(async (email: string, password: string) => {
@@ -390,12 +397,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Check for Clerk authentication first
         if (clerkLoaded && clerkSignedIn && clerkUser) {
           if (mounted) {
-            // Create a mock user object for compatibility
-            setUser({ id: clerkUserId, email: clerkUser.primaryEmailAddress?.emailAddress } as SupabaseUser);
-            setIsAuthenticated(true);
-            setIsLoading(false);
-            // Fetch user data for Clerk user
-            await updateUserData();
+            // Create a user object
+            const newUser = { id: clerkUserId, email: clerkUser.primaryEmailAddress?.emailAddress } as SupabaseUser;
+            
+            // Only update state if something actually changed
+            // This prevents the infinite loop of setUser -> updateUserData -> useEffect -> setUser
+            if (!isAuthenticated || user?.id !== newUser.id || user?.email !== newUser.email) {
+              setUser(newUser);
+              setIsAuthenticated(true);
+              setIsLoading(false);
+              // Explicitly call updateUserData here, but outside the state update cycle 
+              // if we can, but strictly we rely on the effect below or call it now
+              if (mounted) {
+                 await updateUserData();
+              }
+            } else {
+               // If user is stable, just ensure loading is false
+               setIsLoading(false);
+            }
             return;
           }
         }
@@ -427,7 +446,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           setSession(session);
-          setUser(session?.user || null);
+          // Only update user if changed
+          if (session?.user && session.user.id !== user?.id) {
+             setUser(session.user);
+          }
           updateSessionExpiry(session);
           setIsAuthenticated(!!session);
           
@@ -449,9 +471,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setIsSessionExpiring(false);
           lastFetchedUserId.current = null;
         } else if (event === 'USER_UPDATED') {
-          setUser(session?.user || null);
           if (session?.user) {
-            updateUserData();
+             if (session.user.id !== user?.id) {
+                setUser(session.user);
+             }
+             updateUserData();
           }
         }
       }
@@ -471,9 +495,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         clearInterval(sessionCheckIntervalRef.current);
       }
     };
-  }, [updateSessionExpiry, updateUserData, clerkLoaded, clerkSignedIn, clerkUser?.id, clerkUserId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [
+    // Only re-run if Clerk auth state fundamental props change
+    clerkLoaded, 
+    clerkSignedIn, 
+    clerkUserId, 
+    // Remove user/userData/updateUserData from here to break the loop
+    // We rely on the internal logic to handle updates
+    // But we need to keep updateSessionExpiry as it's stable (useCallback)
+    updateSessionExpiry
+  ]); 
 
-  // Fetch user data when user changes
+  // Fetch user data when user changes (Separate effect)
   useEffect(() => {
     if (user && isAuthenticated) {
       updateUserData();
