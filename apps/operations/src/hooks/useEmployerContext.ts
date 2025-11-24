@@ -54,9 +54,33 @@ export const useEmployerContext = () => {
       // Update the state immediately
       queryClient.setQueryData(['employer-context-id'], employerId);
       
-      // Force fresh data fetch for the new context
-      queryClient.invalidateQueries({ queryKey: ['dashboard-incidents-v2'] });
-      queryClient.invalidateQueries({ queryKey: ['employer-statistics'] });
+      // CRITICAL: Remove ALL queries related to the old employer context to force fresh fetch
+      queryClient.removeQueries({ 
+        queryKey: ['dashboard-incidents-v2'],
+        exact: false 
+      });
+      queryClient.removeQueries({ 
+        queryKey: ['employer-statistics'],
+        exact: false 
+      });
+      queryClient.removeQueries({ 
+        queryKey: ['incidents'],
+        exact: false 
+      });
+      
+      // Then invalidate to trigger refetch with new context
+      queryClient.invalidateQueries({ 
+        queryKey: ['dashboard-incidents-v2'],
+        refetchType: 'active'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['employer-statistics'],
+        refetchType: 'active'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['incidents'],
+        refetchType: 'active'
+      });
       
       toast({ 
         title: "Context Changed", 
