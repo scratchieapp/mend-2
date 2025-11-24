@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { useEmployerContext } from "@/hooks/useEmployerContext";
 import { EmployerSelector } from '@/components/builder/EmployerSelector';
 import { useAuth } from "@/lib/auth/AuthContext";
-import { IncidentsListOptimized } from '@/components/dashboard/IncidentsListOptimized';
+import { IncidentsList } from '@/components/dashboard/IncidentsList';
 
 export default function BuilderDashboard() {
   const { userData } = useAuth();
@@ -242,7 +242,7 @@ export default function BuilderDashboard() {
       </div>
 
       {/* Recent Incidents List */}
-      <IncidentsListOptimized 
+      <IncidentsList 
         selectedEmployerId={selectedEmployerId}
         enableVirtualScroll={true}
         showActions={true}

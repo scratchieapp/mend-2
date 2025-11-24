@@ -2,17 +2,16 @@ import { MetricsCards } from "@/components/dashboard/MetricsCards";
 import { IncidentAnalytics } from "@/components/dashboard/IncidentAnalytics";
 import { PerformanceOverview } from "@/components/dashboard/PerformanceOverview";
 import { IndustryLTIChart } from "@/components/dashboard/charts/IndustryLTIChart";
-import { IncidentsListOptimized } from "@/components/dashboard/IncidentsListOptimized";
+import { IncidentsList } from "@/components/dashboard/IncidentsList";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { PlusCircle, Download, CheckCircle, Users, Building2, Shield, Activity } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { MenuBar } from "@/components/MenuBar";
 import { DataErrorBoundary } from "@/components/DataErrorBoundary";
 import { useState, useEffect } from "react";
 import { startOfMonth, subMonths } from "date-fns";
-import { useEmployerSelection } from "@/hooks/useEmployerSelection";
+import { useEmployerContext } from "@/hooks/useEmployerContext";
 // Debug component disabled to prevent memory leaks
 // import { DebugPanel } from "@/components/DebugPanel";
 
@@ -25,7 +24,7 @@ const SuperAdminDashboard = () => {
   const selectedMonth = defaultMonth; // Changed from useState to const since it's never updated
   
   // Use the employer selection hook for proper context management
-  const { selectedEmployerId, employers, isLoadingEmployers, handleEmployerChange } = useEmployerSelection();
+  const { selectedEmployerId, employers, isLoadingEmployers } = useEmployerContext();
 
   // Defer secondary widgets (metrics/charts) until incidents list finishes
   const [readyForSecondary, setReadyForSecondary] = useState(false);
@@ -66,134 +65,133 @@ const SuperAdminDashboard = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <MenuBar />
-      <div className="pt-16 p-8">
-        <div className="max-w-7xl mx-auto space-y-8">
-          {/* Success Message */}
-          {showSuccessMessage && (
-            <Alert className="border-green-200 bg-green-50 text-green-800">
-              <CheckCircle className="h-4 w-4" />
-              <AlertDescription>
-                <div className="flex items-center justify-between">
-                  <span>
-                    Incident report submitted successfully!
-                    {submittedIncidentId && ` Report ID: #${submittedIncidentId}`}
-                  </span>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => setShowSuccessMessage(false)}
-                    className="text-green-600 hover:text-green-700"
-                  >
-                    Dismiss
-                  </Button>
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Simplified page header - no badges or duplicate selectors */}
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-4xl font-bold">Super Admin Dashboard</h1>
-              <p className="mt-2 text-muted-foreground">
-                Complete system oversight and management capabilities
-              </p>
-            </div>
-            <div className="flex gap-4">
-              <Button variant="outline" onClick={() => navigate("/admin/users")}>
-                <Users className="mr-2 h-4 w-4" />
-                Manage Users
-              </Button>
-              <Button variant="outline" onClick={() => {/* Generate report */}}>
-                <Download className="mr-2 h-4 w-4" />
-                Export Report
-              </Button>
-              <Button onClick={() => navigate("/incident-report")}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Record New Incident
-              </Button>
-            </div>
-          </div>
-
-          {/* Quick Stats for Super Admin */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {quickStats.map((stat, index) => {
-              const Icon = stat.icon;
-              return (
-                <Card key={index} className="hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => {
-                    if (stat.label === "Total Users") navigate("/admin/users");
-                    if (stat.label === "Total Employers") navigate("/admin/employers");
-                  }}
+    <div className="bg-background p-8">
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Success Message */}
+        {showSuccessMessage && (
+          <Alert className="border-green-200 bg-green-50 text-green-800">
+            <CheckCircle className="h-4 w-4" />
+            <AlertDescription>
+              <div className="flex items-center justify-between">
+                <span>
+                  Incident report submitted successfully!
+                  {submittedIncidentId && ` Report ID: #${submittedIncidentId}`}
+                </span>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setShowSuccessMessage(false)}
+                  className="text-green-600 hover:text-green-700"
                 >
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-muted-foreground">{stat.label}</span>
-                      <Icon className={`h-5 w-5 ${stat.color}`} />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{stat.value}</div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                  Dismiss
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Simplified page header - no badges or duplicate selectors */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-4xl font-bold">Super Admin Dashboard</h1>
+            <p className="mt-2 text-muted-foreground">
+              Complete system oversight and management capabilities
+            </p>
           </div>
+          <div className="flex gap-4">
+            <Button variant="outline" onClick={() => navigate("/admin/users")}>
+              <Users className="mr-2 h-4 w-4" />
+              Manage Users
+            </Button>
+            <Button variant="outline" onClick={() => {/* Generate report */}}>
+              <Download className="mr-2 h-4 w-4" />
+              Export Report
+            </Button>
+            <Button onClick={() => navigate("/incident-report")}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Record New Incident
+            </Button>
+          </div>
+        </div>
 
-          {/* Recent Incidents List */}
-          <DataErrorBoundary errorTitle="Failed to load recent incidents">
-            <IncidentsListOptimized 
-              key={`incidents-${selectedEmployerId || 'all'}`} // Force re-mount when employer changes
-              highlightIncidentId={submittedIncidentId || undefined}
-              showActions={true}
-              maxHeight="400px"
-              selectedEmployerId={selectedEmployerId}
-              enableVirtualScroll={true}
-              onLoaded={() => {
-                // Schedule secondary widgets to mount when the browser is idle
-                const schedule = (cb: () => void) => {
-                  // @ts-expect-error - requestIdleCallback may not be available in all browsers
-                  const ric = window.requestIdleCallback as ((callback: IdleRequestCallback, options?: IdleRequestOptions) => number) | undefined;
-                  if (typeof ric === 'function') ric(cb, { timeout: 500 });
-                  else setTimeout(cb, 0);
-                };
-                schedule(() => setReadyForSecondary(true));
-              }}
-            />
-          </DataErrorBoundary>
+        {/* Quick Stats for Super Admin */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {quickStats.map((stat, index) => {
+            const Icon = stat.icon;
+            return (
+              <Card key={index} className="hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => {
+                  if (stat.label === "Total Users") navigate("/admin/users");
+                  if (stat.label === "Total Employers") navigate("/admin/employers");
+                }}
+              >
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-muted-foreground">{stat.label}</span>
+                    <Icon className={`h-5 w-5 ${stat.color}`} />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stat.value}</div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
 
-          {readyForSecondary && (
-            <>
-              {import.meta.env.VITE_DISABLE_METRICS !== 'true' && (
-                <DataErrorBoundary errorTitle="Failed to load metrics">
-                  <MetricsCards 
-                    key={`metrics-${selectedEmployerId || 'all'}`} // Force re-mount when employer changes
-                    selectedEmployerId={selectedEmployerId} 
-                    selectedMonth={selectedMonth} 
-                  />
-                </DataErrorBoundary>
-              )}
-              
-              {import.meta.env.VITE_DISABLE_CHARTS !== 'true' && (
-                <DataErrorBoundary errorTitle="Failed to load LTI chart">
-                  <IndustryLTIChart selectedEmployerId={selectedEmployerId} />
-                </DataErrorBoundary>
-              )}
-              
-              {import.meta.env.VITE_DISABLE_CHARTS !== 'true' && (
-                <DataErrorBoundary errorTitle="Failed to load incident analytics">
-                  <IncidentAnalytics selectedEmployerId={selectedEmployerId} />
-                </DataErrorBoundary>
-              )}
-              
+        {/* Recent Incidents List */}
+        <DataErrorBoundary errorTitle="Failed to load recent incidents">
+          <IncidentsList 
+            key={`incidents-${selectedEmployerId || 'all'}`} // Force re-mount when employer changes
+            highlightIncidentId={submittedIncidentId || undefined}
+            showActions={true}
+            maxHeight="400px"
+            selectedEmployerId={selectedEmployerId}
+            enableVirtualScroll={true}
+            onLoaded={() => {
+              // Schedule secondary widgets to mount when the browser is idle
+              const schedule = (cb: () => void) => {
+                // @ts-expect-error - requestIdleCallback may not be available in all browsers
+                const ric = window.requestIdleCallback as ((callback: IdleRequestCallback, options?: IdleRequestOptions) => number) | undefined;
+                if (typeof ric === 'function') ric(cb, { timeout: 500 });
+                else setTimeout(cb, 0);
+              };
+              schedule(() => setReadyForSecondary(true));
+            }}
+          />
+        </DataErrorBoundary>
+
+        {readyForSecondary && (
+          <>
+            {import.meta.env.VITE_DISABLE_METRICS !== 'true' && (
+              <DataErrorBoundary errorTitle="Failed to load metrics">
+                <MetricsCards 
+                  key={`metrics-${selectedEmployerId || 'all'}`} // Force re-mount when employer changes
+                  selectedEmployerId={selectedEmployerId} 
+                  selectedMonth={selectedMonth} 
+                />
+              </DataErrorBoundary>
+            )}
+            
+            {import.meta.env.VITE_DISABLE_CHARTS !== 'true' && (
+              <DataErrorBoundary errorTitle="Failed to load LTI chart">
+                <IndustryLTIChart selectedEmployerId={selectedEmployerId} />
+              </DataErrorBoundary>
+            )}
+            
+            {import.meta.env.VITE_DISABLE_CHARTS !== 'true' && (
+              <DataErrorBoundary errorTitle="Failed to load incident analytics">
+                <IncidentAnalytics selectedEmployerId={selectedEmployerId} />
+              </DataErrorBoundary>
+            )}
+            
+            {import.meta.env.VITE_DISABLE_CHARTS !== 'true' && (
               <DataErrorBoundary errorTitle="Failed to load performance overview">
                 <PerformanceOverview selectedEmployerId={selectedEmployerId} />
               </DataErrorBoundary>
-            </>
-          )}
-        </div>
+            )}
+          </>
+        )}
       </div>
       {/* Debug component disabled to prevent memory leaks */}
       {/* <DebugPanel /> */}

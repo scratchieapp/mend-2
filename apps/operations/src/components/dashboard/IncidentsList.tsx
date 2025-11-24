@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useCallback, useMemo, useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,390 +13,492 @@ import {
   Filter, 
   Search, 
   Calendar,
-  User,
   AlertTriangle,
-  Clock,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  RefreshCw
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { getIncidentsWithDetails, type IncidentWithDetails } from '@/lib/supabase/incidents';
 import { useNavigate } from 'react-router-dom';
-import { useUserContext } from '@/hooks/useUserContext';
+import { useIncidentsDashboard } from '@/hooks/useIncidentsDashboard';
+import { cn } from '@/lib/utils';
+import debounce from 'lodash/debounce';
+import type { DebouncedFunc } from 'lodash';
 
-interface IncidentsListProps {
+// Import the IncidentData type from the hook
+interface IncidentData {
+  incident_id: number;
+  incident_number: string;
+  date_of_injury: string;
+  time_of_injury: string | null;
+  injury_type: string;
+  classification: string;
+  incident_status: string;
+  injury_description: string;
+  fatality: boolean;
+  returned_to_work: boolean;
+  total_days_lost: number;
+  created_at: string;
+  updated_at: string;
+  worker_id: number | null;
+  worker_name: string;
+  worker_occupation: string;
+  employer_id: number;
+  employer_name: string;
+  site_id: number | null;
+  site_name: string;
+  department_id: number | null;
+  department_name: string;
+  document_count: number;
+  estimated_cost: number;
+  psychosocial_factors?: unknown;
+}
+
+interface IncidentsListOptimizedProps {
   highlightIncidentId?: number;
   showActions?: boolean;
   maxHeight?: string;
   selectedEmployerId?: number | null;
+  enableVirtualScroll?: boolean;
+  onLoaded?: () => void; // notify when initial data is loaded
 }
+
+// Memoized incident row component for better performance
+const IncidentRow = React.memo(({ 
+  incident, 
+  isHighlighted, 
+  showActions, 
+  onView, 
+  onEdit 
+}: {
+  incident: IncidentData;
+  isHighlighted: boolean;
+  showActions: boolean;
+  onView: (id: number) => void;
+  onEdit: (id: number) => void;
+}) => {
+  const getStatusColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'open':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'closed':
+        return 'bg-green-100 text-green-800';
+      case 'pending':
+        return 'bg-blue-100 text-blue-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getClassificationColor = (classification: string) => {
+    switch (classification?.toUpperCase()) {
+      case 'LTI':
+        return 'bg-red-100 text-red-800';
+      case 'MTI':
+        return 'bg-orange-100 text-orange-800';
+      case 'FAI':
+        return 'bg-yellow-100 text-yellow-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  return (
+    <TableRow 
+      className={cn(
+        "hover:bg-muted/50 transition-colors",
+        isHighlighted && "bg-yellow-50 border-yellow-300"
+      )}
+    >
+      <TableCell className="font-medium">
+        {incident.incident_number || `INC-${incident.incident_id}`}
+      </TableCell>
+      <TableCell>
+        {incident.date_of_injury ? format(parseISO(incident.date_of_injury), 'MMM d, yyyy') : 'N/A'}
+      </TableCell>
+      <TableCell>{incident.worker_name || 'Unknown'}</TableCell>
+      <TableCell>{incident.injury_type || 'N/A'}</TableCell>
+      <TableCell>
+        <Badge className={getClassificationColor(incident.classification)}>
+          {incident.classification || 'N/A'}
+        </Badge>
+      </TableCell>
+      <TableCell>{incident.site_name || 'N/A'}</TableCell>
+      <TableCell>{incident.employer_name || 'N/A'}</TableCell>
+      <TableCell>
+        <Badge className={getStatusColor(incident.incident_status)}>
+          {incident.incident_status || 'Open'}
+        </Badge>
+      </TableCell>
+      {showActions && (
+        <TableCell>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onView(incident.incident_id)}
+              aria-label={`View incident ${incident.incident_number}`}
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onEdit(incident.incident_id)}
+              aria-label={`Edit incident ${incident.incident_number}`}
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+          </div>
+        </TableCell>
+      )}
+    </TableRow>
+  );
+});
+
+IncidentRow.displayName = 'IncidentRow';
 
 export function IncidentsList({ 
   highlightIncidentId, 
   showActions = true,
   maxHeight = "600px",
-  selectedEmployerId
-}: IncidentsListProps) {
+  selectedEmployerId,
+  enableVirtualScroll = false,
+  onLoaded
+}: IncidentsListOptimizedProps) {
   const navigate = useNavigate();
-  const { roleId, employerId: userEmployerId, isLoading: userLoading } = useUserContext();
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(25); // Optimized page size
+  const [pageSize] = useState(25);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // Calculate date filters
+  const { startDate, endDate } = useMemo(() => {
+    if (dateFilter === 'all') return { startDate: null, endDate: null };
+    
+    const now = new Date();
+    let start: Date | null = null;
+    const end: Date | null = new Date();
+    
+    switch (dateFilter) {
+      case 'today':
+        start = new Date(now.setHours(0, 0, 0, 0));
+        break;
+      case 'week':
+        start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case 'quarter':
+        start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        break;
+    }
+    
+    return {
+      startDate: start ? format(start, 'yyyy-MM-dd') : null,
+      endDate: end ? format(end, 'yyyy-MM-dd') : null
+    };
+  }, [dateFilter]);
+
+  // Use ultra-optimized hook
   const { 
-    data: incidentsData, 
+    incidents, 
+    totalCount,
+    totalPages,
     isLoading, 
+    isError, 
     error, 
-    refetch 
-  } = useQuery({
-    queryKey: ['incidents', currentPage, pageSize, dateFilter, selectedEmployerId || 'all', roleId, userEmployerId],
-    queryFn: async () => {
-      const offset = (currentPage - 1) * pageSize;
+    isFetching,
+    refetch,
+    prefetchNextPage
+  } = useIncidentsDashboard({
+    pageSize,
+    page: currentPage,
+    employerId: selectedEmployerId,
+    startDate,
+    endDate,
+    prefetchNext: true
+  });
+  
+  // Force refetch when employer changes - add a key reset to ensure full re-render
+  useEffect(() => {
+    setCurrentPage(1); // Reset to first page
+    refetch();
+  }, [selectedEmployerId, refetch]);
+
+  // Notify parent once when initial load completes
+  const hasNotifiedRef = useRef(false);
+  useEffect(() => {
+    if (!isLoading && !hasNotifiedRef.current) {
+      hasNotifiedRef.current = true;
+      onLoaded?.();
+    }
+  }, [isLoading, onLoaded]);
+
+  // Filter incidents on the client side for search
+  const filteredIncidents = useMemo(() => {
+    if (!searchTerm && statusFilter === 'all') return incidents;
+    
+    return incidents.filter(incident => {
+      const matchesSearch = !searchTerm || 
+        incident.incident_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        incident.worker_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        incident.injury_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        incident.site_name?.toLowerCase().includes(searchTerm.toLowerCase());
       
-      // Calculate date filters
-      let startDate: string | undefined;
-      let endDate: string | undefined;
+      const matchesStatus = statusFilter === 'all' || 
+        incident.incident_status?.toLowerCase() === statusFilter.toLowerCase();
       
-      if (dateFilter !== 'all') {
-        const now = new Date();
-        switch (dateFilter) {
-          case 'today':
-            startDate = format(now, 'yyyy-MM-dd');
-            endDate = format(now, 'yyyy-MM-dd');
-            break;
-          case 'week': {
-            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            startDate = format(weekAgo, 'yyyy-MM-dd');
-            endDate = format(now, 'yyyy-MM-dd');
-            break;
-          }
-          case 'month': {
-            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-            startDate = format(monthAgo, 'yyyy-MM-dd');
-            endDate = format(now, 'yyyy-MM-dd');
-            break;
-          }
-        }
+      return matchesSearch && matchesStatus;
+    });
+  }, [incidents, searchTerm, statusFilter]);
+
+  // Debounced search handler
+  const handleSearchChange: DebouncedFunc<(value: string) => void> = useMemo(
+    () => debounce((value: string) => {
+      setSearchTerm(value);
+      setCurrentPage(1);
+    }, 300),
+    []
+  );
+
+  // CRITICAL: Cleanup all references on unmount to prevent memory leaks
+  useEffect(() => {
+    const currentSearchHandler = handleSearchChange;
+    const currentSearchRef = searchInputRef.current;
+
+    return () => {
+      // Cancel debounced function to prevent memory leak
+      currentSearchHandler.cancel();
+
+      // Clear ref to prevent memory retention
+      if (currentSearchRef) {
+        currentSearchRef.value = '';
       }
 
-      // For Super Admin (role_id = 1), when no employer is selected, 
-      // we don't pass employerId to get ALL incidents
-      const filterEmployerId = roleId === 1 && !selectedEmployerId 
-        ? undefined 
-        : selectedEmployerId || undefined;
+      // Reset state to prevent stale closures
+      setSearchTerm('');
+      setCurrentPage(1);
+    };
+  }, []); // Empty deps - only cleanup on unmount
 
-      console.log('Fetching incidents with RBAC:', {
-        roleId,
-        userEmployerId,
-        filterEmployerId,
-        isSuperAdmin: roleId === 1
-      });
+  // Navigation handlers - Fixed routes to match App.tsx
+  const handleView = useCallback((incidentId: number) => {
+    navigate(`/incident/${incidentId}`); // Fixed: removed 's' to match route definition
+  }, [navigate]);
 
-      return await getIncidentsWithDetails({
-        pageSize,
-        pageOffset: offset,
-        startDate,
-        endDate,
-        employerId: filterEmployerId,
-        userRoleId: roleId || undefined,
-        userEmployerId: userEmployerId ? parseInt(userEmployerId.toString()) : undefined
-      });
-    },
-    staleTime: 60 * 1000, // 60 seconds - reduce refresh frequency
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
-    enabled: !userLoading && roleId !== undefined, // Don't fetch until we have user context
-    placeholderData: (previousData) => previousData, // Keep previous data while fetching
-    refetchOnWindowFocus: false, // Prevent refetch on window focus to reduce load
-  });
+  const handleEdit = useCallback((incidentId: number) => {
+    navigate(`/incident/${incidentId}/edit`); // Fixed: removed 's' to match route definition
+  }, [navigate]);
 
-  // Filter incidents based on search term - using useMemo for performance
-  const filteredIncidents = React.useMemo(() => {
-    if (!incidentsData?.incidents) return [];
-    if (!searchTerm) return incidentsData.incidents;
-    
-    const searchLower = searchTerm.toLowerCase();
-    return incidentsData.incidents.filter(incident => {
-      // Handle both worker_full_name and worker_name from optimized function
-      const workerName = incident.worker_full_name || incident.worker_name || '';
-      return (
-        workerName.toLowerCase().includes(searchLower) ||
-        incident.injury_type?.toLowerCase().includes(searchLower) ||
-        incident.incident_number?.toLowerCase().includes(searchLower) ||
-        incident.employer_name?.toLowerCase().includes(searchLower)
-      );
-    });
-  }, [incidentsData?.incidents, searchTerm]);
-
-  const getStatusBadge = (incident: IncidentWithDetails) => {
-    if (incident.fatality) {
-      return <Badge variant="destructive" className="bg-black text-white">Fatal</Badge>;
+  // Pagination handlers
+  const handlePageChange = useCallback((newPage: number) => {
+    setCurrentPage(newPage);
+    // Prefetch the next page for instant navigation
+    if (newPage < totalPages) {
+      prefetchNextPage();
     }
-    if (!incident.returned_to_work && incident.total_days_lost > 0) {
-      return <Badge variant="destructive">Off Work</Badge>;
-    }
-    if (incident.returned_to_work) {
-      return <Badge variant="default" className="bg-green-100 text-green-800">Returned to Work</Badge>;
-    }
-    return <Badge variant="secondary">Under Review</Badge>;
-  };
+  }, [totalPages, prefetchNextPage]);
 
-  const getSeverityColor = (incident: IncidentWithDetails) => {
-    if (incident.fatality) return 'border-l-black';
-    if (incident.total_days_lost > 7) return 'border-l-red-500';
-    if (incident.total_days_lost > 0) return 'border-l-yellow-500';
-    return 'border-l-green-500';
-  };
+  // Loading skeleton
+  const renderSkeleton = () => (
+    <TableBody>
+      {[...Array(5)].map((_, i) => (
+        <TableRow key={i}>
+          {[...Array(showActions ? 9 : 8)].map((_, j) => (
+            <TableCell key={j}>
+              <Skeleton className="h-4 w-full" />
+            </TableCell>
+          ))}
+        </TableRow>
+      ))}
+    </TableBody>
+  );
 
-  const formatIncidentDate = (dateStr: string, timeStr?: string) => {
-    try {
-      const date = parseISO(dateStr);
-      const dateFormatted = format(date, 'MMM dd, yyyy');
-      return timeStr ? `${dateFormatted} at ${timeStr}` : dateFormatted;
-    } catch {
-      return dateStr;
-    }
-  };
-
-  const handleViewIncident = (incidentId: number) => {
-    navigate(`/incident/${incidentId}`);
-  };
-
-  const handleEditIncident = (incidentId: number) => {
-    navigate(`/incident/${incidentId}/edit`);
-  };
-
-  if (isLoading) {
+  if (isError) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5" />
-            Recent Incidents
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-center space-x-4">
-                <Skeleton className="h-4 w-4" />
-                <div className="space-y-2 flex-1">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-3 w-3/4" />
-                </div>
-                <Skeleton className="h-6 w-16" />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5" />
-            Recent Incidents
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              Failed to load incidents. Please try again.
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => refetch()}
-                className="ml-2"
-              >
-                Retry
-              </Button>
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
+      <Alert className="mb-4">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription>
+          Failed to load incidents: {error?.message || 'Unknown error'}
+          <Button 
+            variant="link" 
+            className="ml-2 p-0 h-auto" 
+            onClick={() => refetch()}
+          >
+            Try again
+          </Button>
+        </AlertDescription>
+      </Alert>
     );
   }
 
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex justify-between items-center">
           <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5" />
-            Recent Incidents ({incidentsData?.totalCount || 0})
+            Incidents
+            {isFetching && !isLoading && (
+              <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
+            )}
           </CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex gap-2">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
+                ref={searchInputRef}
                 placeholder="Search incidents..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-64"
+                className="pl-8 w-[200px]"
+                onChange={(e) => handleSearchChange(e.target.value)}
               />
             </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[120px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={dateFilter} onValueChange={setDateFilter}>
-              <SelectTrigger className="w-32">
+              <SelectTrigger className="w-[120px]">
                 <Calendar className="h-4 w-4 mr-2" />
-                <SelectValue />
+                <SelectValue placeholder="Date" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Time</SelectItem>
                 <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="week">This Week</SelectItem>
-                <SelectItem value="month">This Month</SelectItem>
+                <SelectItem value="week">Past Week</SelectItem>
+                <SelectItem value="month">Past Month</SelectItem>
+                <SelectItem value="quarter">Past Quarter</SelectItem>
               </SelectContent>
             </Select>
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={() => refetch()}
+              disabled={isFetching}
+            >
+              <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
+            </Button>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="p-0">
-        <div style={{ maxHeight }} className="overflow-auto">
+      <CardContent>
+        <div className="rounded-md border" style={{ maxHeight, overflowY: 'auto' }}>
           <Table>
-            <TableHeader>
+            <TableHeader className="sticky top-0 bg-background z-10">
               <TableRow>
-                <TableHead>Incident</TableHead>
+                <TableHead className="w-[120px]">Incident #</TableHead>
+                <TableHead>Date</TableHead>
                 <TableHead>Worker</TableHead>
                 <TableHead>Injury Type</TableHead>
+                <TableHead>Classification</TableHead>
+                <TableHead>Site</TableHead>
+                <TableHead>Employer</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Days Lost</TableHead>
-                <TableHead>Date</TableHead>
-                {showActions && <TableHead className="text-right">Actions</TableHead>}
+                {showActions && <TableHead className="w-[100px]">Actions</TableHead>}
               </TableRow>
             </TableHeader>
-            <TableBody>
-              {filteredIncidents.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={showActions ? 7 : 6} className="text-center py-8">
-                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                      <AlertTriangle className="h-8 w-8" />
-                      <p>No incidents found</p>
-                      {searchTerm && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => setSearchTerm('')}
-                        >
-                          Clear search
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredIncidents.map((incident) => (
-                  <TableRow 
-                    key={incident.incident_id}
-                    className={`
-                      border-l-4 ${getSeverityColor(incident)}
-                      ${highlightIncidentId === incident.incident_id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
-                      hover:bg-muted/50
-                    `}
-                  >
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="font-medium">
-                          #{incident.incident_number}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {incident.employer_name}
-                        </div>
-                      </div>
+            {isLoading ? renderSkeleton() : (
+              <TableBody>
+                {filteredIncidents.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={showActions ? 9 : 8} className="text-center text-muted-foreground py-8">
+                      No incidents found
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <div className="font-medium">{incident.worker_full_name || incident.worker_name || 'Unknown'}</div>
-                          {incident.worker_occupation && (
-                            <div className="text-sm text-muted-foreground">
-                              {incident.worker_occupation}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="font-medium">{incident.injury_type}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {incident.classification}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {getStatusBadge(incident)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span className={incident.total_days_lost > 7 ? 'font-medium text-red-600' : ''}>
-                          {incident.total_days_lost} days
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        {formatIncidentDate(incident.date_of_injury, incident.time_of_injury)}
-                      </div>
-                    </TableCell>
-                    {showActions && (
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleViewIncident(incident.incident_id)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditIncident(incident.incident_id)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    )}
                   </TableRow>
-                ))
-              )}
-            </TableBody>
+                ) : (
+                  filteredIncidents.map(incident => (
+                    <IncidentRow
+                      key={incident.incident_id}
+                      incident={incident}
+                      isHighlighted={incident.incident_id === highlightIncidentId}
+                      showActions={showActions}
+                      onView={handleView}
+                      onEdit={handleEdit}
+                    />
+                  ))
+                )}
+              </TableBody>
+            )}
           </Table>
         </div>
         
         {/* Pagination */}
-        {incidentsData && incidentsData.totalPages > 1 && (
-          <div className="flex items-center justify-between p-4 border-t">
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-4">
             <div className="text-sm text-muted-foreground">
-              Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, incidentsData.totalCount)} of {incidentsData.totalCount} incidents
+              Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} incidents
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1 || isFetching}
               >
                 <ChevronLeft className="h-4 w-4" />
                 Previous
               </Button>
               <div className="flex items-center gap-1">
-                <span className="text-sm">Page {currentPage} of {incidentsData.totalPages}</span>
+                {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                  const pageNum = i + 1;
+                  if (totalPages <= 5) {
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        className="w-8"
+                        onClick={() => handlePageChange(pageNum)}
+                        disabled={isFetching}
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  }
+                  
+                  // Smart pagination for many pages
+                  if (pageNum === 1 || pageNum === totalPages || 
+                      (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)) {
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        className="w-8"
+                        onClick={() => handlePageChange(pageNum)}
+                        disabled={isFetching}
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  }
+                  
+                  if (pageNum === 2 && currentPage > 3) {
+                    return <span key={pageNum} className="px-1">...</span>;
+                  }
+                  
+                  if (pageNum === totalPages - 1 && currentPage < totalPages - 2) {
+                    return <span key={pageNum} className="px-1">...</span>;
+                  }
+                  
+                  return null;
+                })}
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(prev => Math.min(incidentsData.totalPages, prev + 1))}
-                disabled={currentPage === incidentsData.totalPages}
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages || isFetching}
               >
                 Next
                 <ChevronRight className="h-4 w-4" />

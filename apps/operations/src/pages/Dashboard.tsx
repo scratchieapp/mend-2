@@ -3,7 +3,7 @@ import { IncidentAnalytics } from "@/components/dashboard/IncidentAnalytics";
 import { PerformanceOverview } from "@/components/dashboard/PerformanceOverview";
 import { MedicalProfessionalDashboard } from "@/components/dashboard/MedicalProfessionalDashboard";
 import { IndustryLTIChart } from "@/components/dashboard/charts/IndustryLTIChart";
-import { IncidentsListOptimized } from "@/components/dashboard/IncidentsListOptimized";
+import { IncidentsList } from "@/components/dashboard/IncidentsList";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PlusCircle, Download, CheckCircle } from "lucide-react";
@@ -11,7 +11,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { DataErrorBoundary } from "@/components/DataErrorBoundary";
 import { useState, useEffect } from "react";
 import { startOfMonth, subMonths } from "date-fns";
-import { useEmployerSelection } from "@/hooks/useEmployerSelection";
+import { useEmployerContext } from "@/hooks/useEmployerContext";
 // Debug components disabled to prevent memory leaks
 // import { DebugPanel } from "@/components/DebugPanel";
 // import { PerformanceMonitor } from "@/components/dashboard/PerformanceMonitor";
@@ -27,7 +27,7 @@ const Dashboard = () => {
   const selectedMonth = defaultMonth; // Changed from useState to const since it's never updated
   
   // Use the employer selection hook for proper context management
-  const { selectedEmployerId } = useEmployerSelection();
+  const { selectedEmployerId } = useEmployerContext();
 
   // Defer secondary widgets (metrics/charts) until incidents list finishes
   const [readyForSecondary, setReadyForSecondary] = useState(false);
@@ -112,7 +112,7 @@ const Dashboard = () => {
           <>
             {/* Recent Incidents List */}
             <DataErrorBoundary errorTitle="Failed to load recent incidents">
-              <IncidentsListOptimized 
+              <IncidentsList 
                 highlightIncidentId={submittedIncidentId || undefined}
                 showActions={true}
                 maxHeight="400px"
@@ -161,9 +161,6 @@ const Dashboard = () => {
           </>
         )}
       </div>
-      {/* Debug components disabled to prevent memory leaks */}
-      {/* <DebugPanel /> */}
-      {/* {import.meta.env.VITE_SHOW_PERF_MONITOR === 'true' && <PerformanceMonitor />} */}
     </div>
   );
 };
