@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface EmployerStatistics {
   incident_count: number;
@@ -18,61 +18,49 @@ interface EmployerStatistics {
   closed_incidents?: number;
 }
 
-interface Employer {
-  employer_id: number;
-  employer_name: string;
-}
-
-/**
- * Master Hook for employer state management and context-aware data
- */
 export const useEmployerContext = () => {
   const { userData } = useAuth();
   const queryClient = useQueryClient();
 
-  // 1. FETCH: Get the current context (defaulting to user's employer if null)
+  // 1. SOURCE OF TRUTH: Fetch state from Cache, defaulting to LocalStorage or DB
   const { data: selectedEmployerId } = useQuery({
-    queryKey: ['employer-context', userData?.user_id],
+    queryKey: ['employer-context-id'],
     queryFn: () => {
-      const stored = localStorage.getItem("selectedEmployerId");
-      // If super admin, allow null (All Companies) or stored value
-      if (userData?.role_id === 1) {
-        return stored === "null" ? null : (stored ? Number(stored) : null);
+      // Security: Non-super-admins MUST use their assigned ID
+      if (userData?.role_id !== 1) {
+        return userData?.employer_id ? Number(userData.employer_id) : null;
       }
-      // For others, ALWAYS enforce their DB employer_id
-      return userData?.employer_id ? Number(userData.employer_id) : null;
+      
+      // Super Admins: Check local storage first
+      const stored = localStorage.getItem("selectedEmployerId");
+      if (stored === "null") return null;
+      if (stored) return Number(stored);
+      
+      return null; // Default to "All Companies"
     },
-    initialData: null
+    initialData: null,
+    staleTime: Infinity, // Do not refetch this automatically
   });
 
-  // 2. ACTION: Unified setter that handles LocalStorage AND Cache
+  // 2. SETTER: Updates both LocalStorage and Cache to stop the "fight"
   const setContext = useMutation({
     mutationFn: async (employerId: number | null) => {
-      // Security check
-      if (userData?.role_id !== 1 && userData?.employer_id !== String(employerId)) {
-        throw new Error("Unauthorized context switch");
-      }
       return employerId;
     },
     onSuccess: (employerId) => {
-      // A. Update Local Storage
-      localStorage.setItem("selectedEmployerId", employerId === null ? "null" : String(employerId));
+      const idString = employerId === null ? "null" : String(employerId);
+      localStorage.setItem("selectedEmployerId", idString);
       
-      // B. Update React Query Cache (Optimistic UI)
-      queryClient.setQueryData(['employer-context', userData?.user_id], employerId);
+      // Update the state immediately
+      queryClient.setQueryData(['employer-context-id'], employerId);
       
-      // C. Nuke the specific dashboard queries to force fresh fetch
-      queryClient.removeQueries({ queryKey: ['dashboard-incidents-v2'] }); 
+      // Force fresh data fetch for the new context
+      queryClient.invalidateQueries({ queryKey: ['dashboard-incidents-v2'] });
       queryClient.invalidateQueries({ queryKey: ['employer-statistics'] });
       
-      toast({ title: "Context Updated", description: "Dashboard refreshed" });
-    },
-    onError: (error) => {
-      console.error('Failed to set employer context:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to set employer context",
-        variant: "destructive"
+      toast({ 
+        title: "Context Changed", 
+        description: employerId ? "Filtering by specific employer" : "Viewing all companies" 
       });
     }
   });
@@ -123,22 +111,14 @@ export const useEmployerContext = () => {
   });
 
   return {
-    // State
     selectedEmployerId,
     setContext: setContext.mutate,
     isLoading: setContext.isPending,
-    
-    // Data
     employers,
     isLoadingEmployers,
     statistics,
     isLoadingStats,
     refetchStats,
-    
-    // Helper
-    isSuperAdmin: userData?.role_id === 1,
-    
-    // Legacy aliases for compatibility if needed
-    currentContext: selectedEmployerId, 
+    isSuperAdmin: userData?.role_id === 1
   };
 };

@@ -1,7 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { MenuBar } from "@/components/MenuBar";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Clock, MapPin, User, AlertCircle, FileText, Calendar, Phone, Stethoscope, Activity, Map as MapIcon } from "lucide-react";
 import { format } from "date-fns";
@@ -322,7 +321,6 @@ const IncidentDetailsPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <MenuBar />
       <div className="container mx-auto p-6 max-w-7xl">
         {/* Header Section */}
         <div className="flex items-center gap-4 mb-8">
