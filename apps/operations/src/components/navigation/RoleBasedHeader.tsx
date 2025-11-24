@@ -1,7 +1,7 @@
 import React from 'react';
 import { Building2, Shield, Users, Briefcase } from 'lucide-react';
 import { NavigationLinks } from './NavigationLinks';
-import { EmployerContextSelector } from '../EmployerContextSelectorWorking';
+import { EmployerContextSelector } from '../EmployerContextSelector';
 import { UserBadge } from '../auth/UserBadge';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { Badge } from '@/components/ui/badge';

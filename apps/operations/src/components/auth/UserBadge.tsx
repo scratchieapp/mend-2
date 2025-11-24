@@ -93,14 +93,6 @@ export function UserBadge() {
             </Avatar>
             <div className="flex flex-col items-start">
               <span className="text-sm font-medium">{userName}</span>
-              {userRole && (
-                <Badge 
-                  variant="secondary" 
-                  className={`text-xs ${getRoleBadgeColor(userRole)} text-white`}
-                >
-                  {userRole}
-                </Badge>
-              )}
             </div>
             <ChevronDown className="h-4 w-4 text-muted-foreground" />
           </div>

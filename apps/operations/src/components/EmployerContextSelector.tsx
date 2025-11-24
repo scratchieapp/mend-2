@@ -8,7 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { useEmployerSelection } from "@/hooks/useEmployerSelection";
+import { useEmployerContext } from "@/hooks/useEmployerContext";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { cn } from "@/lib/utils";
 
@@ -18,8 +18,12 @@ export function EmployerContextSelector() {
     selectedEmployerId,
     employers,
     isLoadingEmployers,
-    handleEmployerChange,
-  } = useEmployerSelection();
+    setContext
+  } = useEmployerContext();
+
+  const handleEmployerChange = (id: number | null) => {
+    setContext(id);
+  };
 
   // Set default employer for non-super admins
   useEffect(() => {
@@ -150,11 +154,6 @@ export function EmployerContextSelector() {
           )}
         </SelectContent>
       </Select>
-      {isSuperAdmin && (
-        <Badge variant="default" className="ml-2">
-          Super Admin
-        </Badge>
-      )}
     </div>
   );
 }
