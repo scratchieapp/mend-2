@@ -18,79 +18,54 @@ interface EmployerStatistics {
   closed_incidents?: number;
 }
 
+interface Employer {
+  employer_id: number;
+  employer_name: string;
+}
+
 /**
- * Hook for managing employer context and fetching context-aware data
- * This hook leverages the RLS policies to automatically filter data
- * based on the selected employer context
+ * Master Hook for employer state management and context-aware data
  */
 export const useEmployerContext = () => {
   const { userData } = useAuth();
   const queryClient = useQueryClient();
 
-  // Since we're using Clerk auth, we'll manage context client-side
-  // Use the user's employer_id as the default context
-  const { data: currentContext, isLoading: isLoadingContext } = useQuery({
+  // 1. FETCH: Get the current context (defaulting to user's employer if null)
+  const { data: selectedEmployerId } = useQuery({
     queryKey: ['employer-context', userData?.user_id],
-    queryFn: async () => {
-      // For now, return the user's employer_id directly
-      // Super Admins can switch context, others use their assigned employer
-      return userData?.employer_id || null;
-    },
-    enabled: !!userData,
-  });
-
-  // Get statistics for the current employer context using direct function
-  const { data: statistics, isLoading: isLoadingStats, refetch: refetchStats } = useQuery({
-    queryKey: ['employer-statistics', currentContext, userData?.role_id],
-    queryFn: async () => {
-      if (!currentContext) return null;
-      
-      // Use the direct function that doesn't depend on Supabase auth
-      const { data, error } = await supabase.rpc('get_employer_statistics_direct', {
-        p_employer_id: currentContext,
-        p_user_role: userData?.role_id
-      });
-      
-      if (error) {
-        console.error('Error fetching employer statistics:', error);
-        return null;
-      }
-      
-      // The function returns an array, get the first item
-      return data?.[0] as EmployerStatistics | null;
-    },
-    enabled: !!currentContext && !!userData,
-    staleTime: 30 * 1000, // Consider data stale after 30 seconds
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
-  });
-
-  // Mutation to set employer context (client-side only for now)
-  const setContext = useMutation({
-    mutationFn: async (employerId: number) => {
-      // For Super Admins, validate they can access this employer
+    queryFn: () => {
+      const stored = localStorage.getItem("selectedEmployerId");
+      // If super admin, allow null (All Companies) or stored value
       if (userData?.role_id === 1) {
-        // Super Admin can access any employer
-        return employerId;
-      } else if (userData?.employer_id && userData.employer_id !== employerId) {
-        // Other users can only access their assigned employer
-        throw new Error('Access denied to this employer');
+        return stored === "null" ? null : (stored ? Number(stored) : null);
+      }
+      // For others, ALWAYS enforce their DB employer_id
+      return userData?.employer_id ? Number(userData.employer_id) : null;
+    },
+    initialData: null
+  });
+
+  // 2. ACTION: Unified setter that handles LocalStorage AND Cache
+  const setContext = useMutation({
+    mutationFn: async (employerId: number | null) => {
+      // Security check
+      if (userData?.role_id !== 1 && userData?.employer_id !== String(employerId)) {
+        throw new Error("Unauthorized context switch");
       }
       return employerId;
     },
-    onSuccess: async (employerId) => {
-      // Update context immediately
+    onSuccess: (employerId) => {
+      // A. Update Local Storage
+      localStorage.setItem("selectedEmployerId", employerId === null ? "null" : String(employerId));
+      
+      // B. Update React Query Cache (Optimistic UI)
       queryClient.setQueryData(['employer-context', userData?.user_id], employerId);
       
-      // Invalidate related queries
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['employer-statistics', employerId, userData?.role_id] }),
-        queryClient.invalidateQueries({ queryKey: ['incidents'] }),
-      ]);
+      // C. Nuke the specific dashboard queries to force fresh fetch
+      queryClient.removeQueries({ queryKey: ['dashboard-incidents-v2'] }); 
+      queryClient.invalidateQueries({ queryKey: ['employer-statistics'] });
       
-      toast({
-        title: "Context Updated",
-        description: `Viewing data for employer ID: ${employerId}`,
-      });
+      toast({ title: "Context Updated", description: "Dashboard refreshed" });
     },
     onError: (error) => {
       console.error('Failed to set employer context:', error);
@@ -102,70 +77,68 @@ export const useEmployerContext = () => {
     }
   });
 
-  // Mutation to clear employer context
-  const clearContext = useMutation({
-    mutationFn: async () => {
-      // Reset to user's default employer
-      return userData?.employer_id || null;
+  // 3. DATA: Fetch list of employers (for Super Admins)
+  const { data: employers = [], isLoading: isLoadingEmployers } = useQuery({
+    queryKey: ['employers'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('employers')
+        .select('employer_id, employer_name')
+        .order('employer_name');
+
+      if (error) {
+        console.error('Error fetching employers:', error);
+        return [];
+      }
+
+      return data || [];
     },
-    onSuccess: (defaultEmployerId) => {
-      queryClient.setQueryData(['employer-context', userData?.user_id], defaultEmployerId);
-      queryClient.invalidateQueries({ queryKey: ['employer-statistics'] });
-      
-      toast({
-        title: "Context Cleared",
-        description: "Employer context has been reset to default",
-      });
-    },
-    onError: (error) => {
-      console.error('Failed to clear employer context:', error);
-      toast({
-        title: "Error",
-        description: "Failed to clear employer context",
-        variant: "destructive"
-      });
-    }
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000,
+    enabled: userData?.role_id === 1, // Only fetch for super admins
   });
 
-  // REMOVED: Fetch incidents with automatic RLS filtering
-  // This was causing redundant fetches since IncidentsList already fetches incidents
-  const contextIncidents = [];
-  const isLoadingIncidents = false;
-
-  // REMOVED: Fetch workers with automatic RLS filtering
-  // This was causing redundant fetches - fetch only when needed
-  const contextWorkers = [];
-  const isLoadingWorkers = false;
-
-  // REMOVED: Fetch sites with automatic RLS filtering  
-  // This was causing redundant fetches - fetch only when needed
-  const contextSites = [];
-  const isLoadingSites = false;
+  // 4. STATS: Get statistics for the current employer context
+  const { data: statistics, isLoading: isLoadingStats, refetch: refetchStats } = useQuery({
+    queryKey: ['employer-statistics', selectedEmployerId, userData?.role_id],
+    queryFn: async () => {
+      // If no context selected and not super admin, return null
+      if (selectedEmployerId === null && userData?.role_id !== 1) return null;
+      
+      const { data, error } = await supabase.rpc('get_employer_statistics_direct', {
+        p_employer_id: selectedEmployerId,
+        p_user_role: userData?.role_id
+      });
+      
+      if (error) {
+        console.error('Error fetching employer statistics:', error);
+        return null;
+      }
+      
+      return data?.[0] as EmployerStatistics | null;
+    },
+    enabled: !!userData,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
 
   return {
-    // Context management
-    currentContext,
-    isLoadingContext,
+    // State
+    selectedEmployerId,
     setContext: setContext.mutate,
-    clearContext: clearContext.mutate,
-    isSettingContext: setContext.isPending,
-    isClearingContext: clearContext.isPending,
+    isLoading: setContext.isPending,
     
-    // Statistics
+    // Data
+    employers,
+    isLoadingEmployers,
     statistics,
     isLoadingStats,
     refetchStats,
     
-    // Context-filtered data
-    incidents: contextIncidents,
-    workers: contextWorkers,
-    sites: contextSites,
-    isLoadingIncidents,
-    isLoadingWorkers,
-    isLoadingSites,
-    
-    // Utility flags
-    hasContext: !!currentContext,
+    // Helper
     isSuperAdmin: userData?.role_id === 1,
+    
+    // Legacy aliases for compatibility if needed
+    currentContext: selectedEmployerId, 
   };
 };

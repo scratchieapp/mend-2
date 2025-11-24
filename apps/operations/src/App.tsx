@@ -8,7 +8,6 @@ import AuthCallback from "./pages/auth/AuthCallback";
 import Login from "./pages/auth/Login";
 import ClerkLogin from "./pages/auth/ClerkLogin";
 import ClerkSignup from "./pages/auth/ClerkSignup";
-import MockLogin from "./pages/auth/MockLogin";
 import ClearSession from "./pages/auth/ClearSession";
 import SignUp from "./pages/auth/SignUp";
 import ForgotPassword from "./pages/auth/ForgotPassword";
@@ -17,10 +16,11 @@ import DashboardRouter from "./components/auth/DashboardRouter";
 
 // Clerk components
 import { UserProfile } from "@clerk/clerk-react";
-// import { SessionWarning } from "./components/SessionWarning"; // Disabled for Clerk-only auth
+
+// Components
+import { AppLayout } from "./components/layout/AppLayout";
 
 // Pages
-// NOTE: Import your Administrator page. Adjust the path if it's in a different folder.
 import Administrator from "./pages/roles/Administrator";
 import AccountManager from "./pages/AccountManager";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
@@ -64,10 +64,6 @@ import ClerkDebug from "./pages/ClerkDebug";
 function App() {
   return (
     <>
-      {/* Session warning disabled for Clerk-only auth */}
-      {/* <SessionWarning /> */}
-      
-
       <Routes>
 
         {/* Clerk auth pages */}
@@ -90,70 +86,72 @@ function App() {
         <Route path="/debug-auth" element={<DebugAuth />} />
         <Route path="/clerk-debug" element={<ClerkDebug />} />
 
-        {/* Protected routes */}
+        {/* Protected routes wrapped in AppLayout */}
         <Route element={<ProtectedRoute />}>
-          {/* Root route - DashboardRouter will fetch role and redirect */}
-          <Route path="/" element={<DashboardRouter />} />
-          
-          {/* Role-specific dashboard routes */}
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="superadmin-dashboard" element={<SuperAdminDashboard />} />
-          <Route path="public-dashboard" element={<PublicDashboard />} />
-          <Route path="admin" element={<AdminDashboard />} />
-          <Route path="account-manager" element={<AccountManager />} />
-          <Route path="user-management" element={<UserManagementPage />} />
-          <Route path="builder-senior" element={<BuilderSeniorDashboard />} />
-          <Route path="builder" element={<BuilderDashboard />} />
-          <Route path="builder/senior/lti-details" element={<LTIDetailsPage />} />
-          <Route path="site-admin" element={<SiteAdmin />} />
-          <Route path="medical-dashboard" element={<MedicalDashboard />} />
-          <Route path="medical" element={<MedicalHomePage />} />
-          <Route path="medical/patients" element={<MedicalPatientsPage />} />
-          <Route path="insurance" element={<InsuranceProviderDashboard />} />
-          <Route path="government" element={<GovernmentOfficialDashboard />} />
-          
-          {/* Worker Portal route */}
-          <Route path="worker-portal" element={<WorkerPortal />} />
+          <Route element={<AppLayout />}>
+            {/* Root route - DashboardRouter will fetch role and redirect */}
+            <Route path="/" element={<DashboardRouter />} />
+            
+            {/* Role-specific dashboard routes */}
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="superadmin-dashboard" element={<SuperAdminDashboard />} />
+            <Route path="public-dashboard" element={<PublicDashboard />} />
+            <Route path="admin" element={<AdminDashboard />} />
+            <Route path="account-manager" element={<AccountManager />} />
+            <Route path="user-management" element={<UserManagementPage />} />
+            <Route path="builder-senior" element={<BuilderSeniorDashboard />} />
+            <Route path="builder" element={<BuilderDashboard />} />
+            <Route path="builder/senior/lti-details" element={<LTIDetailsPage />} />
+            <Route path="site-admin" element={<SiteAdmin />} />
+            <Route path="medical-dashboard" element={<MedicalDashboard />} />
+            <Route path="medical" element={<MedicalHomePage />} />
+            <Route path="medical/patients" element={<MedicalPatientsPage />} />
+            <Route path="insurance" element={<InsuranceProviderDashboard />} />
+            <Route path="government" element={<GovernmentOfficialDashboard />} />
+            
+            {/* Worker Portal route */}
+            <Route path="worker-portal" element={<WorkerPortal />} />
 
-          {/* Administrator route */}
-          <Route path="administrator" element={<Administrator />} />
-          <Route path="incident-report" element={<IncidentReport />} />
-          <Route path="incident/:id" element={<IncidentDetailsPage />} />
-          <Route path="incident/:id/edit" element={<IncidentEditPage />} />
-          
-          {/* User Profile route for Clerk */}
-          <Route
-            path="user/*"
-            element={
-              <div className="container mx-auto p-8">
-                <UserProfile
-                  appearance={{
-                    elements: {
-                      rootBox: "w-full max-w-4xl mx-auto",
-                      card: "shadow-lg border",
-                    },
-                  }}
-                />
-              </div>
-            }
-          />
+            {/* Administrator route */}
+            <Route path="administrator" element={<Administrator />} />
+            <Route path="incident-report" element={<IncidentReport />} />
+            <Route path="incident/:id" element={<IncidentDetailsPage />} />
+            <Route path="incident/:id/edit" element={<IncidentEditPage />} />
+            
+            {/* User Profile route for Clerk */}
+            <Route
+              path="user/*"
+              element={
+                <div className="container mx-auto p-8">
+                  <UserProfile
+                    appearance={{
+                      elements: {
+                        rootBox: "w-full max-w-4xl mx-auto",
+                        card: "shadow-lg border",
+                      },
+                    }}
+                  />
+                </div>
+              }
+            />
 
-          {/* Admin routes */}
-          <Route path="admin/users" element={<AdminUsersPage />} />
-          <Route path="admin/storage-setup" element={<StorageSetupAdmin />} />
-          <Route path="admin/data" element={<DataAdmin />} />
-          <Route path="admin/data-configuration" element={<DataConfigurationAdmin />} />
-          <Route path="admin/cost-configuration" element={<CostConfigurationAdmin />} />
-          <Route path="admin/data-import" element={<DataImportAdmin />} />
-          <Route path="admin/reference-tables" element={<ReferenceTablesAdmin />} />
-          <Route path="admin/search-verify" element={<SearchVerifyAdmin />} />
-          <Route path="admin/system-logs" element={<SystemLogsAdmin />} />
-          <Route path="admin/medical-professionals" element={<MedicalProfessionalsAdmin />} />
-          <Route path="admin/hours-worked" element={<HoursWorkedAdmin />} />
-          <Route path="admin/users" element={<AdminUsersPage />} />
-          <Route path="admin/user-management" element={<UserManagementAdmin />} />
-          <Route path="admin/super-user-management" element={<SuperUserManagement />} />
-          <Route path="admin/employer-management" element={<EmployerManagementAdmin />} />
+            {/* Admin routes */}
+            <Route path="admin/users" element={<AdminUsersPage />} />
+            <Route path="admin/storage-setup" element={<StorageSetupAdmin />} />
+            <Route path="admin/data" element={<DataAdmin />} />
+            <Route path="admin/data-configuration" element={<DataConfigurationAdmin />} />
+            <Route path="admin/cost-configuration" element={<CostConfigurationAdmin />} />
+            <Route path="admin/data-import" element={<DataImportAdmin />} />
+            <Route path="admin/reference-tables" element={<ReferenceTablesAdmin />} />
+            <Route path="admin/search-verify" element={<SearchVerifyAdmin />} />
+            <Route path="admin/system-logs" element={<SystemLogsAdmin />} />
+            <Route path="admin/medical-professionals" element={<MedicalProfessionalsAdmin />} />
+            <Route path="admin/hours-worked" element={<HoursWorkedAdmin />} />
+            <Route path="admin/users" element={<AdminUsersPage />} />
+            <Route path="admin/user-management" element={<UserManagementAdmin />} />
+            <Route path="admin/super-user-management" element={<SuperUserManagement />} />
+            <Route path="admin/employer-management" element={<EmployerManagementAdmin />} />
+          </Route>
         </Route>
       </Routes>
     </>

@@ -1,96 +1,71 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Building2, Users, FileText, TrendingUp, AlertTriangle, Calendar, Shield, ClipboardList, RefreshCw } from "lucide-react";
+import { Building2, Users, FileText, TrendingUp, AlertTriangle, Calendar, Shield, ClipboardList } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useEmployerSelection } from "@/hooks/useEmployerSelection";
 import { useEmployerContext } from "@/hooks/useEmployerContext";
-import { DashboardHeader } from '@/components/layout/DashboardHeader';
 import { EmployerSelector } from '@/components/builder/EmployerSelector';
 import { useAuth } from "@/lib/auth/AuthContext";
 import { IncidentsListOptimized } from '@/components/dashboard/IncidentsListOptimized';
-import { useEffect } from 'react';
 
 export default function BuilderDashboard() {
   const { userData } = useAuth();
+  
+  // Use the master hook for all employer context state and data
   const { 
     selectedEmployerId, 
+    setContext, 
     employers, 
-    isLoadingEmployers, 
-    handleEmployerChange 
-  } = useEmployerSelection();
-  
-  // Use the new context-aware hook for statistics
-  const { 
+    isLoadingEmployers,
     statistics: stats, 
-    isLoadingStats,
-    setContext,
-    currentContext
+    isLoadingStats
   } = useEmployerContext();
-  
-  // Sync employer selection with context - debounced to prevent rapid updates
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (selectedEmployerId && selectedEmployerId !== currentContext) {
-        setContext(selectedEmployerId);
-      }
-    }, 300); // 300ms debounce
-    
-    return () => clearTimeout(timer);
-  }, [selectedEmployerId]); // Removed currentContext and setContext to prevent loops
-
-  const breadcrumbItems = [
-    { label: 'Home', href: '/' },
-    { label: 'Builder Dashboard' }
-  ];
   
   const isSuperAdmin = userData?.role_id === 1;
   
-  // Custom actions for the header (employer selector for super admin)
-  const headerActions = isSuperAdmin ? (
-    <div className="flex items-center gap-2">
-      <EmployerSelector
-        employers={employers}
-        selectedEmployerId={selectedEmployerId}
-        onSelect={handleEmployerChange}
-        isLoading={isLoadingEmployers}
-      />
-    </div>
-  ) : null;
-
   return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader
-        title="Builder Dashboard"
-        description="Manage workplace safety and incidents for your organization"
-        breadcrumbItems={breadcrumbItems}
-        customActions={headerActions}
-      />
+    <div className="bg-background p-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Builder Dashboard</h1>
+          <p className="text-muted-foreground mt-1">
+            Manage workplace safety and incidents for your organization
+          </p>
+        </div>
+        
+        {/* Employer Selector for Super Admin */}
+        {isSuperAdmin && (
+          <div className="w-full md:w-auto">
+            <EmployerSelector
+              employers={employers}
+              selectedEmployerId={selectedEmployerId}
+              onSelect={(id) => setContext(id)}
+              isLoading={isLoadingEmployers}
+            />
+          </div>
+        )}
+      </div>
 
-      {!selectedEmployerId ? (
-        <div className="container mx-auto p-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Select an Employer</CardTitle>
-              <CardDescription>
-                Please select an employer from the dropdown above to view the dashboard.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </div>
+      {!selectedEmployerId && !isSuperAdmin ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Select an Employer</CardTitle>
+            <CardDescription>
+              Please select an employer from the dropdown above to view the dashboard.
+            </CardDescription>
+          </CardHeader>
+        </Card>
       ) : isLoadingStats ? (
-        <div className="container mx-auto p-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Loading...</CardTitle>
-              <CardDescription>
-                Fetching data for the selected employer...
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Loading...</CardTitle>
+            <CardDescription>
+              Fetching data for the selected employer...
+            </CardDescription>
+          </CardHeader>
+        </Card>
       ) : (
       
-      <div className="container mx-auto p-6 space-y-6">
+      <div className="space-y-6">
 
       {/* Current Company Banner */}
       {stats?.selected_employer_name && (

@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PlusCircle, Download, CheckCircle } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { MenuBar } from "@/components/MenuBar";
 import { DataErrorBoundary } from "@/components/DataErrorBoundary";
 import { useState, useEffect } from "react";
 import { startOfMonth, subMonths } from "date-fns";
@@ -56,112 +55,111 @@ const Dashboard = () => {
   }, [location.state]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <MenuBar />
-      <div className="pt-16 p-8">
-        <div className="max-w-7xl mx-auto space-y-8">
-          {/* Success Message */}
-          {showSuccessMessage && (
-            <Alert className="border-green-200 bg-green-50 text-green-800">
-              <CheckCircle className="h-4 w-4" />
-              <AlertDescription>
-                <div className="flex items-center justify-between">
-                  <span>
-                    Incident report submitted successfully!
-                    {submittedIncidentId && ` Report ID: #${submittedIncidentId}`}
-                  </span>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => setShowSuccessMessage(false)}
-                    className="text-green-600 hover:text-green-700"
-                  >
-                    Dismiss
-                  </Button>
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
+    <div className="bg-background p-8">
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Success Message */}
+        {showSuccessMessage && (
+          <Alert className="border-green-200 bg-green-50 text-green-800">
+            <CheckCircle className="h-4 w-4" />
+            <AlertDescription>
+              <div className="flex items-center justify-between">
+                <span>
+                  Incident report submitted successfully!
+                  {submittedIncidentId && ` Report ID: #${submittedIncidentId}`}
+                </span>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setShowSuccessMessage(false)}
+                  className="text-green-600 hover:text-green-700"
+                >
+                  Dismiss
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-4xl font-bold">
-                {isMedicalProfessional ? "Medical Professional Dashboard" : "Executive Dashboard"}
-              </h1>
-              <p className="mt-2 text-muted-foreground">
-                {isMedicalProfessional 
-                  ? "Manage and review assigned cases"
-                  : "Strategic overview and key performance indicators"
-                }
-              </p>
-            </div>
-            <div className="flex gap-4">
-              <Button variant="outline" onClick={() => {/* Generate report */}}>
-                <Download className="mr-2 h-4 w-4" />
-                Export Report
-              </Button>
-              <Button onClick={() => navigate("/incident-report")}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Record New Incident
-              </Button>
-            </div>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-4xl font-bold">
+              {isMedicalProfessional ? "Medical Professional Dashboard" : "Executive Dashboard"}
+            </h1>
+            <p className="mt-2 text-muted-foreground">
+              {isMedicalProfessional 
+                ? "Manage and review assigned cases"
+                : "Strategic overview and key performance indicators"
+              }
+            </p>
           </div>
+          <div className="flex gap-4">
+            <Button variant="outline" onClick={() => {/* Generate report */}}>
+              <Download className="mr-2 h-4 w-4" />
+              Export Report
+            </Button>
+            <Button onClick={() => navigate("/incident-report")}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Record New Incident
+            </Button>
+          </div>
+        </div>
 
-          {isMedicalProfessional ? (
-            <DataErrorBoundary errorTitle="Failed to load medical dashboard">
-              <MedicalProfessionalDashboard />
+        {isMedicalProfessional ? (
+          <DataErrorBoundary errorTitle="Failed to load medical dashboard">
+            <MedicalProfessionalDashboard />
+          </DataErrorBoundary>
+        ) : (
+          <>
+            {/* Recent Incidents List */}
+            <DataErrorBoundary errorTitle="Failed to load recent incidents">
+              <IncidentsListOptimized 
+                highlightIncidentId={submittedIncidentId || undefined}
+                showActions={true}
+                maxHeight="400px"
+                selectedEmployerId={selectedEmployerId}
+                enableVirtualScroll={true}
+                onLoaded={() => {
+                  // Schedule secondary widgets to mount when the browser is idle
+                  const schedule = (cb: () => void) => {
+                    // @ts-expect-error - requestIdleCallback may not be available in all browsers
+                    const ric = window.requestIdleCallback as ((callback: IdleRequestCallback, options?: IdleRequestOptions) => number) | undefined;
+                    if (typeof ric === 'function') ric(cb, { timeout: 500 });
+                    else setTimeout(cb, 0);
+                  };
+                  schedule(() => setReadyForSecondary(true));
+                }}
+              />
             </DataErrorBoundary>
-          ) : (
-            <>
-              {/* Recent Incidents List */}
-              <DataErrorBoundary errorTitle="Failed to load recent incidents">
-                <IncidentsListOptimized 
-                  highlightIncidentId={submittedIncidentId || undefined}
-                  showActions={true}
-                  maxHeight="400px"
-                  selectedEmployerId={selectedEmployerId}
-                  enableVirtualScroll={true}
-                  onLoaded={() => {
-                    // Schedule secondary widgets to mount when the browser is idle
-                    const schedule = (cb: () => void) => {
-                      // @ts-expect-error - requestIdleCallback may not be available in all browsers
-                      const ric = window.requestIdleCallback as ((callback: IdleRequestCallback, options?: IdleRequestOptions) => number) | undefined;
-                      if (typeof ric === 'function') ric(cb, { timeout: 500 });
-                      else setTimeout(cb, 0);
-                    };
-                    schedule(() => setReadyForSecondary(true));
-                  }}
-                />
-              </DataErrorBoundary>
 
-              {readyForSecondary && (
-                <>
-                  {import.meta.env.VITE_DISABLE_METRICS !== 'true' && (
-                    <DataErrorBoundary errorTitle="Failed to load metrics">
-                      <MetricsCards selectedEmployerId={selectedEmployerId} selectedMonth={selectedMonth} />
-                    </DataErrorBoundary>
-                  )}
-                  
-                  {import.meta.env.VITE_DISABLE_CHARTS !== 'true' && (
-                    <DataErrorBoundary errorTitle="Failed to load LTI chart">
-                      <IndustryLTIChart selectedEmployerId={selectedEmployerId} />
-                    </DataErrorBoundary>
-                  )}
-                  
-                  {import.meta.env.VITE_DISABLE_CHARTS !== 'true' && (
-                    <DataErrorBoundary errorTitle="Failed to load incident analytics">
-                      <IncidentAnalytics selectedEmployerId={selectedEmployerId} />
-                    </DataErrorBoundary>
-                  )}
-                  
+            {readyForSecondary && (
+              <>
+                {import.meta.env.VITE_DISABLE_METRICS !== 'true' && (
+                  <DataErrorBoundary errorTitle="Failed to load metrics">
+                    <MetricsCards selectedEmployerId={selectedEmployerId} selectedMonth={selectedMonth} />
+                  </DataErrorBoundary>
+                )}
+                
+                {import.meta.env.VITE_DISABLE_CHARTS !== 'true' && (
+                  <DataErrorBoundary errorTitle="Failed to load LTI chart">
+                    <IndustryLTIChart selectedEmployerId={selectedEmployerId} />
+                  </DataErrorBoundary>
+                )}
+                
+                {import.meta.env.VITE_DISABLE_CHARTS !== 'true' && (
+                  <DataErrorBoundary errorTitle="Failed to load incident analytics">
+                    <IncidentAnalytics selectedEmployerId={selectedEmployerId} />
+                  </DataErrorBoundary>
+                )}
+                
+                {import.meta.env.VITE_DISABLE_CHARTS !== 'true' && (
                   <DataErrorBoundary errorTitle="Failed to load performance overview">
                     <PerformanceOverview selectedEmployerId={selectedEmployerId} />
                   </DataErrorBoundary>
-                </>
-              )}
-            </>
-          )}
-        </div>
+                )}
+              </>
+            )}
+          </>
+        )}
       </div>
       {/* Debug components disabled to prevent memory leaks */}
       {/* <DebugPanel /> */}
