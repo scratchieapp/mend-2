@@ -31,7 +31,6 @@ import {
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
-import { MenuBar } from '@/components/MenuBar';
 import { supabase } from '@/integrations/supabase/client';
 import { assignUserToEmployer, removeUserFromEmployer, getUserEmployers } from '@/lib/supabase/metrics';
 import {
@@ -285,7 +284,7 @@ const SuperUserManagement = () => {
   if (isLoadingUsers || isLoadingEmployers || isLoadingRoles) {
     return (
       <div className="min-h-screen bg-background">
-        <MenuBar />
+        
         <div className="pt-16 p-8">
           <div className="max-w-7xl mx-auto">
             <Card>
@@ -304,7 +303,7 @@ const SuperUserManagement = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <MenuBar />
+      
       <div className="pt-16 p-8">
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Header */}
