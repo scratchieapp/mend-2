@@ -1301,6 +1301,50 @@ export type Database = {
           }
         ]
       }
+      incident_activities: {
+        Row: {
+          id: number
+          incident_id: number
+          type: 'call' | 'appointment' | 'note' | 'voice_agent' | 'edit'
+          title: string
+          description: string | null
+          created_at: string
+          created_by: string
+          created_by_user_id: string | null
+          metadata: Record<string, unknown> | null
+        }
+        Insert: {
+          id?: number
+          incident_id: number
+          type: 'call' | 'appointment' | 'note' | 'voice_agent' | 'edit'
+          title: string
+          description?: string | null
+          created_at?: string
+          created_by: string
+          created_by_user_id?: string | null
+          metadata?: Record<string, unknown> | null
+        }
+        Update: {
+          id?: number
+          incident_id?: number
+          type?: 'call' | 'appointment' | 'note' | 'voice_agent' | 'edit'
+          title?: string
+          description?: string | null
+          created_at?: string
+          created_by?: string
+          created_by_user_id?: string | null
+          metadata?: Record<string, unknown> | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incident_activities_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "incidents"
+            referencedColumns: ["incident_id"]
+          }
+        ]
+      }
       sites: {
         Row: {
           city: string | null

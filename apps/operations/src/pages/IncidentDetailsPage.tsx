@@ -163,24 +163,56 @@ const IncidentDetailsPage = () => {
     enabled: !!id
   });
 
-  // Fetch activity log for this incident
+  // Fetch activity log for this incident from database
   const { data: activityLog = [] } = useQuery({
     queryKey: ['incident-activity', id],
     queryFn: async () => {
-      // For now, return mock data - in production this would come from a database table
-      // You'll need to create an incident_activities table
-      const mockActivities: ActivityLogEntry[] = [
-        {
-          id: '1',
+      const { data, error } = await supabase
+        .from('incident_activities')
+        .select('*')
+        .eq('incident_id', Number(id))
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching activity log:', error);
+        // Return a default entry if no activities exist or table doesn't exist yet
+        return [{
+          id: 'initial',
+          incident_id: Number(id),
+          type: 'edit' as const,
+          title: 'Incident Created',
+          description: 'Initial incident report submitted',
+          created_at: incident?.created_at || new Date().toISOString(),
+          created_by: 'System',
+        }] as ActivityLogEntry[];
+      }
+      
+      // Map database results to ActivityLogEntry format
+      const activities: ActivityLogEntry[] = data.map(item => ({
+        id: item.id.toString(),
+        incident_id: item.incident_id,
+        type: item.type as ActivityLogEntry['type'],
+        title: item.title,
+        description: item.description || undefined,
+        created_at: item.created_at,
+        created_by: item.created_by,
+        metadata: item.metadata as Record<string, string> | undefined,
+      }));
+      
+      // If no activities, add the initial creation entry
+      if (activities.length === 0) {
+        activities.push({
+          id: 'initial',
           incident_id: Number(id),
           type: 'edit',
           title: 'Incident Created',
           description: 'Initial incident report submitted',
           created_at: incident?.created_at || new Date().toISOString(),
           created_by: 'System',
-        }
-      ];
-      return mockActivities;
+        });
+      }
+      
+      return activities;
     },
     enabled: !!id && !!incident
   });
@@ -188,8 +220,25 @@ const IncidentDetailsPage = () => {
   // Add activity mutation
   const addActivityMutation = useMutation({
     mutationFn: async (activity: typeof newActivity) => {
-      // In production, this would insert into incident_activities table
-      // For now, we'll just show a toast
+      const userName = userData?.custom_display_name || userData?.display_name || userData?.email || 'Unknown User';
+      
+      const { error } = await supabase
+        .from('incident_activities')
+        .insert({
+          incident_id: Number(id),
+          type: activity.type,
+          title: activity.title,
+          description: activity.description || null,
+          created_by: userName,
+          created_by_user_id: userData?.user_id || null,
+          metadata: Object.keys(activity.metadata).length > 0 ? activity.metadata : null,
+        });
+      
+      if (error) {
+        console.error('Error adding activity:', error);
+        throw error;
+      }
+      
       return activity;
     },
     onSuccess: () => {
@@ -205,6 +254,13 @@ const IncidentDetailsPage = () => {
         metadata: {}
       });
       queryClient.invalidateQueries({ queryKey: ['incident-activity', id] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to add activity. Please try again.",
+        variant: "destructive",
+      });
     }
   });
 

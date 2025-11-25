@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,6 +12,7 @@ import { LoadingState } from "@/components/ui/LoadingState";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, ArrowLeft, ArrowRight, Save, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 // Form sections
 import { NotificationSection } from "@/components/incident-report/NotificationSection";
@@ -25,15 +26,37 @@ import { DocumentsSection } from "@/components/incident-report/DocumentsSection"
 import IncidentCostEstimate from "@/components/incident-report/cost/IncidentCostEstimate";
 
 // Hooks and validation
-import { incidentReportSchema, type IncidentReportFormData } from "@/lib/validations/incident";
+import { incidentEditSchema, type IncidentEditFormData } from "@/lib/validations/incident";
 import { logValidationError } from "@/lib/monitoring/errorLogger";
 import { supabase } from "@/integrations/supabase/client";
+
+// Field labels for human-readable change descriptions
+const fieldLabels: Record<string, string> = {
+  notifying_person_name: 'Notifying Person Name',
+  notifying_person_position: 'Notifying Person Position',
+  notifying_person_telephone: 'Notifying Person Phone',
+  worker_id: 'Worker',
+  site_id: 'Site',
+  date_of_injury: 'Date of Injury',
+  time_of_injury: 'Time of Injury',
+  injury_type: 'Injury Type',
+  body_part_id: 'Body Part',
+  injury_description: 'Injury Description',
+  witness: 'Witness',
+  treatment_provided: 'Treatment Provided',
+  referral: 'Referral',
+  doctor_details: 'Doctor Details',
+  actions: 'Actions Taken',
+  case_notes: 'Case Notes',
+};
 
 const IncidentEditPage = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { userData } = useAuth();
   const [activeTab, setActiveTab] = useState("notification");
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const originalDataRef = useRef<Record<string, unknown> | null>(null);
 
   // Fetch existing incident data
   const { data: incidentData, isLoading, error } = useQuery({
@@ -88,8 +111,8 @@ const IncidentEditPage = () => {
     enabled: !!id,
   });
 
-  const form = useForm<IncidentReportFormData>({
-    resolver: zodResolver(incidentReportSchema),
+  const form = useForm<IncidentEditFormData>({
+    resolver: zodResolver(incidentEditSchema),
     mode: 'onBlur',
     defaultValues: {
       mend_client: "Mend Safety Platform",
@@ -122,6 +145,28 @@ const IncidentEditPage = () => {
   useEffect(() => {
     if (incidentData) {
       console.log('Raw incident data received:', incidentData);
+      
+      // Store original data for change tracking (only once)
+      if (!originalDataRef.current) {
+        originalDataRef.current = {
+          notifying_person_name: incidentData.notifying_person_name || '',
+          notifying_person_position: incidentData.notifying_person_position || '',
+          notifying_person_telephone: incidentData.notifying_person_telephone || '',
+          worker_id: incidentData.worker_id,
+          site_id: incidentData.site_id,
+          date_of_injury: incidentData.date_of_injury || '',
+          time_of_injury: incidentData.time_of_injury || '',
+          injury_type: incidentData.injury_type || '',
+          body_part_id: incidentData.body_part_id,
+          injury_description: incidentData.injury_description || '',
+          witness: incidentData.witness || '',
+          treatment_provided: incidentData.treatment_provided || '',
+          referral: incidentData.referral || '',
+          doctor_details: incidentData.doctor_details || incidentData.doctor_notes || '',
+          actions: incidentData.actions || '',
+          case_notes: incidentData.case_notes || '',
+        };
+      }
       
       // Map database fields to form fields properly
       const formData = {
@@ -188,53 +233,123 @@ const IncidentEditPage = () => {
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: async (data: IncidentReportFormData) => {
+    mutationFn: async (data: IncidentEditFormData) => {
       if (!id) throw new Error('No incident ID provided');
 
-      // Parse worker_id
-      const workerId = parseInt(data.worker_id);
-      if (isNaN(workerId)) {
+      // Parse worker_id (allow null for incidents without workers)
+      const workerId = data.worker_id ? parseInt(data.worker_id) : null;
+      if (data.worker_id && isNaN(workerId as number)) {
         throw new Error('Invalid worker ID');
       }
 
-      // Get site_id from location_site
-      const siteId = parseInt(data.location_site);
-      if (isNaN(siteId)) {
+      // Get site_id from location_site (allow null)
+      const siteId = data.location_site ? parseInt(data.location_site) : null;
+      if (data.location_site && isNaN(siteId as number)) {
         throw new Error('Invalid site ID');
       }
 
+      // Prepare new values for comparison
+      const newValues: Record<string, unknown> = {
+        notifying_person_name: data.notifying_person_name,
+        notifying_person_position: data.notifying_person_position,
+        notifying_person_telephone: data.notifying_person_telephone,
+        worker_id: workerId,
+        site_id: siteId,
+        date_of_injury: data.date_of_injury,
+        time_of_injury: data.time_of_injury,
+        injury_type: data.injury_type,
+        body_part_id: parseInt(data.body_part) || null,
+        injury_description: data.injury_description,
+        witness: data.witness,
+        treatment_provided: data.type_of_first_aid,
+        referral: data.referred_to !== 'none' ? data.referred_to : null,
+        doctor_details: data.doctor_details,
+        actions: data.actions_taken.join('; '),
+        case_notes: data.case_notes,
+      };
+
+      // Calculate changes
+      const changes: { field: string; oldValue: unknown; newValue: unknown }[] = [];
+      if (originalDataRef.current) {
+        for (const [key, newValue] of Object.entries(newValues)) {
+          const oldValue = originalDataRef.current[key];
+          // Compare values (stringify for deep comparison)
+          if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+            changes.push({
+              field: key,
+              oldValue: oldValue ?? '',
+              newValue: newValue ?? '',
+            });
+          }
+        }
+      }
+
       // Update incident record with correct database field mapping
+      // Only include fields that have values (to avoid overwriting with empty strings)
+      const updateData: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+      };
+      
+      // Only update fields that have actual values
+      if (data.notifying_person_name) updateData.notifying_person_name = data.notifying_person_name;
+      if (data.notifying_person_position) updateData.notifying_person_position = data.notifying_person_position;
+      if (data.notifying_person_telephone) updateData.notifying_person_telephone = data.notifying_person_telephone;
+      if (workerId !== null) updateData.worker_id = workerId;
+      if (siteId !== null) updateData.site_id = siteId;
+      if (data.date_of_injury) updateData.date_of_injury = data.date_of_injury;
+      if (data.time_of_injury) updateData.time_of_injury = data.time_of_injury;
+      if (data.injury_type) updateData.injury_type = data.injury_type;
+      if (data.body_part) updateData.body_part_id = parseInt(data.body_part) || null;
+      if (data.injury_description) updateData.injury_description = data.injury_description;
+      if (data.witness !== undefined) updateData.witness = data.witness || null;
+      if (data.type_of_first_aid) updateData.treatment_provided = data.type_of_first_aid;
+      if (data.referred_to && data.referred_to !== 'none') updateData.referral = data.referred_to;
+      if (data.doctor_details !== undefined) updateData.doctor_details = data.doctor_details || null;
+      if (data.actions_taken && data.actions_taken.length > 0) updateData.actions = data.actions_taken.join('; ');
+      if (data.case_notes !== undefined) updateData.case_notes = data.case_notes || null;
+
       const { error: updateError } = await supabase
         .from('incidents')
-        .update({
-          // Note: mend_client doesn't exist in DB, skip it
-          notifying_person_name: data.notifying_person_name,
-          notifying_person_position: data.notifying_person_position,
-          notifying_person_telephone: data.notifying_person_telephone,
-          worker_id: workerId,
-          site_id: siteId,
-          // employment_type doesn't exist in DB, skip it
-          date_of_injury: data.date_of_injury,
-          time_of_injury: data.time_of_injury,
-          injury_type: data.injury_type,
-          // Map body_part to body_part_id if it's a number
-          body_part_id: parseInt(data.body_part) || null,
-          // body_side maps to body_side_id, but we'll skip for now
-          injury_description: data.injury_description,
-          witness: data.witness,
-          // Map type_of_first_aid to treatment_provided
-          treatment_provided: data.type_of_first_aid,
-          // Map referred_to to referral  
-          referral: data.referred_to !== 'none' ? data.referred_to : null,
-          doctor_details: data.doctor_details,
-          // Map actions_taken array to actions string
-          actions: data.actions_taken.join('; '),
-          case_notes: data.case_notes,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('incident_id', id);
 
       if (updateError) throw updateError;
+
+      // Log activity if there were changes
+      if (changes.length > 0) {
+        const userName = userData?.custom_display_name || userData?.display_name || userData?.email || 'Unknown User';
+        const changeDescriptions = changes.map(c => {
+          const label = fieldLabels[c.field] || c.field;
+          return `${label}`;
+        });
+        
+        const description = `Updated: ${changeDescriptions.join(', ')}`;
+        
+        // Insert activity log entry
+        const { error: activityError } = await supabase
+          .from('incident_activities')
+          .insert({
+            incident_id: parseInt(id),
+            type: 'edit' as const,
+            title: 'Incident Updated',
+            description: description,
+            created_by: userName,
+            created_by_user_id: userData?.user_id || null,
+            metadata: {
+              changes: changes.map(c => ({
+                field: c.field,
+                fieldLabel: fieldLabels[c.field] || c.field,
+                oldValue: c.oldValue,
+                newValue: c.newValue,
+              })),
+            },
+          });
+
+        if (activityError) {
+          console.error('Failed to log activity:', activityError);
+          // Don't fail the update if activity logging fails
+        }
+      }
 
       return { incidentId: id };
     },
@@ -286,7 +401,7 @@ const IncidentEditPage = () => {
     }
   };
 
-  const onSubmit = async (data: IncidentReportFormData) => {
+  const onSubmit = async (data: IncidentEditFormData) => {
     try {
       await updateMutation.mutateAsync(data);
     } catch (error) {

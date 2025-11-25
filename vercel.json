@@ -85,6 +85,14 @@
       "destination": "/operations/index.html"
     },
     {
+      "source": "/incident/(.*)",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/incident",
+      "destination": "/operations/index.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/marketing/$1"
     }

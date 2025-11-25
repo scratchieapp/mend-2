@@ -118,7 +118,7 @@ export const documentsSchema = z.object({
   })).optional(),
 });
 
-// Complete incident report schema
+// Complete incident report schema (for creating new incidents - strict validation)
 export const incidentReportSchema = z.object({
   // Notification
   mend_client: z.string().min(1, 'Client is required'),
@@ -165,8 +165,62 @@ export const incidentReportSchema = z.object({
   })).optional(),
 });
 
+// Relaxed schema for editing existing incidents (allows partial data)
+// Optional phone validation that allows empty strings
+const optionalPhoneValidation = z.string().refine(
+  (phone) => !phone || phone.length === 0 || validateAustralianPhone(phone),
+  { message: "Please enter a valid Australian phone number (e.g., 04## ### ### or 02 #### ####)" }
+);
+
+export const incidentEditSchema = z.object({
+  // Notification - optional for edits
+  mend_client: z.string().optional().default(''),
+  notifying_person_name: z.string().optional().default(''),
+  notifying_person_position: z.string().optional().default(''),
+  notifying_person_telephone: optionalPhoneValidation.optional().default(''),
+  
+  // Worker - optional for edits (allows incidents without assigned worker)
+  worker_id: z.string().optional().default(''),
+  
+  // Employment - optional for edits
+  employer_name: z.string().optional().default(''),
+  location_site: z.string().optional().default(''),
+  supervisor_contact: z.string().optional().default(''),
+  supervisor_phone: optionalPhoneValidation.optional().default(''),
+  employment_type: z.enum(['full_time', 'part_time', 'casual', 'contractor']).optional().default('full_time'),
+  
+  // Injury - keep some basic validation but be more lenient
+  date_of_injury: z.string().optional().default(''),
+  time_of_injury: z.string().optional().default(''),
+  injury_type: z.string().optional().default(''),
+  body_part: z.string().optional().default(''),
+  body_side: z.enum(['left', 'right', 'both', 'not_applicable']).optional(),
+  injury_description: z.string().max(500).optional().default(''),
+  witness: z.string().optional().default(''),
+  
+  // Treatment - optional for edits
+  type_of_first_aid: z.string().optional().default(''),
+  referred_to: z.enum(['none', 'hospital', 'gp', 'specialist', 'physio']).optional().default('none'),
+  doctor_details: z.string().optional().default(''),
+  
+  // Actions - optional for edits (allow empty array)
+  actions_taken: z.array(z.string()).optional().default([]),
+  
+  // Notes - optional
+  case_notes: z.string().max(2000).optional().default(''),
+  
+  // Documents - optional
+  documents: z.array(z.object({
+    url: z.string().url('Invalid document URL'),
+    name: z.string(),
+    type: z.string(),
+    size: z.number(),
+  })).optional().default([]),
+});
+
 // Type exports
 export type IncidentReportFormData = z.infer<typeof incidentReportSchema>;
+export type IncidentEditFormData = z.infer<typeof incidentEditSchema>;
 export type NotificationFormData = z.infer<typeof notificationSchema>;
 export type WorkerDetailsFormData = z.infer<typeof workerDetailsSchema>;
 export type EmploymentFormData = z.infer<typeof employmentSchema>;
