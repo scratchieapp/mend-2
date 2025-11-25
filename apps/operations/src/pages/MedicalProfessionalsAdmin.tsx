@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { MenuBar } from "@/components/MenuBar";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -43,7 +42,7 @@ export default function MedicalProfessionalsAdmin() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <MenuBar />
+      
       <div className="pt-16 p-8">
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex justify-between items-center">
