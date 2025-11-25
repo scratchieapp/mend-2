@@ -142,6 +142,7 @@ export const incidentReportSchema = z.object({
   injury_type: z.string().min(1, 'Injury type is required'),
   body_part: z.string().min(1, 'Body part is required'),
   body_side: z.enum(['left', 'right', 'both', 'not_applicable']).optional(),
+  body_regions: z.array(z.string()).optional().default([]),
   injury_description: z.string().min(10).max(500),
   witness: z.string().optional(),
   
@@ -195,6 +196,7 @@ export const incidentEditSchema = z.object({
   injury_type: z.string().optional().default(''),
   body_part: z.string().optional().default(''),
   body_side: z.enum(['left', 'right', 'both', 'not_applicable']).optional(),
+  body_regions: z.array(z.string()).optional().default([]),
   injury_description: z.string().max(500).optional().default(''),
   witness: z.string().optional().default(''),
   

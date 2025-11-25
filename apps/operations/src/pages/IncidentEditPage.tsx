@@ -130,6 +130,7 @@ const IncidentEditPage = () => {
       injury_type: "",
       body_part: "",
       body_side: "not_applicable",
+      body_regions: [],
       injury_description: "",
       witness: "",
       type_of_first_aid: "",
@@ -201,6 +202,7 @@ const IncidentEditPage = () => {
                    incidentData.body_side_id === 2 ? "right" :
                    incidentData.body_side_id === 3 ? "both" :
                    "not_applicable" as const,
+        body_regions: Array.isArray(incidentData.body_regions) ? incidentData.body_regions : [],
         injury_description: incidentData.injury_description || "",
         witness: incidentData.witness || "",
         
@@ -302,6 +304,7 @@ const IncidentEditPage = () => {
       if (data.time_of_injury) updateData.time_of_injury = data.time_of_injury;
       if (data.injury_type) updateData.injury_type = data.injury_type;
       if (data.body_part) updateData.body_part_id = parseInt(data.body_part) || null;
+      if (data.body_regions && data.body_regions.length > 0) updateData.body_regions = data.body_regions;
       if (data.injury_description) updateData.injury_description = data.injury_description;
       if (data.witness !== undefined) updateData.witness = data.witness || null;
       if (data.type_of_first_aid) updateData.treatment_provided = data.type_of_first_aid;

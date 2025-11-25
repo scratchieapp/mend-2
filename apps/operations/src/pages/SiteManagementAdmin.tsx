@@ -145,9 +145,11 @@ export default function SiteManagementAdmin() {
   });
 
   // Fetch sites with related data
-  const { data: sites, isLoading } = useQuery({
+  const { data: sites, isLoading, error: sitesError } = useQuery({
     queryKey: ['admin-sites'],
     queryFn: async () => {
+      console.log('Fetching sites...');
+      
       const { data: sitesData, error: sitesError } = await supabase
         .from('sites')
         .select(`
@@ -156,13 +158,27 @@ export default function SiteManagementAdmin() {
         `)
         .order('site_name');
 
-      if (sitesError) throw sitesError;
+      console.log('Sites query result:', { sitesData, sitesError });
+
+      if (sitesError) {
+        console.error('Sites fetch error:', sitesError);
+        throw sitesError;
+      }
+
+      if (!sitesData || sitesData.length === 0) {
+        console.log('No sites found in database');
+        return [];
+      }
 
       // Get latest status for each site
-      const { data: statusHistory } = await supabase
+      const { data: statusHistory, error: statusError } = await supabase
         .from('site_status_history')
         .select('site_id, status, month')
         .order('month', { ascending: false });
+      
+      if (statusError) {
+        console.warn('Status history fetch warning:', statusError);
+      }
 
       // Create a map of latest status per site
       const statusMap = new Map<number, string>();
@@ -672,7 +688,7 @@ export default function SiteManagementAdmin() {
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-green-500" />
-                    Active Sites
+                    Active Sites ({activeSites.length})
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-amber-500" />
@@ -680,15 +696,38 @@ export default function SiteManagementAdmin() {
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-gray-400" />
-                    Finished Sites
+                    Finished Sites ({inactiveSites.length})
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
+                {sitesError && (
+                  <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-red-700 font-medium">Error loading sites</p>
+                    <p className="text-sm text-red-600">{(sitesError as Error).message}</p>
+                  </div>
+                )}
+                
+                {isLoading && (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary" />
+                    <span className="ml-2">Loading sites...</span>
+                  </div>
+                )}
+                
+                {!isLoading && !sitesError && sites?.length === 0 && (
+                  <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-amber-700 font-medium">No sites found</p>
+                    <p className="text-sm text-amber-600">
+                      There are no sites in the database yet. Click "Add New Site" to create one.
+                    </p>
+                  </div>
+                )}
+                
                 {apiKey ? (
                   <div 
                     ref={mapRef} 
-                    className="w-full rounded-lg border"
+                    className="w-full rounded-lg border bg-slate-100"
                     style={{ height: '600px' }}
                   />
                 ) : (
@@ -698,6 +737,9 @@ export default function SiteManagementAdmin() {
                       <h3 className="text-lg font-medium mb-2">Map requires Google Maps API key</h3>
                       <p className="text-sm text-muted-foreground">
                         See GOOGLE_MAPS_SETUP.md for instructions on adding your API key.
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Add VITE_GOOGLE_MAPS_API_KEY to your .env file
                       </p>
                     </div>
                   </div>
@@ -727,9 +769,33 @@ export default function SiteManagementAdmin() {
                   </div>
                 </div>
 
+                {sitesError && (
+                  <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-red-700 font-medium">Error loading sites</p>
+                    <p className="text-sm text-red-600">{(sitesError as Error).message}</p>
+                  </div>
+                )}
+
                 {isLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary" />
+                    <span className="ml-2">Loading sites...</span>
+                  </div>
+                ) : filteredSites.length === 0 ? (
+                  <div className="text-center py-12">
+                    <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No sites found</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {searchQuery 
+                        ? `No sites match "${searchQuery}"`
+                        : "There are no sites in the database yet."}
+                    </p>
+                    {!searchQuery && (
+                      <Button onClick={() => setIsCreateDialogOpen(true)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add First Site
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <Table>

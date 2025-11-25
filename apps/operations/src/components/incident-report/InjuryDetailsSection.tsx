@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormField, FormItem } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
-import { UseFormReturn } from "react-hook-form";
+import { UseFormReturn, useWatch } from "react-hook-form";
 import type { IncidentReportFormData } from "@/lib/validations/incident";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,29 @@ export function InjuryDetailsSection({ form }: InjuryDetailsSectionProps) {
   const [injuryTypes, setInjuryTypes] = useState<InjuryType[]>([]);
   const [bodyParts, setBodyParts] = useState<BodyPart[]>([]);
   const [selectedBodyPart, setSelectedBodyPart] = useState<string>("");
-  const [selectedBodyRegions, setSelectedBodyRegions] = useState<string[]>([]);
+  
+  // Watch body_regions from form to sync with the diagram
+  const formBodyRegions = useWatch({
+    control: form.control,
+    name: "body_regions",
+    defaultValue: [],
+  });
+  
+  // Sync local state with form value
+  const [selectedBodyRegions, setSelectedBodyRegions] = useState<string[]>(formBodyRegions || []);
+  
+  // Update form when local state changes
+  const handleRegionsChange = (regions: string[]) => {
+    setSelectedBodyRegions(regions);
+    form.setValue('body_regions', regions, { shouldDirty: true });
+  };
+  
+  // Sync local state when form value changes (e.g., on edit load)
+  useEffect(() => {
+    if (formBodyRegions && JSON.stringify(formBodyRegions) !== JSON.stringify(selectedBodyRegions)) {
+      setSelectedBodyRegions(formBodyRegions);
+    }
+  }, [formBodyRegions]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -162,7 +184,7 @@ export function InjuryDetailsSection({ form }: InjuryDetailsSectionProps) {
         <div className="col-span-full">
           <BodyInjuryDiagram
             selectedRegions={selectedBodyRegions}
-            onRegionsChange={setSelectedBodyRegions}
+            onRegionsChange={handleRegionsChange}
           />
         </div>
 
