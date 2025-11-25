@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,11 +34,13 @@ import {
   Building2,
   Phone,
   User,
-  Map
+  Map,
+  AlertCircle
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface Site {
   site_id: number;
@@ -106,6 +109,9 @@ const getCoordinatesFromCity = (city?: string): { lat: number; lng: number } | n
 };
 
 export default function SiteManagementAdmin() {
+  // Auth state - wait for auth to be ready before fetching
+  const { isAuthenticated, isLoading: authLoading, userData } = useAuth();
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -131,17 +137,36 @@ export default function SiteManagementAdmin() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch employers for dropdown
+  // Debug auth state
+  useEffect(() => {
+    console.log('Site Management - Auth state:', { 
+      isAuthenticated, 
+      authLoading, 
+      userData: userData ? {
+        email: userData.email,
+        role_id: userData.role_id,
+        role_name: userData.role?.role_name
+      } : null 
+    });
+  }, [isAuthenticated, authLoading, userData]);
+
+  // Fetch employers for dropdown - wait for auth
   const { data: employers = [] } = useQuery({
     queryKey: ['employers'],
     queryFn: async () => {
+      console.log('Fetching employers...');
       const { data, error } = await supabase
         .from('employers')
         .select('employer_id, employer_name')
         .order('employer_name');
-      if (error) throw error;
+      if (error) {
+        console.error('Employers fetch error:', error);
+        throw error;
+      }
+      console.log('Employers fetched:', data?.length || 0);
       return data;
-    }
+    },
+    enabled: isAuthenticated && !authLoading
   });
 
   // Fetch sites with related data
@@ -209,10 +234,11 @@ export default function SiteManagementAdmin() {
       );
 
       return sitesWithCounts;
-    }
+    },
+    enabled: isAuthenticated && !authLoading
   });
 
-  // Load Google Maps script
+  // Load Google Maps script - must be before any early returns
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
     
@@ -446,6 +472,34 @@ export default function SiteManagementAdmin() {
       });
     }
   });
+
+  // Early returns AFTER all hooks are called
+  // Show loading state while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto" />
+          <p className="mt-4 text-muted-foreground">Initializing authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show auth required message if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Authentication Required</AlertTitle>
+          <AlertDescription>
+            You must be logged in to access Site Management. Please sign in to continue.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   const resetForm = () => {
     setFormData({
