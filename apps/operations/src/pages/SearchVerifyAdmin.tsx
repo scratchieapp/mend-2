@@ -1,4 +1,3 @@
-import { MenuBar } from "@/components/MenuBar";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -24,7 +23,7 @@ const SearchVerifyAdmin = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <MenuBar />
+      
       <div className="container mx-auto p-8">
         <div className="space-y-6">
           <div>

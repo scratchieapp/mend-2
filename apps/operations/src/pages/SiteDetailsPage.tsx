@@ -1,7 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { MenuBar } from "@/components/MenuBar";
 import { SiteSafetySummary } from "@/components/builder/SiteSafetySummary";
 
 const SiteDetailsPage = () => {
@@ -85,7 +84,7 @@ const SiteDetailsPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <MenuBar />
+      
       <div className="container mx-auto p-6">
         {numericSiteId && <SiteSafetySummary siteId={numericSiteId} />}
       </div>

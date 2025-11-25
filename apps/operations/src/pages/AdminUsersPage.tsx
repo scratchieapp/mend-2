@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MenuBar } from "@/components/MenuBar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UserPlus, Search, Filter, Building2, Shield, Edit, Trash2, Users } from "lucide-react";
 import {
@@ -345,7 +344,7 @@ export default function AdminUsersPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <MenuBar />
+      
       <div className="container mx-auto px-4 py-8 pt-20">
         {/* Breadcrumb */}
         <div className="text-sm text-muted-foreground mb-6">

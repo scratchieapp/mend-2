@@ -1,7 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { MenuBar } from "@/components/MenuBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,7 +37,7 @@ const EmployerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <MenuBar />
+      
       <div className="pt-16 p-8">
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex items-center gap-4">

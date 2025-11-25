@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { MenuBar } from "@/components/MenuBar";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -69,7 +68,7 @@ const SystemLogsAdmin = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <MenuBar />
+      
       <div className="container mx-auto py-8 px-4">
         <div className="mb-8">
           <Link to="/admin" className="inline-flex items-center text-muted-foreground hover:text-foreground mb-4">

@@ -1,5 +1,4 @@
 import { Card } from "@/components/ui/card";
-import { MenuBar } from "@/components/MenuBar";
 import { useNavigate } from "react-router-dom";
 
 const DataAdmin = () => {

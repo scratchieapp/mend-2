@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { MenuBar } from "@/components/MenuBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
@@ -257,7 +256,7 @@ export default function EnhancedUserManagementAdmin() {
 
   return (
     <div className="min-h-screen bg-background">
-      <MenuBar />
+      
       <DashboardHeader
         title="User Management"
         description="Manage user accounts, roles, and company assignments"
