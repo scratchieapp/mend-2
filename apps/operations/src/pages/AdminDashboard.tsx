@@ -20,7 +20,8 @@ import {
   Shield,
   Building,
   DollarSign,
-  Calculator
+  Calculator,
+  MapPin
 } from 'lucide-react';
 
 interface AdminCardProps {
@@ -115,6 +116,13 @@ export default function AdminDashboard() {
       description: 'Manage construction companies and builders',
       icon: <Building className="h-5 w-5" />,
       link: '/admin/employer-management',
+      requiredRole: 'super' as const
+    },
+    {
+      title: 'Site Management',
+      description: 'Manage all MEND construction sites with map view',
+      icon: <MapPin className="h-5 w-5" />,
+      link: '/admin/site-management',
       requiredRole: 'super' as const
     },
     {

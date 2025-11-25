@@ -46,6 +46,7 @@ import MedicalProfessionalsAdmin from "./pages/MedicalProfessionalsAdmin";
 import HoursWorkedAdmin from "./pages/HoursWorkedAdmin";
 import UserManagementAdmin from "./pages/UserManagementAdmin";
 import EmployerManagementAdmin from "./pages/EmployerManagementAdmin";
+import SiteManagementAdmin from "./pages/SiteManagementAdmin";
 import SuperUserManagement from "./pages/SuperUserManagement";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import CostConfigurationAdmin from "./pages/CostConfigurationAdmin";
@@ -151,6 +152,7 @@ function App() {
             <Route path="admin/user-management" element={<UserManagementAdmin />} />
             <Route path="admin/super-user-management" element={<SuperUserManagement />} />
             <Route path="admin/employer-management" element={<EmployerManagementAdmin />} />
+            <Route path="admin/site-management" element={<SiteManagementAdmin />} />
           </Route>
         </Route>
       </Routes>

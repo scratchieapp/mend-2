@@ -135,6 +135,7 @@ const IncidentEditPage = () => {
       type_of_first_aid: "",
       referred_to: "none",
       doctor_details: "",
+      selected_medical_professional: "",
       actions_taken: [],
       case_notes: "",
       documents: [],
@@ -170,8 +171,8 @@ const IncidentEditPage = () => {
       
       // Map database fields to form fields properly
       const formData = {
-        // Notification section - use placeholder for missing mend_client
-        mend_client: "Mend Safety Platform", // Default client name
+        // Notification section - use employer_id for mend_client dropdown
+        mend_client: incidentData.employer_id?.toString() || "",
         notifying_person_name: incidentData.notifying_person_name || "",
         notifying_person_position: incidentData.notifying_person_position || "",
         notifying_person_telephone: incidentData.notifying_person_telephone || "",
@@ -207,6 +208,7 @@ const IncidentEditPage = () => {
         type_of_first_aid: incidentData.treatment_provided || "", // Use treatment_provided as first aid
         referred_to: incidentData.referral || "none" as const,
         doctor_details: incidentData.doctor_details || incidentData.doctor_notes || "",
+        selected_medical_professional: incidentData.doctor_id?.toString() || "",
         
         // Actions taken
         actions_taken: incidentData.actions ? 
@@ -305,6 +307,7 @@ const IncidentEditPage = () => {
       if (data.type_of_first_aid) updateData.treatment_provided = data.type_of_first_aid;
       if (data.referred_to && data.referred_to !== 'none') updateData.referral = data.referred_to;
       if (data.doctor_details !== undefined) updateData.doctor_details = data.doctor_details || null;
+      if (data.selected_medical_professional) updateData.doctor_id = parseInt(data.selected_medical_professional) || null;
       if (data.actions_taken && data.actions_taken.length > 0) updateData.actions = data.actions_taken.join('; ');
       if (data.case_notes !== undefined) updateData.case_notes = data.case_notes || null;
 

@@ -202,6 +202,7 @@ export const incidentEditSchema = z.object({
   type_of_first_aid: z.string().optional().default(''),
   referred_to: z.enum(['none', 'hospital', 'gp', 'specialist', 'physio']).optional().default('none'),
   doctor_details: z.string().optional().default(''),
+  selected_medical_professional: z.string().optional().default(''),
   
   // Actions - optional for edits (allow empty array)
   actions_taken: z.array(z.string()).optional().default([]),
