@@ -8,17 +8,22 @@ This guide will help you set up Google Maps for the incident location feature.
 2. Create a new project or select an existing one
 3. Make sure billing is enabled for the project
 
-## Step 2: Enable Required APIs
+## Step 2: Enable Required APIs (IMPORTANT!)
 
-Enable the following APIs in your Google Cloud project:
+**You must enable these APIs or you'll get an `ApiNotActivatedMapError`:**
 
-1. **Maps JavaScript API** - For displaying maps
-2. **Geocoding API** - For converting addresses to coordinates
-3. **Places API** (optional) - For address autocomplete
+1. Go to [Google Cloud Console - API Library](https://console.cloud.google.com/apis/library)
+2. Search for and **Enable** each of these:
 
-To enable:
-1. Go to **APIs & Services** > **Library**
-2. Search for each API and click **Enable**
+| API | Purpose | Required |
+|-----|---------|----------|
+| **Maps JavaScript API** | Display maps | ✅ Yes |
+| **Geocoding API** | Convert addresses to coordinates | ✅ Yes |
+| **Places API** | Address autocomplete | Optional |
+
+**Direct links to enable:**
+- [Enable Maps JavaScript API](https://console.cloud.google.com/apis/library/maps-backend.googleapis.com)
+- [Enable Geocoding API](https://console.cloud.google.com/apis/library/geocoding-backend.googleapis.com)
 
 ## Step 3: Create an API Key
 
