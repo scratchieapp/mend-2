@@ -131,7 +131,7 @@ export default function SiteManagementAdmin() {
 
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const markersRef = useRef<google.maps.Marker[]>([]);
   const [mapLoaded, setMapLoaded] = useState(false);
 
   const { toast } = useToast();
@@ -259,10 +259,11 @@ export default function SiteManagementAdmin() {
     }
 
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=marker&v=weekly`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly`;
     script.async = true;
     script.defer = true;
     script.onload = () => setMapLoaded(true);
+    script.onerror = () => console.error('Failed to load Google Maps');
     document.head.appendChild(script);
   }, []);
 
@@ -270,9 +271,11 @@ export default function SiteManagementAdmin() {
   const initializeMap = useCallback(() => {
     if (!mapLoaded || !mapRef.current || !sites) return;
 
+    console.log('Initializing map with', sites.length, 'sites');
+
     // Clear existing markers
     markersRef.current.forEach(marker => {
-      marker.map = null;
+      marker.setMap(null);
     });
     markersRef.current = [];
 
@@ -280,7 +283,6 @@ export default function SiteManagementAdmin() {
     const map = new google.maps.Map(mapRef.current, {
       center: { lat: -25.2744, lng: 133.7751 }, // Center of Australia
       zoom: 4,
-      mapId: 'mend-sites-map',
       disableDefaultUI: false,
       zoomControl: true,
       mapTypeControl: true,
@@ -290,78 +292,64 @@ export default function SiteManagementAdmin() {
 
     googleMapRef.current = map;
 
+    // Create a single info window to reuse
+    const infoWindow = new google.maps.InfoWindow();
+
     // Add markers for each site
     sites.forEach(site => {
       const coords = site.latitude && site.longitude 
-        ? { lat: site.latitude, lng: site.longitude }
+        ? { lat: Number(site.latitude), lng: Number(site.longitude) }
         : getCoordinatesFromCity(site.city);
 
       if (!coords) return;
 
       // Determine marker color based on status
       let markerColor = '#22c55e'; // Green for active (working)
+      let markerIcon = 'https://maps.google.com/mapfiles/ms/icons/green-dot.png';
       if (site.status === 'paused') {
         markerColor = '#f59e0b'; // Amber for paused
+        markerIcon = 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png';
       } else if (site.status === 'finished') {
         markerColor = '#6b7280'; // Grey for finished
+        markerIcon = 'https://maps.google.com/mapfiles/ms/icons/grey-dot.png';
       }
 
-      // Create custom marker
-      const markerContent = document.createElement('div');
-      markerContent.innerHTML = `
-        <div style="
-          background: ${markerColor};
-          border: 2px solid white;
-          border-radius: 50%;
-          width: 24px;
-          height: 24px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-          cursor: pointer;
-          transition: transform 0.2s;
-        " onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="white">
-            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-          </svg>
-        </div>
-      `;
-
-      const marker = new google.maps.marker.AdvancedMarkerElement({
+      // Create standard marker
+      const marker = new google.maps.Marker({
         map,
         position: coords,
-        content: markerContent,
         title: site.site_name,
+        icon: markerIcon,
       });
 
       // Add click listener for info window
       marker.addListener('click', () => {
-        const infoWindow = new google.maps.InfoWindow({
-          content: `
-            <div style="padding: 8px; max-width: 250px;">
-              <h3 style="margin: 0 0 8px 0; font-weight: 600;">${site.site_name}</h3>
-              <p style="margin: 0 0 4px 0; color: #666; font-size: 12px;">${site.employer_name}</p>
-              <p style="margin: 0 0 4px 0; font-size: 12px;">${site.street_address || ''}</p>
-              <p style="margin: 0 0 8px 0; font-size: 12px;">${site.city}, ${site.state} ${site.post_code}</p>
-              <div style="display: flex; gap: 8px; align-items: center;">
-                <span style="
-                  background: ${markerColor};
-                  color: white;
-                  padding: 2px 8px;
-                  border-radius: 12px;
-                  font-size: 11px;
-                ">${site.status || 'Active'}</span>
-                <span style="font-size: 11px; color: #666;">${site.incident_count} incidents</span>
-              </div>
+        const content = `
+          <div style="padding: 8px; max-width: 250px;">
+            <h3 style="margin: 0 0 8px 0; font-weight: 600;">${site.site_name}</h3>
+            <p style="margin: 0 0 4px 0; color: #666; font-size: 12px;">${site.employer_name}</p>
+            <p style="margin: 0 0 4px 0; font-size: 12px;">${site.street_address || ''}</p>
+            <p style="margin: 0 0 8px 0; font-size: 12px;">${site.city}, ${site.state} ${site.post_code}</p>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span style="
+                background: ${markerColor};
+                color: white;
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 11px;
+              ">${site.status || 'Active'}</span>
+              <span style="font-size: 11px; color: #666;">${site.incident_count} incidents</span>
             </div>
-          `,
-        });
+          </div>
+        `;
+        infoWindow.setContent(content);
         infoWindow.open(map, marker);
       });
 
       markersRef.current.push(marker);
     });
+
+    console.log('Map initialized with', markersRef.current.length, 'markers');
   }, [mapLoaded, sites]);
 
   useEffect(() => {
