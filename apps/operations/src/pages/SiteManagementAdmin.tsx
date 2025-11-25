@@ -247,22 +247,37 @@ export default function SiteManagementAdmin() {
       return;
     }
 
-    if (window.google?.maps) {
+    // Check if Google Maps is already loaded and has Marker (not just AdvancedMarker)
+    if (window.google?.maps?.Map && window.google?.maps?.Marker) {
+      console.log('Google Maps already loaded');
       setMapLoaded(true);
       return;
     }
 
+    // Check for existing script
     const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
     if (existingScript) {
-      existingScript.addEventListener('load', () => setMapLoaded(true));
+      // Wait for it to load
+      const checkLoaded = () => {
+        if (window.google?.maps?.Map && window.google?.maps?.Marker) {
+          setMapLoaded(true);
+        } else {
+          setTimeout(checkLoaded, 100);
+        }
+      };
+      checkLoaded();
       return;
     }
 
+    // Load fresh script
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=Function.prototype`;
     script.async = true;
     script.defer = true;
-    script.onload = () => setMapLoaded(true);
+    script.onload = () => {
+      console.log('Google Maps script loaded');
+      setMapLoaded(true);
+    };
     script.onerror = () => console.error('Failed to load Google Maps');
     document.head.appendChild(script);
   }, []);
@@ -272,6 +287,14 @@ export default function SiteManagementAdmin() {
     if (!mapLoaded || !mapRef.current || !sites) return;
 
     console.log('Initializing map with', sites.length, 'sites');
+
+    // Safety check for Google Maps API
+    if (!window.google?.maps?.Map || !window.google?.maps?.Marker) {
+      console.error('Google Maps API not fully loaded');
+      return;
+    }
+
+    try {
 
     // Clear existing markers
     markersRef.current.forEach(marker => {
@@ -350,6 +373,9 @@ export default function SiteManagementAdmin() {
     });
 
     console.log('Map initialized with', markersRef.current.length, 'markers');
+    } catch (error) {
+      console.error('Error initializing map:', error);
+    }
   }, [mapLoaded, sites]);
 
   useEffect(() => {
