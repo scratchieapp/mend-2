@@ -2,14 +2,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, TrendingDown, TrendingUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useEmployerSelection } from "@/hooks/useEmployerSelection";
+import { useEmployerContext } from "@/hooks/useEmployerContext";
 
 interface InsurancePremiumCardProps {
   baselineInsurance: string | number;
 }
 
 export const InsurancePremiumCard = ({ baselineInsurance }: InsurancePremiumCardProps) => {
-  const { selectedEmployerId } = useEmployerSelection();
+  const { selectedEmployerId } = useEmployerContext();
   
   const { data: claimCosts } = useQuery({
     queryKey: ['insurance-costs', selectedEmployerId],

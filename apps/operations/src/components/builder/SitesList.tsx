@@ -1,12 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useEmployerSelection } from "@/hooks/useEmployerSelection";
+import { useEmployerContext } from "@/hooks/useEmployerContext";
 import { SitesGrid } from "./sites/SitesGrid";
 import { LoadingSkeleton } from "./sites/LoadingSkeleton";
 import { ErrorState } from "./sites/ErrorState";
 import { useSites } from "./sites/useSites";
 
 export const SitesList = () => {
-  const { selectedEmployerId } = useEmployerSelection();
+  const { selectedEmployerId } = useEmployerContext();
   const { data: sites = [], isLoading, error } = useSites(selectedEmployerId);
 
   if (isLoading) return <LoadingSkeleton />;

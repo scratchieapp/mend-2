@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Brain, AlertTriangle, TrendingUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useEmployerSelection } from "@/hooks/useEmployerSelection";
+import { useEmployerContext } from "@/hooks/useEmployerContext";
 import { format } from "date-fns";
 
 interface PsychosocialFlagsCardProps {
@@ -10,7 +10,7 @@ interface PsychosocialFlagsCardProps {
 }
 
 export const PsychosocialFlagsCard = ({ selectedMonth }: PsychosocialFlagsCardProps) => {
-  const { selectedEmployerId } = useEmployerSelection();
+  const { selectedEmployerId } = useEmployerContext();
   
   const { data: psychosocialData } = useQuery({
     queryKey: ['psychosocial-flags', selectedMonth, selectedEmployerId],

@@ -3,14 +3,14 @@ import { AlertCircle, TrendingUp, TrendingDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subMonths } from "date-fns";
-import { useEmployerSelection } from "@/hooks/useEmployerSelection";
+import { useEmployerContext } from "@/hooks/useEmployerContext";
 
 interface OpenClaimsCardProps {
   selectedMonth: string;
 }
 
 export const OpenClaimsCard = ({ selectedMonth }: OpenClaimsCardProps) => {
-  const { selectedEmployerId } = useEmployerSelection();
+  const { selectedEmployerId } = useEmployerContext();
   
   const { data } = useQuery({
     queryKey: ['open-claims', selectedMonth, selectedEmployerId],

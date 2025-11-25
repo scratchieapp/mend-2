@@ -2,14 +2,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, TrendingDown, TrendingUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useEmployerSelection } from "@/hooks/useEmployerSelection";
+import { useEmployerContext } from "@/hooks/useEmployerContext";
 
 interface AverageDaysLostCardProps {
   selectedMonth?: string;
 }
 
 export const AverageDaysLostCard = ({ selectedMonth }: AverageDaysLostCardProps) => {
-  const { selectedEmployerId } = useEmployerSelection();
+  const { selectedEmployerId } = useEmployerContext();
   
   const { data } = useQuery({
     queryKey: ['average-days-lost', selectedEmployerId],

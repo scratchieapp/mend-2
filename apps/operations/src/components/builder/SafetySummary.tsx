@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useEmployerSelection } from "@/hooks/useEmployerSelection";
+import { useEmployerContext } from "@/hooks/useEmployerContext";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
@@ -26,7 +26,7 @@ interface IncidentWithWorker {
 }
 
 export const SafetySummary = ({ selectedMonth }: SafetySummaryProps) => {
-  const { selectedEmployerId } = useEmployerSelection();
+  const { selectedEmployerId } = useEmployerContext();
   const { data: summaryData, isLoading: isSummaryLoading, error: summaryError, refetch } = useSafetySummary(selectedEmployerId, selectedMonth);
 
   const { data: incidents, isLoading: isIncidentsLoading } = useQuery({
