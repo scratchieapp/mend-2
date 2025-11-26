@@ -81,18 +81,41 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
     mutationFn: async (data: typeof formData) => {
       if (!user) return;
 
+      // Check for valid user ID
+      const userId = user.user_id;
+      if (!userId || userId === 'undefined') {
+        throw new Error("Invalid user ID");
+      }
+
+      console.log("Updating user:", userId, data);
+
       // 1. Update basic details in Supabase
       const updates: any = {
         display_name: data.display_name,
-        employer_id: data.employer_id === "null" ? null : parseInt(data.employer_id),
-        // Update role_id directly in table as well, to ensure consistency
-        role_id: parseInt(data.role_id),
       };
+
+      // Handle nullable employer_id
+      if (data.employer_id === "null" || !data.employer_id) {
+        updates.employer_id = null;
+      } else {
+        const empId = parseInt(data.employer_id);
+        if (!isNaN(empId)) {
+          updates.employer_id = empId;
+        }
+      }
+
+      // Handle role_id
+      if (data.role_id) {
+        const roleId = parseInt(data.role_id);
+        if (!isNaN(roleId)) {
+          updates.role_id = roleId;
+        }
+      }
 
       const { error: dbError } = await supabase
         .from('users')
         .update(updates)
-        .eq('user_id', user.user_id);
+        .eq('user_id', userId);
 
       if (dbError) throw dbError;
 
@@ -107,7 +130,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
             body: {
               action: 'updateUserRole',
               data: { 
-                userId: user.user_id, 
+                userId: userId, 
                 role: role.role_name 
               }
             }
