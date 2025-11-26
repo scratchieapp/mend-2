@@ -260,6 +260,7 @@ export default function SiteManagementAdmin() {
       // Wait for it to load
       const checkLoaded = () => {
         if (window.google?.maps?.Map && window.google?.maps?.Marker) {
+          console.log('Google Maps API ready');
           setMapLoaded(true);
         } else {
           setTimeout(checkLoaded, 100);
@@ -269,24 +270,44 @@ export default function SiteManagementAdmin() {
       return;
     }
 
-    // Load fresh script
+    // Create a callback function name
+    const callbackName = `initGoogleMaps_${Date.now()}`;
+    
+    // Set up the callback on window
+    (window as any)[callbackName] = () => {
+      console.log('Google Maps API callback fired');
+      // Double-check that API is ready
+      const checkReady = () => {
+        if (window.google?.maps?.Map && window.google?.maps?.Marker) {
+          console.log('Google Maps API fully ready');
+          setMapLoaded(true);
+          // Clean up callback
+          delete (window as any)[callbackName];
+        } else {
+          setTimeout(checkReady, 50);
+        }
+      };
+      checkReady();
+    };
+
+    // Load fresh script with proper callback
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=Function.prototype`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async&callback=${callbackName}`;
     script.async = true;
     script.defer = true;
-    script.onload = () => {
-      console.log('Google Maps script loaded');
-      setMapLoaded(true);
+    script.onerror = () => {
+      console.error('Failed to load Google Maps');
+      delete (window as any)[callbackName];
     };
-    script.onerror = () => console.error('Failed to load Google Maps');
     document.head.appendChild(script);
   }, []);
 
   // Initialize map with all sites
   const initializeMap = useCallback(() => {
-    if (!mapLoaded || !mapRef.current || !sites) return;
-
-    console.log('Initializing map with', sites.length, 'sites');
+    if (!mapLoaded || !mapRef.current || !sites) {
+      console.log('Map initialization skipped:', { mapLoaded, hasMapRef: !!mapRef.current, sitesCount: sites?.length });
+      return;
+    }
 
     // Safety check for Google Maps API
     if (!window.google?.maps?.Map || !window.google?.maps?.Marker) {
@@ -294,26 +315,39 @@ export default function SiteManagementAdmin() {
       return;
     }
 
+    // Check if map container is visible (but don't be too strict - tab might be switching)
+    const isVisible = mapRef.current.offsetWidth > 0 || mapRef.current.offsetHeight > 0 || mapRef.current.offsetParent !== null;
+    if (!isVisible) {
+      console.log('Map container may not be visible yet');
+      // Don't retry here - let the useEffect handle retries when tab changes
+    }
+
+    console.log('Initializing map with', sites.length, 'sites');
+
     try {
-
     // Clear existing markers
-    markersRef.current.forEach(marker => {
-      marker.setMap(null);
-    });
-    markersRef.current = [];
+    if (markersRef.current.length > 0) {
+      markersRef.current.forEach(marker => {
+        marker.setMap(null);
+      });
+      markersRef.current = [];
+    }
 
-    // Initialize map centered on Australia
-    const map = new google.maps.Map(mapRef.current, {
-      center: { lat: -25.2744, lng: 133.7751 }, // Center of Australia
-      zoom: 4,
-      disableDefaultUI: false,
-      zoomControl: true,
-      mapTypeControl: true,
-      streetViewControl: false,
-      fullscreenControl: true,
-    });
-
-    googleMapRef.current = map;
+    // Reuse existing map if available, otherwise create new one
+    let map = googleMapRef.current;
+    if (!map) {
+      // Initialize map centered on Australia
+      map = new google.maps.Map(mapRef.current, {
+        center: { lat: -25.2744, lng: 133.7751 }, // Center of Australia
+        zoom: 4,
+        disableDefaultUI: false,
+        zoomControl: true,
+        mapTypeControl: true,
+        streetViewControl: false,
+        fullscreenControl: true,
+      });
+      googleMapRef.current = map;
+    }
 
     // Create a single info window to reuse
     const infoWindow = new google.maps.InfoWindow();
@@ -380,9 +414,15 @@ export default function SiteManagementAdmin() {
 
   useEffect(() => {
     if (activeTab === 'map') {
-      initializeMap();
+      // Small delay to ensure DOM is ready when switching tabs
+      const timer = setTimeout(() => {
+        if (mapRef.current && mapLoaded && sites) {
+          initializeMap();
+        }
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [activeTab, initializeMap]);
+  }, [activeTab, initializeMap, mapLoaded, sites]);
 
   // Create site mutation
   const createSiteMutation = useMutation({
