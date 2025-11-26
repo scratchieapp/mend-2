@@ -6,6 +6,7 @@ import { useEmployerContext } from "@/hooks/useEmployerContext";
 import { EmployerSelector } from '@/components/builder/EmployerSelector';
 import { useAuth } from "@/lib/auth/AuthContext";
 import { IncidentsList } from '@/components/dashboard/IncidentsList';
+import { DashboardMap } from '@/components/dashboard/DashboardMap';
 
 export default function BuilderDashboard() {
   const { userData } = useAuth();
@@ -86,6 +87,12 @@ export default function BuilderDashboard() {
           </CardHeader>
         </Card>
       )}
+
+      {/* Site Map */}
+      <DashboardMap 
+        employerId={selectedEmployerId} 
+        height="300px" 
+      />
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

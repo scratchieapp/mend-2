@@ -6,6 +6,7 @@ import { useUser } from '@clerk/clerk-react';
 import { supabase } from '@/integrations/supabase/client';
 import { isSuperAdmin, isBuilderAdmin, isMendDataEntry } from '@/lib/auth/roles';
 import { DashboardHeader } from '@/components/layout/DashboardHeader';
+import { DashboardMap } from '@/components/dashboard/DashboardMap';
 import { 
   Database, 
   Users, 
@@ -235,6 +236,12 @@ export default function AdminDashboard() {
       />
       
       <div className="container mx-auto py-8 px-4">
+
+      {userRoleId && isSuperAdmin(userRoleId) && (
+        <div className="mb-8">
+          <DashboardMap height="400px" />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {adminSections.map((section) => (
