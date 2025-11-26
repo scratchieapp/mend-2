@@ -34,7 +34,7 @@ import {
   Building2,
   Phone,
   User,
-  Map,
+  Map as MapIcon,
   AlertCircle
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -650,7 +650,7 @@ export default function SiteManagementAdmin() {
           <div className="flex justify-between items-center mb-6">
             <TabsList>
               <TabsTrigger value="map" className="flex items-center gap-2">
-                <Map className="h-4 w-4" />
+                <MapIcon className="h-4 w-4" />
                 Map View
               </TabsTrigger>
               <TabsTrigger value="list" className="flex items-center gap-2">
@@ -789,7 +789,7 @@ export default function SiteManagementAdmin() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Map className="h-5 w-5" />
+                  <MapIcon className="h-5 w-5" />
                   MEND Sites Across Australia
                 </CardTitle>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -840,7 +840,7 @@ export default function SiteManagementAdmin() {
                 ) : (
                   <div className="w-full h-96 flex items-center justify-center bg-gradient-to-br from-blue-50 to-green-50 rounded-lg border">
                     <div className="text-center p-8">
-                      <Map className="h-16 w-16 text-blue-400 mx-auto mb-4" />
+                      <MapIcon className="h-16 w-16 text-blue-400 mx-auto mb-4" />
                       <h3 className="text-lg font-medium mb-2">Map requires Google Maps API key</h3>
                       <p className="text-sm text-muted-foreground">
                         See GOOGLE_MAPS_SETUP.md for instructions on adding your API key.
