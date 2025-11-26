@@ -7,6 +7,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Loader2, Shield } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { User } from "@/types/user";
 import { UserActionsDropdown } from "./UserActionsDropdown";
 import { UseMutationResult } from "@tanstack/react-query";
@@ -32,14 +33,14 @@ export function UsersTable({
     );
   }
 
-  const getRoleLabel = (user: UserData) => {
+  const getRoleLabel = (user: User) => {
     if (user.user_roles && Array.isArray(user.user_roles) && user.user_roles[0]) {
       return user.user_roles[0].role_label || 'Unknown Role';
     }
     return 'No Role Assigned';
   };
 
-  const getRoleColor = (user: UserData) => {
+  const getRoleColor = (user: User) => {
     const roleId = user.role_id;
     if (roleId >= 8) return 'bg-purple-100 text-purple-800 border-purple-200';
     if (roleId >= 6) return 'bg-blue-100 text-blue-800 border-blue-200';
@@ -101,23 +102,11 @@ export function UsersTable({
                 </Badge>
               </TableCell>
               <TableCell className="text-center">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                      <MoreHorizontal className="h-4 w-4" />
-                      <span className="sr-only">Open menu</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem 
-                      onClick={() => onEditUser(user)}
-                      className="cursor-pointer"
-                    >
-                      <Edit className="mr-2 h-4 w-4" />
-                      Edit User
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <UserActionsDropdown 
+                  userId={user.user_id}
+                  updateUserRoleMutation={updateUserRoleMutation}
+                  deactivateUserMutation={deactivateUserMutation}
+                />
               </TableCell>
             </TableRow>
           ))}
