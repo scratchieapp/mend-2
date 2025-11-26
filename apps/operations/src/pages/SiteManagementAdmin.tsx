@@ -131,7 +131,7 @@ export default function SiteManagementAdmin() {
 
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<(google.maps.Marker | google.maps.marker.AdvancedMarkerElement)[]>([]);
+  const markersRef = useRef<google.maps.Marker[]>([]);
   const [mapLoaded, setMapLoaded] = useState(false);
 
   const { toast } = useToast();
@@ -290,9 +290,9 @@ export default function SiteManagementAdmin() {
       checkReady();
     };
 
-    // Load fresh script with proper callback and marker library
+    // Load fresh script with proper callback
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=marker&loading=async&callback=${callbackName}`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async&callback=${callbackName}`;
     script.async = true;
     script.defer = true;
     script.onerror = () => {
@@ -310,7 +310,7 @@ export default function SiteManagementAdmin() {
     }
 
     // Safety check for Google Maps API
-    if (!window.google?.maps?.Map) {
+    if (!window.google?.maps?.Map || !window.google?.maps?.Marker) {
       console.error('Google Maps API not fully loaded');
       return;
     }
@@ -327,13 +327,7 @@ export default function SiteManagementAdmin() {
     try {
     // Clear existing markers
     if (markersRef.current.length > 0) {
-      markersRef.current.forEach(marker => {
-        if ('setMap' in marker) {
-          (marker as google.maps.Marker).setMap(null);
-        } else if ('map' in marker) {
-          (marker as google.maps.marker.AdvancedMarkerElement).map = null;
-        }
-      });
+      markersRef.current.forEach(marker => marker.setMap(null));
       markersRef.current = [];
     }
 
@@ -350,19 +344,14 @@ export default function SiteManagementAdmin() {
         mapTypeControl: true,
         streetViewControl: false,
         fullscreenControl: true,
-        mapId: 'MEND_SITES_MAP', // Required for AdvancedMarkerElement
       });
       googleMapRef.current = map;
     }
 
     // Create a single info window to reuse
     const infoWindow = new google.maps.InfoWindow();
-
-    // Check if AdvancedMarkerElement is available
-    const AdvancedMarkerElement = google.maps.marker?.AdvancedMarkerElement;
-    const PinElement = google.maps.marker?.PinElement;
     
-    // Add markers for each site
+    // Add markers for each site using standard Marker
     sites.forEach(site => {
       const coords = site.latitude && site.longitude 
         ? { lat: Number(site.latitude), lng: Number(site.longitude) }
@@ -372,91 +361,46 @@ export default function SiteManagementAdmin() {
 
       // Determine marker color based on status
       let markerColor = '#22c55e'; // Green for active (working)
+      let markerIcon = 'https://maps.google.com/mapfiles/ms/icons/green-dot.png';
       if (site.status === 'paused') {
         markerColor = '#f59e0b'; // Amber for paused
+        markerIcon = 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png';
       } else if (site.status === 'finished') {
         markerColor = '#6b7280'; // Grey for finished
+        markerIcon = 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png';
       }
 
-      let marker: google.maps.Marker | google.maps.marker.AdvancedMarkerElement;
+      // Create marker
+      const marker = new google.maps.Marker({
+        map,
+        position: coords,
+        title: site.site_name,
+        icon: markerIcon,
+      });
 
-      if (AdvancedMarkerElement && PinElement) {
-        // Use modern AdvancedMarkerElement with PinElement
-        const pin = new PinElement({
-          background: markerColor,
-          borderColor: markerColor,
-          glyphColor: 'white',
-        });
-
-        marker = new AdvancedMarkerElement({
-          map,
-          position: coords,
-          title: site.site_name,
-          content: pin.element,
-        });
-
-        // Add click listener for info window
-        marker.addListener('click', () => {
-          const content = `
-            <div style="padding: 8px; max-width: 250px;">
-              <h3 style="margin: 0 0 8px 0; font-weight: 600;">${site.site_name}</h3>
-              <p style="margin: 0 0 4px 0; color: #666; font-size: 12px;">${site.employer_name}</p>
-              <p style="margin: 0 0 4px 0; font-size: 12px;">${site.street_address || ''}</p>
-              <p style="margin: 0 0 8px 0; font-size: 12px;">${site.city}, ${site.state} ${site.post_code}</p>
-              <div style="display: flex; gap: 8px; align-items: center;">
-                <span style="
-                  background: ${markerColor};
-                  color: white;
-                  padding: 2px 8px;
-                  border-radius: 12px;
-                  font-size: 11px;
-                ">${site.status || 'Active'}</span>
-                <span style="font-size: 11px; color: #666;">${site.incident_count} incidents</span>
-              </div>
+      // Add click listener for info window
+      marker.addListener('click', () => {
+        const content = `
+          <div style="padding: 8px; max-width: 250px;">
+            <h3 style="margin: 0 0 8px 0; font-weight: 600;">${site.site_name}</h3>
+            <p style="margin: 0 0 4px 0; color: #666; font-size: 12px;">${site.employer_name}</p>
+            <p style="margin: 0 0 4px 0; font-size: 12px;">${site.street_address || ''}</p>
+            <p style="margin: 0 0 8px 0; font-size: 12px;">${site.city}, ${site.state} ${site.post_code}</p>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span style="
+                background: ${markerColor};
+                color: white;
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 11px;
+              ">${site.status || 'Active'}</span>
+              <span style="font-size: 11px; color: #666;">${site.incident_count} incidents</span>
             </div>
-          `;
-          infoWindow.setContent(content);
-          infoWindow.open(map, marker);
-        });
-      } else {
-        // Fallback to legacy Marker if available
-        const markerIcon = site.status === 'paused' 
-          ? 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png'
-          : site.status === 'finished'
-            ? 'https://maps.google.com/mapfiles/ms/icons/grey-dot.png'
-            : 'https://maps.google.com/mapfiles/ms/icons/green-dot.png';
-
-        marker = new google.maps.Marker({
-          map,
-          position: coords,
-          title: site.site_name,
-          icon: markerIcon,
-        });
-
-        // Add click listener for info window
-        marker.addListener('click', () => {
-          const content = `
-            <div style="padding: 8px; max-width: 250px;">
-              <h3 style="margin: 0 0 8px 0; font-weight: 600;">${site.site_name}</h3>
-              <p style="margin: 0 0 4px 0; color: #666; font-size: 12px;">${site.employer_name}</p>
-              <p style="margin: 0 0 4px 0; font-size: 12px;">${site.street_address || ''}</p>
-              <p style="margin: 0 0 8px 0; font-size: 12px;">${site.city}, ${site.state} ${site.post_code}</p>
-              <div style="display: flex; gap: 8px; align-items: center;">
-                <span style="
-                  background: ${markerColor};
-                  color: white;
-                  padding: 2px 8px;
-                  border-radius: 12px;
-                  font-size: 11px;
-                ">${site.status || 'Active'}</span>
-                <span style="font-size: 11px; color: #666;">${site.incident_count} incidents</span>
-              </div>
-            </div>
-          `;
-          infoWindow.setContent(content);
-          infoWindow.open(map, marker);
-        });
-      }
+          </div>
+        `;
+        infoWindow.setContent(content);
+        infoWindow.open(map, marker);
+      });
 
       markersRef.current.push(marker);
     });
