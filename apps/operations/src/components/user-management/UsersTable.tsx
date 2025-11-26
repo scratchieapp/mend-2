@@ -17,6 +17,7 @@ interface UsersTableProps {
   isLoading: boolean;
   updateUserRoleMutation: UseMutationResult<unknown, Error, { userId: string; role: string; }, unknown>;
   deactivateUserMutation: UseMutationResult<unknown, Error, string, unknown>;
+  onEditUser: (user: User) => void;
 }
 
 export function UsersTable({
@@ -24,6 +25,7 @@ export function UsersTable({
   isLoading,
   updateUserRoleMutation,
   deactivateUserMutation,
+  onEditUser,
 }: UsersTableProps) {
   if (isLoading) {
     return (
@@ -72,7 +74,10 @@ export function UsersTable({
                     </div>
                   </div>
                   <div>
-                    <div className="font-medium">
+                    <div 
+                      className="font-medium cursor-pointer hover:text-primary hover:underline"
+                      onClick={() => onEditUser(user)}
+                    >
                       {user.display_name || 'No Name'}
                     </div>
                   </div>

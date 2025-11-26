@@ -4,14 +4,22 @@ import { Search, UserCog } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { AddUserDialog } from "@/components/user-management/AddUserDialog";
+import { EditUserDialog } from "@/components/user-management/EditUserDialog";
 import { UsersTable } from "@/components/user-management/UsersTable";
 import { User } from "@/types/user";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function UserManagementAdmin() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const handleEditUser = (user: User) => {
+    setSelectedUser(user);
+    setEditDialogOpen(true);
+  };
 
   // Fetch users using the Edge Function
   const { data: users, isLoading } = useQuery({
@@ -150,10 +158,17 @@ export default function UserManagementAdmin() {
               isLoading={isLoading}
               updateUserRoleMutation={updateUserRoleMutation}
               deactivateUserMutation={deactivateUserMutation}
+              onEditUser={handleEditUser}
             />
           </div>
         </div>
       </div>
+
+      <EditUserDialog 
+        user={selectedUser} 
+        open={editDialogOpen} 
+        onOpenChange={setEditDialogOpen} 
+      />
     </div>
   );
 }
