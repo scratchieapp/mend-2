@@ -22,7 +22,26 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+
+// Australian states/territories
+const AUSTRALIAN_STATES = [
+  { value: 'NSW', label: 'New South Wales' },
+  { value: 'VIC', label: 'Victoria' },
+  { value: 'QLD', label: 'Queensland' },
+  { value: 'WA', label: 'Western Australia' },
+  { value: 'SA', label: 'South Australia' },
+  { value: 'TAS', label: 'Tasmania' },
+  { value: 'ACT', label: 'Australian Capital Territory' },
+  { value: 'NT', label: 'Northern Territory' },
+];
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { 
   Building2, 
@@ -344,13 +363,22 @@ export default function EmployerManagementAdmin() {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="employer_state">State *</Label>
-                        <Input
-                          id="employer_state"
+                        <Select
                           value={formData.employer_state}
-                          onChange={(e) => setFormData({ ...formData, employer_state: e.target.value })}
-                          placeholder="NSW"
+                          onValueChange={(value) => setFormData({ ...formData, employer_state: value })}
                           required
-                        />
+                        >
+                          <SelectTrigger id="employer_state">
+                            <SelectValue placeholder="Select state" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {AUSTRALIAN_STATES.map((state) => (
+                              <SelectItem key={state.value} value={state.value}>
+                                {state.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="employer_post_code">Post Code *</Label>
@@ -551,12 +579,22 @@ export default function EmployerManagementAdmin() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit_employer_state">State *</Label>
-                  <Input
-                    id="edit_employer_state"
+                  <Select
                     value={formData.employer_state}
-                    onChange={(e) => setFormData({ ...formData, employer_state: e.target.value })}
+                    onValueChange={(value) => setFormData({ ...formData, employer_state: value })}
                     required
-                  />
+                  >
+                    <SelectTrigger id="edit_employer_state">
+                      <SelectValue placeholder="Select state" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AUSTRALIAN_STATES.map((state) => (
+                        <SelectItem key={state.value} value={state.value}>
+                          {state.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit_employer_post_code">Post Code *</Label>

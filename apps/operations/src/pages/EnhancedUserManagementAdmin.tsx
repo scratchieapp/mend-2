@@ -30,6 +30,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { EnhancedAddUserDialog } from "@/components/user-management/EnhancedAddUserDialog";
+import { BulkUserImportDialog } from "@/components/user-management/BulkUserImportDialog";
 import { 
   UserCog, 
   Search, 
@@ -281,9 +282,14 @@ export default function EnhancedUserManagementAdmin() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <EnhancedAddUserDialog onUserCreated={() => {
-                queryClient.invalidateQueries({ queryKey: ['users-with-details'] });
-              }} />
+              <div className="flex items-center gap-2">
+                <BulkUserImportDialog onUsersCreated={() => {
+                  queryClient.invalidateQueries({ queryKey: ['users-with-details'] });
+                }} />
+                <EnhancedAddUserDialog onUserCreated={() => {
+                  queryClient.invalidateQueries({ queryKey: ['users-with-details'] });
+                }} />
+              </div>
             </div>
           </div>
 

@@ -34,7 +34,7 @@ export function SiteLocationMap({ site, incidentDate }: SiteLocationMapProps) {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);
-  const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
+  const markerRef = useRef<google.maps.Marker | null>(null);
 
   // Get coordinates from site data or fallback
   const getCoordinates = useCallback(() => {
@@ -79,12 +79,22 @@ export function SiteLocationMap({ site, incidentDate }: SiteLocationMapProps) {
       return;
     }
 
-    // Load the script
+    // Load the script (without marker library - using standard Marker)
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=marker&v=weekly`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=Function.prototype`;
     script.async = true;
     script.defer = true;
-    script.onload = () => setMapLoaded(true);
+    script.onload = () => {
+      // Poll for full API availability
+      const checkGoogleMaps = () => {
+        if (window.google?.maps?.Map && window.google?.maps?.Marker) {
+          setMapLoaded(true);
+        } else {
+          setTimeout(checkGoogleMaps, 100);
+        }
+      };
+      checkGoogleMaps();
+    };
     script.onerror = () => console.error('Failed to load Google Maps');
     document.head.appendChild(script);
   }, []);
@@ -93,62 +103,51 @@ export function SiteLocationMap({ site, incidentDate }: SiteLocationMapProps) {
   useEffect(() => {
     if (!mapLoaded || !mapRef.current) return;
 
-    const coords = getCoordinates();
-    setCoordinates(coords);
+    // Safety check for Google Maps API
+    if (!window.google?.maps?.Map || !window.google?.maps?.Marker) {
+      console.error('Google Maps API not fully loaded');
+      return;
+    }
 
-    const map = new google.maps.Map(mapRef.current, {
-      center: coords,
-      zoom: 15,
-      mapId: 'incident-location-map',
-      disableDefaultUI: false,
-      zoomControl: true,
-      mapTypeControl: false,
-      streetViewControl: true,
-      fullscreenControl: true,
-      styles: [
-        {
-          featureType: 'poi',
-          elementType: 'labels',
-          stylers: [{ visibility: 'off' }]
-        }
-      ]
-    });
+    try {
+      const coords = getCoordinates();
+      setCoordinates(coords);
 
-    googleMapRef.current = map;
+      const map = new google.maps.Map(mapRef.current, {
+        center: coords,
+        zoom: 15,
+        disableDefaultUI: false,
+        zoomControl: true,
+        mapTypeControl: false,
+        streetViewControl: true,
+        fullscreenControl: true,
+        styles: [
+          {
+            featureType: 'poi',
+            elementType: 'labels',
+            stylers: [{ visibility: 'off' }]
+          }
+        ]
+      });
 
-    // Create custom marker
-    const markerContent = document.createElement('div');
-    markerContent.innerHTML = `
-      <div style="
-        background: #ef4444;
-        border: 3px solid white;
-        border-radius: 50%;
-        width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        cursor: pointer;
-      ">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-        </svg>
-      </div>
-    `;
+      googleMapRef.current = map;
 
-    const marker = new google.maps.marker.AdvancedMarkerElement({
-      map,
-      position: coords,
-      content: markerContent,
-      title: site?.site_name || 'Incident Location'
-    });
+      // Use standard Marker with red icon for incident location
+      const marker = new google.maps.Marker({
+        map,
+        position: coords,
+        title: site?.site_name || 'Incident Location',
+        icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+      });
 
-    markerRef.current = marker;
+      markerRef.current = marker;
+    } catch (error) {
+      console.error('Error initializing Google Maps:', error);
+    }
 
     return () => {
       if (markerRef.current) {
-        markerRef.current.map = null;
+        markerRef.current.setMap(null);
       }
     };
   }, [mapLoaded, getCoordinates, site?.site_name]);
