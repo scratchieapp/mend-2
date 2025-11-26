@@ -21,23 +21,24 @@ export default function UserManagementAdmin() {
     setEditDialogOpen(true);
   };
 
-  // Fetch users using the Edge Function
+  // Fetch users directly from DB to ensure up-to-date data
   const { data: users, isLoading } = useQuery({
     queryKey: ['users'],
     queryFn: async () => {
-      // Fetching users...
-      const { data, error } = await supabase.functions.invoke('manage-users', {
-        method: 'POST',
-        body: { action: 'listUsers' }
-      });
+      const { data, error } = await supabase
+        .from('users')
+        .select(`
+          *,
+          role:user_roles(*)
+        `)
+        .order('created_at', { ascending: false });
       
       if (error) {
         console.error('Error fetching users:', error);
         throw error;
       }
       
-      // Received users data
-      return Array.isArray(data) ? data : [];
+      return data || [];
     }
   });
 
@@ -117,9 +118,10 @@ export default function UserManagementAdmin() {
     }
   });
 
-  const filteredUsers = users?.filter(user => 
-    user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.user_metadata?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredUsers = users?.filter((user: any) => 
+    (user.email && user.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (user.display_name && user.display_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (user.user_metadata?.name && user.user_metadata.name.toLowerCase().includes(searchQuery.toLowerCase()))
   ) || [];
 
   return (

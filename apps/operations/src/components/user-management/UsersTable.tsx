@@ -35,7 +35,12 @@ export function UsersTable({
     );
   }
 
-  const getRoleLabel = (user: User) => {
+  const getRoleLabel = (user: any) => {
+    // Handle direct role object (from Supabase join)
+    if (user.role && typeof user.role === 'object') {
+      return user.role.role_label || user.role.role_name || 'Unknown Role';
+    }
+    // Handle legacy array format
     if (user.user_roles && Array.isArray(user.user_roles) && user.user_roles[0]) {
       return user.user_roles[0].role_label || 'Unknown Role';
     }
