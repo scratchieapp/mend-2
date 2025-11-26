@@ -81,10 +81,13 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
     mutationFn: async (data: typeof formData) => {
       if (!user) return;
 
-      // Check for valid user ID
-      const userId = user.user_id;
+      // Check for valid user ID (fallback to 'id' if 'user_id' is missing)
+      // Cast to any to access potential 'id' property not in type
+      const userId = user.user_id || (user as any).id;
+      
       if (!userId || userId === 'undefined') {
-        throw new Error("Invalid user ID");
+        console.error("User object missing ID:", user);
+        throw new Error("Invalid user ID: User object missing ID field");
       }
 
       console.log("Updating user:", userId, data);
