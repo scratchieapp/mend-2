@@ -115,12 +115,20 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         }
       }
 
-      const { error: dbError } = await supabase
+      const { data: updatedData, error: dbError } = await supabase
         .from('users')
         .update(updates)
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .select();
 
       if (dbError) throw dbError;
+
+      if (!updatedData || updatedData.length === 0) {
+        console.error("Update returned no data. ID used:", userId);
+        throw new Error("Update failed: User not found or permission denied");
+      }
+
+      console.log("Update successful:", updatedData);
 
       // 2. Call Edge Function to sync role if needed (Clerk sync)
       // This handles the 'updateUserRole' action which might sync to Clerk
