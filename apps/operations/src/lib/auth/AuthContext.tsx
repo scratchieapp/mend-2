@@ -68,7 +68,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Check for Clerk authentication
-  const { isLoaded: clerkLoaded, isSignedIn: clerkSignedIn, userId: clerkUserId } = useClerkAuth();
+  const { isLoaded: clerkLoaded, isSignedIn: clerkSignedIn, userId: clerkUserId, getToken } = useClerkAuth();
   const { user: clerkUser } = useClerkUser();
   
   // Core auth state
@@ -397,6 +397,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Check for Clerk authentication first
         if (clerkLoaded && clerkSignedIn && clerkUser) {
           if (mounted) {
+            // Sync Clerk token with Supabase to enable RLS
+            try {
+              const token = await getToken({ template: 'supabase' });
+              if (token) {
+                const { error } = await supabase.auth.setSession({
+                  access_token: token,
+                  refresh_token: '', // Clerk handles refresh
+                });
+                if (error) {
+                  console.error("Supabase auth sync failed:", error);
+                }
+              }
+            } catch (e) {
+              console.error("Failed to get Clerk token:", e);
+            }
+
             // Create a user object
             const newUser = { id: clerkUserId, email: clerkUser.primaryEmailAddress?.emailAddress } as SupabaseUser;
             
