@@ -83,31 +83,24 @@ export function EnhancedAddUserDialog({ onUserCreated }: EnhancedAddUserDialogPr
     setIsLoading(true);
 
     try {
-      // Pre-register user in database with role and employer
-      // They'll create their Clerk account when they first sign in
+      // Pre-register user using RPC function (bypasses RLS)
       const fullName = `${formData.firstName} ${formData.lastName}`.trim();
       
-      // Generate a UUID for the user_id (required field)
-      const userId = crypto.randomUUID();
-      
-      const { error: dbError } = await supabase
-        .from('users')
-        .insert({
-          user_id: userId,
-          email: formData.email,
-          role_id: parseInt(formData.roleId),
-          employer_id: formData.employerId || null, // Keep as string, not number
-          display_name: fullName || formData.email,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
+      const { data, error: rpcError } = await supabase.rpc('admin_create_user', {
+        p_email: formData.email,
+        p_display_name: fullName || null,
+        p_role_id: formData.roleId ? parseInt(formData.roleId) : null,
+        p_employer_id: formData.employerId || null,
+      });
 
-      if (dbError) {
-        // Check for duplicate email
-        if (dbError.code === '23505' || dbError.message?.includes('duplicate')) {
-          throw new Error('A user with this email already exists');
-        }
-        throw dbError;
+      if (rpcError) {
+        throw rpcError;
+      }
+
+      // Check the result from the function
+      const result = data as { success: boolean; error?: string; user_id?: string };
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create user');
       }
 
       toast({
