@@ -1,5 +1,135 @@
 # CLAUDE.md - Mend-2 Workplace Safety Platform
 
+## 🤖 VOICE AGENT INTEGRATION (IN PROGRESS - 2025-11-26)
+
+### Strategic Goal
+AI-augmented incident management to achieve 5x revenue growth without proportional headcount increase. Voice agents handle transactional logistics (booking, check-ins, reminders) while humans focus on relational care.
+
+### ✅ Completed
+1. **Supabase Database Migration**: Tables created for voice agent functionality
+   - `medical_centers` - Preferred provider network (4 sample NSW centers seeded)
+   - `appointments` - Scheduled appointments tracking
+   - `voice_tasks` - Queue for outbound voice agent calls
+   - `voice_logs` - Complete record of all voice interactions
+   - Helper functions: `create_booking_voice_task()`, `get_pending_voice_tasks()`
+   - RLS policies configured for all tables
+
+2. **Retell AI Agents Created**: 4 agents configured in Retell dashboard
+   - Medical Booking Agent (outbound - navigates IVR, books appointments)
+   - Wellness Check-In Agent (routine recovery check-ins)
+   - Appointment Reminder Agent (confirmation calls)
+   - Incident Reporter Agent (inbound - receives incident reports)
+
+3. **Australian Phone Number**: Via Crazytel (not Twilio - SIP issues)
+   - DID: `+61 2 9136 2358`
+   - SIP Termination URI (outbound): `61291362358@sip.crazytel.com.au:5060`
+   - Number imported to Retell via SIP trunking
+
+4. **Environment Variables Set**: In Vercel & Supabase
+   - `RETELL_API_KEY` ✅
+   - `RETELL_WEBHOOK_SECRET` ✅
+   - `RETELL_PHONE_NUMBER` = `61291362358` ✅
+   - `RETELL_INCIDENT_REPORTER_AGENT_ID` = `agent_169dcffc83773ccf8e62c49b29` ✅
+   - All 4 agent IDs configured ✅
+
+5. **Supabase Edge Functions Created**: ALL DEPLOYED
+   - `retell-webhook-handler` - Main webhook for all Retell events ✅
+   - `process-inbound-incident` - Creates incident records from calls ✅
+   - `lookup-employer` - Real-time employer lookup for voice agent ✅ (NEW)
+   - `lookup-site` - Real-time site lookup for voice agent ✅ (NEW)
+   - `create-voice-task` - Creates outbound call tasks ✅
+
+### ✅ SIP Connection WORKING (2025-11-26)
+**Inbound calls to +61 2 9136 2358 now route to Retell AI Incident Reporter agent!**
+- Crazytel forwards to: `sip:+61291362358@sip.retellai.com;transport=tcp`
+- Calls answered by Incident Reporter agent
+
+### ✅ Incident Auto-Creation WORKING (2025-11-26)
+**Inbound incident calls now automatically create incident records!**
+- Webhook handler detects Incident Reporter agent calls
+- Extracts data from transcript (worker name, employer, injury)
+- Matches employer against database (or uses default)
+- Creates worker record if not found
+- Creates incident with full transcript in case_notes
+- Links voice_log to incident_id
+- Tested successfully: Incident #303 created via simulated call
+
+### ✅ Real-time Database Lookup Functions (2025-11-26)
+**Voice agent can now validate employer/site during the call!**
+- `lookup-employer`: Searches employers table, returns matches/suggestions
+- `lookup-site`: Searches sites table, returns employer info
+- Designed for Retell Custom Functions - called mid-conversation
+- Prompts updated to ask employer FIRST before collecting details
+- Functions handle multiple payload formats from Retell (direct, args, arguments, input)
+
+### ✅ Retell Custom Functions WORKING (2025-11-26)
+**Custom functions fully operational in Retell Dashboard!**
+- `lookup_employer` and `lookup_site` configured as Custom Functions
+- **CRITICAL**: Must add Authorization header in Retell function config:
+  - Header Key: `Authorization`
+  - Header Value: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJremN5YnRoY3N6ZXVzcm9oYnRjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwODQ1MDAsImV4cCI6MjA0OTY2MDUwMH0.4It46NhFTc0q1KkXDUT5iMvQ9ewlTiEbqb0kLRs-sd0`
+- Agent prompt updated with:
+  - `{{current_time_Australia/Sydney}}` for date awareness
+  - Phone numbers read digit-by-digit
+  - Conversational confirmation and next steps (not bullet lists)
+
+### ✅ Smart Matching Algorithm WORKING (2025-11-26)
+**Employer and site lookup now handles partial/informal names!**
+- "Urban Development" → auto-matches "Urban Development Pty Ltd"
+- "Metro Station" → auto-matches "Metro Station - Sydney"
+- Scoring system (0-100) based on match quality:
+  - 100: Exact match
+  - 95: Match after removing suffixes (Pty Ltd, Inc, etc.)
+  - 90: Search term starts the name
+  - 70: Search term contained within name
+  - 60: All words match
+  - 40: Some words match
+- Auto-selects when: only one match, score ≥70, or best match 20+ points better than second
+- Only asks for clarification when genuinely ambiguous
+
+---
+
+## 🗺️ SITE MAPPING & USER MANAGEMENT (2025-11-27)
+
+### ✅ Google Maps Integration
+**Interactive Site Mapping on Admin Dashboards**
+- **Admin Dashboard**: Heatmap/Cluster view of ALL sites across Australia.
+- **Builder Dashboard**: Filtered map showing only the builder's assigned sites.
+- **Site Management**: Full interactive map management interface.
+- **Technical Implementation**:
+  - Used `AdvancedMarkerElement` with fallback to legacy markers for broad compatibility.
+  - Solved `Map` constructor naming collision with Lucide icons.
+  - Implemented safe async script loading hook `useGoogleMaps`.
+  - Optimized markers for performance with 50+ sites.
+
+### ✅ Enhanced User Management
+**Full "Edit User" Capabilities for Super Admins**
+- **Edit User Dialog**: Modal to update user details directly.
+- **Capabilities**:
+  - Update **Display Name**
+  - Change **User Role** (syncs with Clerk auth)
+  - Assign/Change **Employer Company**
+- **Technical Implementation**:
+  - Switched from Edge Function list fetching to **Direct DB Query** to ensure 100% fresh data (solved stale cache issue).
+  - Implemented robust ID handling (supports both `id` and `user_id`).
+  - Added verification step to confirm DB updates are successful.
+
+### ⏳ Pending
+1. **Register Account-Level Webhook**: Retell Dashboard → Settings → Webhooks
+   - URL: `https://rkzcybthcszeusrohbtc.supabase.co/functions/v1/retell-webhook-handler`
+   - Events: `call_started`, `call_ended`, `call_analyzed`
+2. **HubSpot Integration**: Not started
+   - Sync call logs and transcripts
+   - Link voice interactions to contacts
+
+### 📚 Voice Agent Documentation
+- `/docs/Voice Agent Strategy For Incident Management.md` - Strategic architecture & business case
+- `/docs/VOICE_AGENT_SETUP.md` - Original implementation guide
+- `/docs/RETELL_CONFIGURATION_GUIDE.md` - **NEW** Step-by-step Retell config (dynamic vars, functions, webhooks)
+- `/docs/retell-agent-prompts.md` - Agent prompts and tool definitions
+
+---
+
 ## ✅ CRITICAL ISSUES RESOLVED (2025-10-04)
 
 ### 🎯 ALL PRODUCTION BLOCKERS FIXED
@@ -160,6 +290,16 @@ npm run preview      # Preview build
 - `/supabase/migrations/` - Database migrations directory
 - `/src/integrations/supabase/types.ts` - Database type definitions
 
+### Voice Agent Integration (UPDATED 2025-11-26)
+- `/docs/Voice Agent Strategy For Incident Management.md` - Strategic architecture & business case
+- `/docs/VOICE_AGENT_SETUP.md` - Complete step-by-step setup guide
+- `/docs/RETELL_CONFIGURATION_GUIDE.md` - Retell dashboard configuration (functions, webhooks)
+- `/docs/retell-agent-prompts.md` - Agent prompts, tools, and dynamic variables
+- `/supabase/functions/retell-webhook-handler/` - Main Retell webhook handler
+- `/supabase/functions/process-inbound-incident/` - Creates incidents from calls
+- `/supabase/functions/lookup-employer/` - Real-time employer lookup
+- `/supabase/functions/lookup-site/` - Real-time site lookup with employer info
+
 ## Production Readiness Assessment
 
 **Status: ✅ PRODUCTION READY** (as of 2025-10-04)
@@ -198,6 +338,6 @@ npm run preview      # Preview build
 
 ---
 
-**Last Updated**: October 4, 2025
-**Version**: 4.0.0
-**Status**: ✅ PRODUCTION READY - All critical issues resolved
+**Last Updated**: November 26, 2025
+**Version**: 4.4.0
+**Status**: ✅ PRODUCTION READY | ✅ Voice Agent - Fully Operational (Inbound calls, employer/site lookup, smart matching)
