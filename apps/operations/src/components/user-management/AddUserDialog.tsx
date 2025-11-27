@@ -50,7 +50,6 @@ export function AddUserDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
-    password: "",
     firstName: "",
     lastName: "",
     roleId: "",
@@ -88,7 +87,6 @@ export function AddUserDialog({
   const resetForm = () => {
     setFormData({
       email: "",
-      password: "",
       firstName: "",
       lastName: "",
       roleId: "",
@@ -106,42 +104,31 @@ export function AddUserDialog({
     setIsLoading(true);
 
     try {
-      // Create user via Edge Function (handles Clerk + Supabase sync)
-      const { data: clerkResponse, error: clerkError } = await supabase.functions.invoke('manage-users', {
-        method: 'POST',
-        body: {
-          action: 'createUser',
-          data: {
-            email: formData.email,
-            password: formData.password,
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-          }
-        }
-      });
-
-      if (clerkError) throw clerkError;
-
-      // Update user in database with role and employer
+      // Pre-register user in database with role and employer
+      // They'll create their Clerk account when they first sign in
       const fullName = `${formData.firstName} ${formData.lastName}`.trim();
+      
       const { error: dbError } = await supabase
         .from('users')
-        .upsert({
+        .insert({
           email: formData.email,
           role_id: formData.roleId ? parseInt(formData.roleId) : null,
           employer_id: formData.employerId ? parseInt(formData.employerId) : null,
           user_name: fullName || formData.email,
           display_name: fullName || null,
-          clerk_user_id: clerkResponse?.id,
-        }, {
-          onConflict: 'email'
         });
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        // Check for duplicate email
+        if (dbError.code === '23505' || dbError.message?.includes('duplicate')) {
+          throw new Error('A user with this email already exists');
+        }
+        throw dbError;
+      }
 
       toast({
-        title: "Success",
-        description: `User ${formData.email} has been created successfully.`,
+        title: "User Pre-Registered",
+        description: `${formData.email} has been added. They can now sign up at the login page to activate their account.`,
       });
 
       resetForm();
@@ -151,9 +138,7 @@ export function AddUserDialog({
     } catch (error) {
       console.error('Error creating user:', error);
       const errorMessage = error instanceof Error 
-        ? error.message.includes("user_already_exists")
-          ? "This email is already registered. Please use a different email address."
-          : error.message
+        ? error.message
         : "Failed to create user";
       
       toast({
@@ -176,10 +161,10 @@ export function AddUserDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" />
-            Create New User
+            Pre-Register User
           </DialogTitle>
           <DialogDescription>
-            Add a new user to the system. They will be able to sign in immediately with these credentials.
+            Pre-register a user with their role and company. They will complete signup when they first sign in.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -217,22 +202,8 @@ export function AddUserDialog({
                 placeholder="user@example.com"
                 required
               />
-            </div>
-
-            {/* Password */}
-            <div className="space-y-2">
-              <Label htmlFor="password">Password <span className="text-red-500">*</span></Label>
-              <Input
-                id="password"
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder="Enter a secure password"
-                required
-                minLength={8}
-              />
               <p className="text-xs text-muted-foreground">
-                Minimum 8 characters. User can change this after signing in.
+                User will sign up with this email to activate their account.
               </p>
             </div>
 
@@ -296,16 +267,16 @@ export function AddUserDialog({
             <Button type="button" variant="outline" onClick={handleClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || !formData.email || !formData.password || !formData.roleId}>
+            <Button type="submit" disabled={isLoading || !formData.email || !formData.roleId}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
+                  Adding...
                 </>
               ) : (
                 <>
                   <UserPlus className="mr-2 h-4 w-4" />
-                  Create User
+                  Add User
                 </>
               )}
             </Button>

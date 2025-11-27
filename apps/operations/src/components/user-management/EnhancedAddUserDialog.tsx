@@ -44,7 +44,6 @@ export function EnhancedAddUserDialog({ onUserCreated }: EnhancedAddUserDialogPr
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
-    password: "",
     firstName: "",
     lastName: "",
     roleId: "",
@@ -84,47 +83,36 @@ export function EnhancedAddUserDialog({ onUserCreated }: EnhancedAddUserDialogPr
     setIsLoading(true);
 
     try {
-      // First, create the user in Clerk via the Edge Function
-      const { data: clerkResponse, error: clerkError } = await supabase.functions.invoke('manage-users', {
-        method: 'POST',
-        body: {
-          action: 'createUser',
-          data: {
-            email: formData.email,
-            password: formData.password,
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-          }
-        }
-      });
-
-      if (clerkError) throw clerkError;
-
-      // Then, create or update the user in the database with the role and employer
+      // Pre-register user in database with role and employer
+      // They'll create their Clerk account when they first sign in
       const fullName = `${formData.firstName} ${formData.lastName}`.trim();
+      
       const { error: dbError } = await supabase
         .from('users')
-        .upsert({
+        .insert({
           email: formData.email,
           role_id: parseInt(formData.roleId),
           employer_id: formData.employerId ? parseInt(formData.employerId) : null,
           user_name: fullName || formData.email,
-          clerk_user_id: clerkResponse.id,
-        }, {
-          onConflict: 'email'
+          display_name: fullName || null,
         });
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        // Check for duplicate email
+        if (dbError.code === '23505' || dbError.message?.includes('duplicate')) {
+          throw new Error('A user with this email already exists');
+        }
+        throw dbError;
+      }
 
       toast({
-        title: "Success",
-        description: `User ${formData.email} has been created successfully.`,
+        title: "User Pre-Registered",
+        description: `${formData.email} has been added. They can now sign up at the login page to activate their account.`,
       });
 
       // Reset form and close dialog
       setFormData({
         email: "",
-        password: "",
         firstName: "",
         lastName: "",
         roleId: "",
@@ -159,9 +147,9 @@ export function EnhancedAddUserDialog({ onUserCreated }: EnhancedAddUserDialogPr
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create New User</DialogTitle>
+          <DialogTitle>Pre-Register User</DialogTitle>
           <DialogDescription>
-            Add a new user to the system with role and company assignment.
+            Pre-register a user with their role and company. They will complete signup when they first sign in.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -197,20 +185,8 @@ export function EnhancedAddUserDialog({ onUserCreated }: EnhancedAddUserDialogPr
                 placeholder="user@example.com"
                 required
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Temporary Password *</Label>
-              <Input
-                id="password"
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder="Enter a secure password"
-                required
-              />
               <p className="text-xs text-muted-foreground">
-                User will be prompted to change this on first login
+                User will sign up with this email to activate their account
               </p>
             </div>
 
