@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Shield, Users, Briefcase } from 'lucide-react';
+import { Building2, Shield, Users, Briefcase, Loader2 } from 'lucide-react';
 import { NavigationLinks } from './NavigationLinks';
 import { EmployerContextSelector } from '../EmployerContextSelector';
 import { UserBadge } from '../auth/UserBadge';
@@ -15,10 +15,31 @@ interface RoleBasedHeaderProps {
  * Shows appropriate UI elements based on user's role
  */
 export function RoleBasedHeader({ className }: RoleBasedHeaderProps) {
-  const { userData } = useAuth();
+  const { userData, isLoading } = useAuth();
 
+  // Show a minimal header with logout even when user data is loading
   if (!userData) {
-    return null; // Don't show header if user data isn't loaded
+    return (
+      <nav className={`border-b bg-white shadow-sm ${className || ''}`}>
+        <div className="container mx-auto px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {isLoading ? (
+              <div className="flex items-center gap-2 text-gray-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Loading...</span>
+              </div>
+            ) : (
+              <Badge className="flex items-center gap-1.5 bg-gray-100 text-gray-800">
+                <Users className="h-4 w-4" />
+                <span className="font-medium">Loading profile...</span>
+              </Badge>
+            )}
+          </div>
+          {/* Always show UserBadge so user can log out */}
+          <UserBadge />
+        </div>
+      </nav>
+    );
   }
 
   const roleId = userData.role_id;
