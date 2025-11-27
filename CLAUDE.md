@@ -146,11 +146,57 @@ AI-augmented incident management to achieve 5x revenue growth without proportion
 - **Builder Admin (role 5)**: Sees ONLY their employer's incidents
 - **Other roles**: Properly scoped to their employer_id
 
+### ✅ User Management RLS (2025-11-27)
+**User Management pages now filter users by employer for non-MEND staff**
+
+**Problem**: Builder Admins (role 5) could see ALL 15 users across ALL employers in User Management pages, instead of only their own employer's users.
+
+**Solution**: Created `get_users_for_current_user(p_clerk_user_id TEXT)` function that:
+- **Roles 1-3 (MEND Staff)**: Returns ALL users across all employers
+- **Roles 4+ (Company Users)**: Returns ONLY users from their employer
+
+**Function Details**:
+```sql
+get_users_for_current_user(p_clerk_user_id TEXT)
+RETURNS TABLE (
+  user_id UUID,
+  display_name TEXT,
+  email TEXT,
+  created_at TIMESTAMPTZ,
+  role_id INTEGER,
+  employer_id INTEGER,
+  role_name TEXT,
+  role_label TEXT,
+  employer_name TEXT
+)
+```
+
+**Pages Updated** (all now use the RPC instead of direct table queries):
+- `/admin/users` → `AdminUsersPage.tsx`
+- `/admin/user-management` → `UserManagementAdmin.tsx`
+- `/admin/super-user-management` → `SuperUserManagement.tsx`
+- `/user-management` → `EnhancedUserManagementAdmin.tsx`
+- `/account-manager` → `AccountManager.tsx`
+- `UserManagementPage.tsx` (legacy)
+
+**Additional RLS Policies Added**:
+- `anon_view_users` - Allows anon role to read users table (required for Clerk auth)
+- `anon_view_employers` - Allows anon role to read employers table
+
+**Technical Note**: With Clerk authentication, Supabase client uses `anon` role (not `authenticated`), so policies must target the `anon` role for direct table access, or use `SECURITY DEFINER` functions to bypass RLS.
+
 ### Key Files Modified
 - `/apps/operations/src/lib/auth/AuthContext.tsx` - Added email fallback, proper error handling
 - `/apps/operations/src/components/navigation/RoleBasedHeader.tsx` - Always shows header with logout
 - `/apps/operations/src/hooks/useUserContext.ts` - Uses AuthContext data
 - `/src/hooks/useIncidentsRBAC.ts` - Uses RPC for user details lookup
+- `/apps/operations/src/pages/AdminUsersPage.tsx` - Uses `get_users_for_current_user` RPC
+- `/apps/operations/src/pages/UserManagementAdmin.tsx` - Uses `get_users_for_current_user` RPC
+- `/apps/operations/src/pages/EnhancedUserManagementAdmin.tsx` - Uses `get_users_for_current_user` RPC
+- `/apps/operations/src/pages/SuperUserManagement.tsx` - Uses `get_users_for_current_user` RPC
+- `/apps/operations/src/pages/AccountManager.tsx` - Uses `get_users_for_current_user` RPC
+- `/apps/operations/src/pages/UserManagementPage.tsx` - Uses `get_users_for_current_user` RPC
+- `/apps/operations/src/types/user.ts` - User type definitions (NEW)
 
 ### Database Functions Created
 ```sql
@@ -159,6 +205,9 @@ get_user_profile_by_clerk_id(p_clerk_user_id TEXT)
 get_user_profile_by_email(p_email TEXT)
 get_user_details_by_clerk_id(p_clerk_user_id TEXT)
 update_clerk_user_id(p_email TEXT, p_clerk_user_id TEXT)
+
+-- User management (SECURITY DEFINER) - NEW 2025-11-27
+get_users_for_current_user(p_clerk_user_id TEXT)  -- Returns users filtered by caller's role/employer
 
 -- Dashboard data (SECURITY DEFINER)
 get_dashboard_data(page_size, page_offset, filters..., user_role_id, user_employer_id)
@@ -390,5 +439,5 @@ npm run preview      # Preview build
 ---
 
 **Last Updated**: November 27, 2025
-**Version**: 4.5.0
-**Status**: ✅ PRODUCTION READY | ✅ Voice Agent - Fully Operational | ✅ RLS + Clerk Auth - Fixed
+**Version**: 4.6.0
+**Status**: ✅ PRODUCTION READY | ✅ Voice Agent - Fully Operational | ✅ RLS + Clerk Auth - Fixed | ✅ User Management RLS - Fixed
