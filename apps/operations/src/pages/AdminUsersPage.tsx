@@ -323,7 +323,7 @@ export default function AdminUsersPage() {
       <div className="container mx-auto px-4 py-8 pt-20">
         {/* Breadcrumb */}
         <div className="text-sm text-muted-foreground mb-6">
-          Super Admin / User Management
+          Admin / User Directory
         </div>
 
         {/* Page Header */}
@@ -331,10 +331,11 @@ export default function AdminUsersPage() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Users className="h-8 w-8" />
-            User Management
+            User Directory
           </h1>
           <p className="text-muted-foreground mt-2">
-            Manage user accounts, roles, and employer assignments
+            Overview of all users, their roles, and employer assignments. For detailed user editing, use{" "}
+            <a href="/admin/user-management" className="text-primary hover:underline">User Management</a>.
           </p>
         </div>
         <div className="flex gap-2">

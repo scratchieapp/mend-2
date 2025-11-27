@@ -76,7 +76,8 @@ export default function UserManagementAdmin() {
                 User Management
               </h1>
               <p className="mt-2 text-gray-600 dark:text-gray-400">
-                Manage user accounts and permissions
+                Create, edit, and delete user accounts. For an overview with stats and filters, see{" "}
+                <a href="/admin/users" className="text-primary hover:underline">User Directory</a>.
               </p>
             </div>
             <div className="flex items-center gap-4">

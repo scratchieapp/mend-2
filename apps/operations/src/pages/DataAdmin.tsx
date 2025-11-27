@@ -26,8 +26,8 @@ const DataAdmin = () => {
       route: "/admin/search",
     },
     {
-      title: "User Management",
-      description: "Manage user accounts and permissions",
+      title: "User Directory",
+      description: "Overview of all users with stats and filters",
       route: "/admin/users",
     },
     {

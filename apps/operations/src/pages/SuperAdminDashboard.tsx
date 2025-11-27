@@ -99,7 +99,7 @@ const SuperAdminDashboard = () => {
             </p>
           </div>
           <div className="flex gap-4">
-            <Button variant="outline" onClick={() => navigate("/admin/users")}>
+            <Button variant="outline" onClick={() => navigate("/admin/user-management")}>
               <Users className="mr-2 h-4 w-4" />
               Manage Users
             </Button>

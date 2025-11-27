@@ -23,10 +23,10 @@ export function MendNavigationLinks() {
   return (
     <>
       {canManageUsers && (
-        <Link to="/admin/users">
+        <Link to="/admin/user-management">
           <Button variant="ghost">
             <Users className="h-4 w-4 mr-2" />
-            User Management
+            Users
           </Button>
         </Link>
       )}
