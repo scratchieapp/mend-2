@@ -28,6 +28,7 @@ type UserData = {
   custom_display_name?: string | null;
   role_id?: number | null;
   employer_id?: string | null;
+  employer_name?: string | null;
   site_id?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
@@ -143,7 +144,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           })
           .single();
 
-        if (!error && data) {
+        if (error) {
+          console.warn("RPC fetch failed:", error);
+          // Continue to fallback - don't return here
+        } else if (data) {
           // Map flat RPC result to nested structure expected by UserData
           const processedData: UserData = {
             user_id: data.user_id,
@@ -152,6 +156,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             custom_display_name: data.custom_display_name,
             role_id: data.role_id,
             employer_id: data.employer_id ? String(data.employer_id) : null,
+            employer_name: data.employer_name || null,
             site_id: data.site_id ? String(data.site_id) : null,
             created_at: data.created_at,
             updated_at: data.updated_at,
@@ -170,9 +175,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           clearError();
           return;
         } else {
-            // Fallback to old query if RPC fails or returns no data (though it shouldn't for valid users)
-             console.warn("RPC fetch failed, falling back to table query", error);
-             // ... existing fallback logic or just error
+          console.warn("RPC returned no data for clerk_user_id:", currentUserId);
         }
       } catch (err) {
         console.error('Error fetching Clerk user data:', err);

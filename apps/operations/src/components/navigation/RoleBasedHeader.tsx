@@ -100,6 +100,8 @@ export function RoleBasedHeader({ className }: RoleBasedHeaderProps) {
 
   const roleInfo = getRoleInfo();
   const showEmployerSelector = isSuperAdmin; // ONLY show for super admin
+  const employerName = userData.employer_name;
+  const showEmployerName = !isSuperAdmin && employerName; // Show employer name for non-super-admins
 
   return (
     <nav className={`border-b bg-white shadow-sm ${className || ''}`}>
@@ -110,6 +112,14 @@ export function RoleBasedHeader({ className }: RoleBasedHeaderProps) {
             {roleInfo.icon}
             <span className="font-medium">{roleInfo.label}</span>
           </Badge>
+
+          {/* Employer Name - for non-super-admin roles */}
+          {showEmployerName && (
+            <div className="flex items-center gap-2 text-sm text-gray-600 border-l pl-4">
+              <Building2 className="h-4 w-4 text-gray-400" />
+              <span className="font-medium">{employerName}</span>
+            </div>
+          )}
 
           {/* Employer Selector - ONLY for Super Admin */}
           {showEmployerSelector && (
