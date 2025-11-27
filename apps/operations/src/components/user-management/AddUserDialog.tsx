@@ -238,14 +238,14 @@ export function AddUserDialog({
                   </div>
                 </Label>
                 <Select
-                  value={formData.employerId}
-                  onValueChange={(value) => setFormData({ ...formData, employerId: value })}
+                  value={formData.employerId || "none"}
+                  onValueChange={(value) => setFormData({ ...formData, employerId: value === "none" ? "" : value })}
                 >
                   <SelectTrigger id="employer">
                     <SelectValue placeholder="Select a company (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No Company (Mend Staff)</SelectItem>
+                    <SelectItem value="none">No Company (Mend Staff)</SelectItem>
                     {employers?.map((employer) => (
                       <SelectItem 
                         key={employer.employer_id} 

@@ -219,14 +219,14 @@ export function EnhancedAddUserDialog({ onUserCreated }: EnhancedAddUserDialogPr
                   </div>
                 </Label>
                 <Select
-                  value={formData.employerId}
-                  onValueChange={(value) => setFormData({ ...formData, employerId: value })}
+                  value={formData.employerId || "none"}
+                  onValueChange={(value) => setFormData({ ...formData, employerId: value === "none" ? "" : value })}
                 >
                   <SelectTrigger id="employer">
                     <SelectValue placeholder="Select a company (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No Company</SelectItem>
+                    <SelectItem value="none">No Company</SelectItem>
                     {employers?.map((employer) => (
                       <SelectItem 
                         key={employer.employer_id} 
