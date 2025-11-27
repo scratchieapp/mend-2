@@ -1,127 +1,67 @@
 import { Input } from "@/components/ui/input";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search, UserCog } from "lucide-react";
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { AddUserDialog } from "@/components/user-management/AddUserDialog";
+import { EnhancedAddUserDialog } from "@/components/user-management/EnhancedAddUserDialog";
 import { EditUserDialog } from "@/components/user-management/EditUserDialog";
 import { UsersTable } from "@/components/user-management/UsersTable";
 import { User } from "@/types/user";
 import { supabase } from "@/integrations/supabase/client";
+import { Badge } from "@/components/ui/badge";
+import { useAuth as useClerkAuth } from "@clerk/clerk-react";
 
 export default function UserManagementAdmin() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { userId: clerkUserId } = useClerkAuth();
 
   const handleEditUser = (user: User) => {
     setSelectedUser(user);
     setEditDialogOpen(true);
   };
 
-  // Fetch users directly from DB to ensure up-to-date data
+  // Fetch users with RLS filtering by role/employer
   const { data: users, isLoading } = useQuery({
-    queryKey: ['users'],
+    queryKey: ['users-with-details', clerkUserId],
+    enabled: !!clerkUserId,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('users')
-        .select(`
-          *,
-          role:user_roles(*)
-        `)
-        .order('created_at', { ascending: false });
+        .rpc('get_users_for_current_user', {
+          p_clerk_user_id: clerkUserId || ''
+        });
       
       if (error) {
         console.error('Error fetching users:', error);
         throw error;
       }
       
-      return data || [];
+      // Map the flat RPC result to match our User interface
+      return (data || []).map((user: any) => ({
+        user_id: user.user_id,
+        display_name: user.display_name,
+        email: user.email,
+        created_at: user.created_at,
+        role_id: user.role_id,
+        employer_id: user.employer_id,
+        role: user.role_name ? {
+          role_id: user.role_id,
+          role_name: user.role_name,
+          role_label: user.role_label
+        } : null,
+        employer: user.employer_name ? {
+          employer_id: user.employer_id,
+          employer_name: user.employer_name
+        } : null
+      })) as User[];
     }
   });
 
-  // Create new user mutation
-  const createUserMutation = useMutation({
-    mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      const { data, error } = await supabase.functions.invoke('manage-users', {
-        method: 'POST',
-        body: {
-          action: 'createUser',
-          data: { email, password }
-        }
-      });
-      
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast({
-        title: "User created successfully",
-        description: "The new user has been added to the system.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error creating user",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  });
-
-  // Update user role mutation
-  const updateUserRoleMutation = useMutation({
-    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      const { data, error } = await supabase.functions.invoke('manage-users', {
-        method: 'POST',
-        body: {
-          action: 'updateUserRole',
-          data: { userId, role }
-        }
-      });
-      
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast({
-        title: "User role updated",
-        description: "The user's role has been successfully updated.",
-      });
-    }
-  });
-
-  // Deactivate user mutation
-  const deactivateUserMutation = useMutation({
-    mutationFn: async (userId: string) => {
-      const { data, error } = await supabase.functions.invoke('manage-users', {
-        method: 'POST',
-        body: {
-          action: 'deleteUser',
-          data: { userId }
-        }
-      });
-      
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast({
-        title: "User deactivated",
-        description: "The user has been successfully deactivated.",
-      });
-    }
-  });
-
-  const filteredUsers = users?.filter((user: any) => 
+  const filteredUsers = users?.filter((user: User) => 
     (user.email && user.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (user.display_name && user.display_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (user.user_metadata?.name && user.user_metadata.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    (user.employer?.employer_name && user.employer.employer_name.toLowerCase().includes(searchQuery.toLowerCase()))
   ) || [];
 
   return (
@@ -139,7 +79,14 @@ export default function UserManagementAdmin() {
                 Manage user accounts and permissions
               </p>
             </div>
-            <AddUserDialog createUserMutation={createUserMutation} />
+            <div className="flex items-center gap-4">
+              <Badge variant="secondary">
+                {users?.length || 0} Total Users
+              </Badge>
+              <EnhancedAddUserDialog onUserCreated={() => {
+                queryClient.invalidateQueries({ queryKey: ['users-with-details'] });
+              }} />
+            </div>
           </div>
 
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
@@ -148,7 +95,7 @@ export default function UserManagementAdmin() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   className="pl-10"
-                  placeholder="Search users..."
+                  placeholder="Search by name, email, or company..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -158,8 +105,6 @@ export default function UserManagementAdmin() {
             <UsersTable
               users={filteredUsers}
               isLoading={isLoading}
-              updateUserRoleMutation={updateUserRoleMutation}
-              deactivateUserMutation={deactivateUserMutation}
               onEditUser={handleEditUser}
             />
           </div>

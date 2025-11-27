@@ -4,11 +4,13 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { UserManagement } from "@/components/users/UserManagement";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { useAuth as useClerkAuth } from "@clerk/clerk-react";
 import { canManageUser } from "@/lib/auth/roles"; // Import from the new roles.ts file
 import { UserData, UserRole } from "@/types/auth";
 
 export default function UserManagementPage() {
   const { userData } = useAuth();
+  const { userId: clerkUserId } = useClerkAuth();
   const [users, setUsers] = useState<UserData[]>([]);
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
@@ -18,7 +20,7 @@ export default function UserManagementPage() {
   // Fetch users and roles
   useEffect(() => {
     const fetchData = async () => {
-      if (!userData) return;
+      if (!userData || !clerkUserId) return;
 
       try {
         // Fetch roles first
@@ -30,17 +32,25 @@ export default function UserManagementPage() {
         if (rolesError) throw rolesError;
         setRoles(rolesData);
 
-        // Then fetch users
+        // Then fetch users using RLS-aware function
         const { data: usersData, error: usersError } = await supabase
-          .from("users")
-          .select(`
-            *,
-            user_roles (*)
-          `)
-          .order("created_at", { ascending: false });
+          .rpc('get_users_for_current_user', {
+            p_clerk_user_id: clerkUserId
+          });
 
         if (usersError) throw usersError;
-        setUsers(usersData);
+        
+        // Map flat RPC result to UserData structure
+        const mappedUsers = (usersData || []).map((user: any) => ({
+          ...user,
+          user_roles: user.role_name ? {
+            role_id: user.role_id,
+            role_name: user.role_name,
+            role_label: user.role_label
+          } : null
+        }));
+        
+        setUsers(mappedUsers);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load users");
       } finally {
@@ -49,7 +59,7 @@ export default function UserManagementPage() {
     };
 
     fetchData();
-  }, [userData]);
+  }, [userData, clerkUserId]);
 
   const handleEditUser = (user: UserData) => {
     setSelectedUser(user);

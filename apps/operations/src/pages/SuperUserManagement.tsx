@@ -51,6 +51,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useAuth as useClerkAuth } from "@clerk/clerk-react";
 
 interface UserData {
   user_id: string;
@@ -81,6 +82,7 @@ const SuperUserManagement = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { userData } = useAuth();
+  const { userId: clerkUserId } = useClerkAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
@@ -101,17 +103,30 @@ const SuperUserManagement = () => {
     }
   }, [userData, navigate]);
 
-  // Fetch all users
+  // Fetch all users using RLS-aware function
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
-    queryKey: ['all-users'],
+    queryKey: ['all-users', clerkUserId],
+    enabled: !!clerkUserId,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .rpc('get_users_for_current_user', {
+          p_clerk_user_id: clerkUserId || ''
+        });
 
       if (error) throw error;
-      return data as UserData[];
+      
+      // Map flat RPC result to UserData structure
+      return (data || []).map((user: any) => ({
+        user_id: user.user_id,
+        email: user.email,
+        display_name: user.display_name,
+        custom_display_name: user.display_name, // RPC doesn't return custom_display_name
+        role_id: user.role_id,
+        employer_id: user.employer_id,
+        created_at: user.created_at,
+        last_seen_at: null, // RPC doesn't return this
+        clerk_user_id: null // RPC doesn't return this
+      })) as UserData[];
     }
   });
 

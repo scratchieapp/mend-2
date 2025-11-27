@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/lib/auth/authConfig";
+import { useAuth as useClerkAuth } from "@clerk/clerk-react";
 import { UserData, UserRole, UserRoleName } from "@/types/auth";
 import { getAvailableRolesToCreate } from "@/lib/auth/roles";
 import { Input } from "@/components/ui/input";
@@ -25,31 +26,21 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 export default function AccountManager() {
   const navigate = useNavigate();
   const { user: userData } = useAuthContext();
+  const { userId: clerkUserId } = useClerkAuth();
   const [users, setUsers] = useState<UserData[]>([]);
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserData | null | undefined>(null);
   const [showAddUserDialog, setShowAddUserDialog] = useState(false);
   const { toast } = useToast();
 
-  // Combined fetch function to prevent parallel query issues
+  // Combined fetch function with RLS-aware user query
   const fetchAccountManagerData = async () => {
     try {
-      // Fetch users and roles in sequence to avoid race conditions
+      // Fetch users using RLS-aware function
       const { data: usersData, error: usersError } = await supabase
-        .from("users")
-        .select(`
-          user_id,
-          display_name,
-          email,
-          created_at,
-          role_id,
-          user_roles (
-            role_id,
-            role_name,
-            role_label
-          )
-        `)
-        .order("created_at", { ascending: false });
+        .rpc('get_users_for_current_user', {
+          p_clerk_user_id: clerkUserId || ''
+        });
 
       if (usersError) throw usersError;
 
@@ -60,8 +51,23 @@ export default function AccountManager() {
 
       if (rolesError) throw rolesError;
 
+      // Map the flat RPC result to UserData structure
+      const mappedUsers = (usersData || []).map((user: any) => ({
+        user_id: user.user_id,
+        display_name: user.display_name,
+        email: user.email,
+        created_at: user.created_at,
+        role_id: user.role_id,
+        employer_id: user.employer_id,
+        user_roles: user.role_name ? {
+          role_id: user.role_id,
+          role_name: user.role_name,
+          role_label: user.role_label
+        } : null
+      }));
+
       return {
-        users: (usersData || []) as UserData[],
+        users: mappedUsers as UserData[],
         roles: (rolesData || []) as UserRole[]
       };
     } catch (error) {
@@ -72,8 +78,9 @@ export default function AccountManager() {
 
   // Single query to fetch all data
   const { data: accountData, isLoading, error } = useQuery({
-    queryKey: ['account-manager-data'],
+    queryKey: ['account-manager-data', clerkUserId],
     queryFn: fetchAccountManagerData,
+    enabled: !!clerkUserId,
     retry: 1,
     retryDelay: 1000,
     staleTime: 30 * 1000, // 30 seconds

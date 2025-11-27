@@ -19,8 +19,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { User } from "@/types/user";
+import { Trash2 } from "lucide-react";
 
 interface EditUserDialogProps {
   user: User | null;
@@ -41,7 +53,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
   useEffect(() => {
     if (user) {
       setFormData({
-        display_name: user.display_name || "",
+        display_name: user.display_name || user.user_name || "",
         role_id: user.role_id?.toString() || "",
         employer_id: user.employer_id?.toString() || "null",
       });
@@ -82,7 +94,6 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       if (!user) return;
 
       // Check for valid user ID (fallback to 'id' if 'user_id' is missing)
-      // Cast to any to access potential 'id' property not in type
       const userId = user.user_id || (user as any).id;
       
       if (!userId || userId === 'undefined') {
@@ -131,9 +142,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       console.log("Update successful:", updatedData);
 
       // 2. Call Edge Function to sync role if needed (Clerk sync)
-      // This handles the 'updateUserRole' action which might sync to Clerk
       if (data.role_id && parseInt(data.role_id) !== user.role_id) {
-        // Find role name from ID
         const role = roles.find(r => r.role_id === parseInt(data.role_id));
         if (role) {
           const { error: functionError } = await supabase.functions.invoke('manage-users', {
@@ -148,13 +157,13 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
           });
           if (functionError) {
             console.warn("Failed to sync role to Clerk:", functionError);
-            // Don't throw here if DB update succeeded, just warn
           }
         }
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['users-with-details'] });
       toast({
         title: "Success",
         description: "User updated successfully",
@@ -165,6 +174,50 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       toast({
         title: "Error",
         description: "Failed to update user: " + error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Delete user mutation
+  const deleteUserMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) return;
+      
+      const userId = user.user_id || (user as any).id;
+      
+      // First, try to delete from Clerk if they have a clerk_user_id
+      if (user.clerk_user_id) {
+        await supabase.functions.invoke('manage-users', {
+          method: 'POST',
+          body: {
+            action: 'deleteUser',
+            data: { userId: user.clerk_user_id }
+          }
+        });
+      }
+
+      // Then delete from database
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('user_id', userId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['users-with-details'] });
+      toast({
+        title: "Success",
+        description: "User has been deleted successfully.",
+      });
+      onOpenChange(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to delete user: ${error.message}`,
         variant: "destructive",
       });
     }
@@ -240,17 +293,46 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
             </Select>
           </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={updateUserMutation.isPending}>
-              {updateUserMutation.isPending ? "Saving..." : "Save Changes"}
-            </Button>
+          <DialogFooter className="flex justify-between sm:justify-between">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button type="button" variant="destructive" size="sm">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete User
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the user
+                    account for <strong>{user.email}</strong> and remove their data from
+                    the system.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => deleteUserMutation.mutate()}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {deleteUserMutation.isPending ? "Deleting..." : "Delete"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updateUserMutation.isPending}>
+                {updateUserMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
   );
 }
-

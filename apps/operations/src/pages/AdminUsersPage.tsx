@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { useAuth as useClerkAuth } from "@clerk/clerk-react";
 import { UserData, UserRole } from "@/types/auth";
 import { getAvailableRolesToCreate } from "@/lib/auth/roles";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,7 @@ interface UserWithEmployers extends UserData {
 export default function AdminUsersPage() {
   const navigate = useNavigate();
   const { userData } = useAuth();
+  const { userId: clerkUserId } = useClerkAuth();
   const [users, setUsers] = useState<UserWithEmployers[]>([]);
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [employers, setEmployers] = useState<Employer[]>([]);
@@ -60,24 +62,12 @@ export default function AdminUsersPage() {
     try {
       console.log('[AdminUsersPage] Starting data fetch...');
 
-      // Fetch users with their roles and employer assignments
-      console.log('[AdminUsersPage] Fetching users...');
+      // Fetch users using RLS-aware function that filters by role/employer
+      console.log('[AdminUsersPage] Fetching users with clerk ID:', clerkUserId);
       const { data: usersData, error: usersError } = await supabase
-        .from("users")
-        .select(`
-          user_id,
-          display_name,
-          email,
-          created_at,
-          role_id,
-          employer_id,
-          user_roles (
-            role_id,
-            role_name,
-            role_label
-          )
-        `)
-        .order("created_at", { ascending: false });
+        .rpc('get_users_for_current_user', {
+          p_clerk_user_id: clerkUserId || ''
+        });
 
       console.log('[AdminUsersPage] Users result:', { data: usersData, error: usersError });
       if (usersError) {
@@ -111,8 +101,23 @@ export default function AdminUsersPage() {
         throw employersError;
       }
 
+      // Map flat RPC result to the expected structure
+      const processedUsers = (usersData || []).map((u: any) => ({
+        user_id: u.user_id,
+        display_name: u.display_name,
+        email: u.email,
+        created_at: u.created_at,
+        role_id: u.role_id,
+        employer_id: u.employer_id,
+        user_roles: u.role_name ? {
+          role_id: u.role_id,
+          role_name: u.role_name,
+          role_label: u.role_label
+        } : null
+      }));
+
       const result = {
-        users: (usersData || []) as UserWithEmployers[],
+        users: processedUsers as UserWithEmployers[],
         roles: (rolesData || []) as UserRole[],
         employers: (employersData || []) as Employer[]
       };
@@ -127,7 +132,8 @@ export default function AdminUsersPage() {
 
   // Single query to fetch all data with timeout protection
   const { data: adminData, isLoading, error, refetch } = useQuery({
-    queryKey: ['admin-users-data'],
+    queryKey: ['admin-users-data', clerkUserId],
+    enabled: !!clerkUserId, // Only run when we have a clerk user ID
     queryFn: async () => {
       console.log('[AdminUsersPage] Query starting...');
       // Add timeout protection
