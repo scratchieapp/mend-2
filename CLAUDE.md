@@ -114,6 +114,57 @@ AI-augmented incident management to achieve 5x revenue growth without proportion
   - Implemented robust ID handling (supports both `id` and `user_id`).
   - Added verification step to confirm DB updates are successful.
 
+---
+
+## 🔐 RLS & AUTHENTICATION FIXES (2025-11-27)
+
+### ✅ AuthSessionMissingError Resolution
+**Fixed critical issue where RLS blocked all data access for Clerk-authenticated users**
+
+**Root Cause**: Clerk authentication doesn't create a Supabase session, so RLS policies that depend on `auth.uid()` fail with `AuthSessionMissingError`.
+
+**Solution Implemented**:
+1. **SECURITY DEFINER Functions**: All critical RPC functions now bypass RLS and enforce access control in the function logic:
+   - `get_incidents_with_details_rbac()` - Incident listing with role-based filtering
+   - `get_dashboard_data()` - Dashboard data aggregation
+   - `get_user_profile_by_clerk_id()` - User profile lookup by Clerk ID
+   - `get_user_profile_by_email()` - Email-based fallback lookup
+   - `get_user_details_by_clerk_id()` - Simplified user details for hooks
+
+2. **Email-Based Fallback**: When `clerk_user_id` lookup fails (new users or ID mismatch):
+   - System automatically tries email-based lookup
+   - On success, updates `clerk_user_id` in database for future fast lookups
+   - Uses `update_clerk_user_id()` RPC function
+
+3. **Header Always Visible**: `RoleBasedHeader` now shows a minimal header with logout option even when user data is loading (prevents users from being stuck)
+
+4. **Employer Name in Header**: Non-super-admin users see their employer name displayed in the header
+
+### ✅ Role-Based Data Access Working
+**All roles now see appropriate data with RLS enabled**:
+- **Super Admin (role 1)**: Sees ALL incidents across all employers
+- **Builder Admin (role 5)**: Sees ONLY their employer's incidents
+- **Other roles**: Properly scoped to their employer_id
+
+### Key Files Modified
+- `/apps/operations/src/lib/auth/AuthContext.tsx` - Added email fallback, proper error handling
+- `/apps/operations/src/components/navigation/RoleBasedHeader.tsx` - Always shows header with logout
+- `/apps/operations/src/hooks/useUserContext.ts` - Uses AuthContext data
+- `/src/hooks/useIncidentsRBAC.ts` - Uses RPC for user details lookup
+
+### Database Functions Created
+```sql
+-- User profile lookup (SECURITY DEFINER)
+get_user_profile_by_clerk_id(p_clerk_user_id TEXT)
+get_user_profile_by_email(p_email TEXT)
+get_user_details_by_clerk_id(p_clerk_user_id TEXT)
+update_clerk_user_id(p_email TEXT, p_clerk_user_id TEXT)
+
+-- Dashboard data (SECURITY DEFINER)
+get_dashboard_data(page_size, page_offset, filters..., user_role_id, user_employer_id)
+get_incidents_with_details_rbac(page_size, page_offset, filters..., user_role_id, user_employer_id)
+```
+
 ### ⏳ Pending
 1. **Register Account-Level Webhook**: Retell Dashboard → Settings → Webhooks
    - URL: `https://rkzcybthcszeusrohbtc.supabase.co/functions/v1/retell-webhook-handler`
@@ -338,6 +389,6 @@ npm run preview      # Preview build
 
 ---
 
-**Last Updated**: November 26, 2025
-**Version**: 4.4.0
-**Status**: ✅ PRODUCTION READY | ✅ Voice Agent - Fully Operational (Inbound calls, employer/site lookup, smart matching)
+**Last Updated**: November 27, 2025
+**Version**: 4.5.0
+**Status**: ✅ PRODUCTION READY | ✅ Voice Agent - Fully Operational | ✅ RLS + Clerk Auth - Fixed
