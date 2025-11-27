@@ -6,9 +6,12 @@
 
 -- Drop existing function if it exists
 DROP FUNCTION IF EXISTS public.admin_create_user(text, text, integer, text);
+DROP FUNCTION IF EXISTS public.admin_create_user(text, text, text, integer, text);
 
 -- Create function to insert users (SECURITY DEFINER bypasses RLS)
+-- Note: Uses Clerk user ID for authentication since this app uses Clerk, not Supabase Auth
 CREATE OR REPLACE FUNCTION public.admin_create_user(
+  p_clerk_user_id text,
   p_email text,
   p_display_name text DEFAULT NULL,
   p_role_id integer DEFAULT NULL,
@@ -22,17 +25,18 @@ AS $$
 DECLARE
   v_user_id text;
   v_caller_role_id integer;
+  v_caller_email text;
   v_result json;
 BEGIN
-  -- Check that caller is authenticated
-  IF auth.jwt() IS NULL THEN
+  -- Check that clerk_user_id was provided
+  IF p_clerk_user_id IS NULL OR p_clerk_user_id = '' THEN
     RETURN json_build_object('success', false, 'error', 'Not authenticated');
   END IF;
 
-  -- Get caller's role from their email
-  SELECT role_id INTO v_caller_role_id
+  -- Get caller's role from their clerk_user_id
+  SELECT role_id, email INTO v_caller_role_id, v_caller_email
   FROM public.users
-  WHERE email = auth.jwt()->>'email'
+  WHERE clerk_user_id = p_clerk_user_id
   LIMIT 1;
 
   -- Only roles 1, 2, 3 (Mend staff) can create users
@@ -85,8 +89,8 @@ END;
 $$;
 
 -- Grant execute permission to authenticated users
-GRANT EXECUTE ON FUNCTION public.admin_create_user(text, text, integer, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_create_user(text, text, text, integer, text) TO authenticated;
 
 -- Add comment
-COMMENT ON FUNCTION public.admin_create_user IS 'Allows Mend staff (roles 1-3) to pre-register users. Uses SECURITY DEFINER to bypass RLS.';
+COMMENT ON FUNCTION public.admin_create_user IS 'Allows Mend staff (roles 1-3) to pre-register users. Uses SECURITY DEFINER to bypass RLS. Requires Clerk user ID for auth.';
 

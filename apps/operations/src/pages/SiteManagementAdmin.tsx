@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -41,6 +41,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { GoogleSitesMap } from "@/components/maps/GoogleSitesMap";
 
 interface Site {
   site_id: number;
@@ -74,40 +75,6 @@ interface SiteFormData {
   project_type: string;
 }
 
-// Australian city coordinates for geocoding fallback
-const CITY_COORDINATES: Record<string, { lat: number; lng: number }> = {
-  'sydney': { lat: -33.8688, lng: 151.2093 },
-  'melbourne': { lat: -37.8136, lng: 144.9631 },
-  'brisbane': { lat: -27.4698, lng: 153.0260 },
-  'perth': { lat: -31.9505, lng: 115.8605 },
-  'adelaide': { lat: -34.9285, lng: 138.6007 },
-  'darwin': { lat: -12.4634, lng: 130.8456 },
-  'hobart': { lat: -42.8821, lng: 147.3272 },
-  'canberra': { lat: -35.2809, lng: 149.1300 },
-  'gold coast': { lat: -28.0167, lng: 153.4000 },
-  'newcastle': { lat: -32.9283, lng: 151.7817 },
-  'wollongong': { lat: -34.4278, lng: 150.8931 },
-  'geelong': { lat: -38.1499, lng: 144.3617 },
-  'townsville': { lat: -19.2576, lng: 146.8237 },
-  'cairns': { lat: -16.9186, lng: 145.7781 },
-};
-
-// Get coordinates from city name
-const getCoordinatesFromCity = (city?: string): { lat: number; lng: number } | null => {
-  if (!city) return null;
-  const cityLower = city.toLowerCase();
-  for (const [name, coords] of Object.entries(CITY_COORDINATES)) {
-    if (cityLower.includes(name) || name.includes(cityLower)) {
-      // Add slight random offset to prevent markers from overlapping
-      return {
-        lat: coords.lat + (Math.random() - 0.5) * 0.1,
-        lng: coords.lng + (Math.random() - 0.5) * 0.1
-      };
-    }
-  }
-  return null;
-};
-
 export default function SiteManagementAdmin() {
   // Auth state - wait for auth to be ready before fetching
   const { isAuthenticated, isLoading: authLoading, userData } = useAuth();
@@ -128,11 +95,6 @@ export default function SiteManagementAdmin() {
     supervisor_telephone: "",
     project_type: "",
   });
-
-  const mapRef = useRef<HTMLDivElement>(null);
-  const googleMapRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<google.maps.Marker[]>([]);
-  const [mapLoaded, setMapLoaded] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -238,69 +200,6 @@ export default function SiteManagementAdmin() {
     enabled: isAuthenticated && !authLoading
   });
 
-  // Load Google Maps script - must be before any early returns
-  useEffect(() => {
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-    
-    if (!apiKey) {
-      console.warn('Google Maps API key not found');
-      return;
-    }
-
-    // Check if Google Maps is already loaded and has Marker (not just AdvancedMarker)
-    if (window.google?.maps?.Map && window.google?.maps?.Marker) {
-      console.log('Google Maps already loaded');
-      setMapLoaded(true);
-      return;
-    }
-
-    // Check for existing script
-    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-    if (existingScript) {
-      // Wait for it to load
-      const checkLoaded = () => {
-        if (window.google?.maps?.Map && window.google?.maps?.Marker) {
-          console.log('Google Maps API ready');
-          setMapLoaded(true);
-        } else {
-          setTimeout(checkLoaded, 100);
-        }
-      };
-      checkLoaded();
-      return;
-    }
-
-    // Create a callback function name
-    const callbackName = `initGoogleMaps_${Date.now()}`;
-    
-    // Set up the callback on window
-    (window as any)[callbackName] = () => {
-      console.log('Google Maps API callback fired');
-      // Double-check that API is ready
-      const checkReady = () => {
-        if (window.google?.maps?.Map && window.google?.maps?.Marker) {
-          console.log('Google Maps API fully ready');
-          setMapLoaded(true);
-          // Clean up callback
-          delete (window as any)[callbackName];
-        } else {
-          setTimeout(checkReady, 50);
-        }
-      };
-      checkReady();
-    };
-
-    // Load fresh script with proper callback
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async&callback=${callbackName}`;
-    script.async = true;
-    script.defer = true;
-    script.onerror = () => {
-      console.error('Failed to load Google Maps');
-      delete (window as any)[callbackName];
-    };
-    document.head.appendChild(script);
-  }, []);
 
   // Initialize map with all sites
   const initializeMap = useCallback(() => {

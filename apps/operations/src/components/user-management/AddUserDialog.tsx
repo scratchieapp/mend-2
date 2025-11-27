@@ -21,6 +21,7 @@ import { UserPlus, Building2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth as useClerkAuth } from "@clerk/clerk-react";
 
 interface UserRole {
   role_id: number;
@@ -47,6 +48,7 @@ export function AddUserDialog({
   onUserCreated,
 }: AddUserDialogProps) {
   const { toast } = useToast();
+  const { userId: clerkUserId } = useClerkAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
@@ -108,6 +110,7 @@ export function AddUserDialog({
       const fullName = `${formData.firstName} ${formData.lastName}`.trim();
       
       const { data, error: rpcError } = await supabase.rpc('admin_create_user', {
+        p_clerk_user_id: clerkUserId || '',
         p_email: formData.email,
         p_display_name: fullName || null,
         p_role_id: formData.roleId ? parseInt(formData.roleId) : null,
