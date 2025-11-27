@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useAuth as useClerkAuth } from "@clerk/clerk-react";
-import { UserData, UserRole } from "@/types/auth";
-import { getAvailableRolesToCreate } from "@/lib/auth/roles";
+import { UserRole } from "@/types/auth";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -170,39 +169,11 @@ export default function AdminUsersPage() {
 
   const queryClient = useQueryClient();
 
-  // Create user mutation
-  const createUserMutation = useMutation({
-    mutationFn: async ({ email, password, role }: { email: string; password: string; role: string }) => {
-      const roleId = roles.find(r => r.role_name === role)?.role_id;
-      const { data, error } = await supabase.auth.admin.createUser({
-        email,
-        password,
-        user_metadata: {
-          role_id: roleId,
-          role: role,
-          user_name: email.split('@')[0]
-        },
-      });
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-users-data'] });
-      toast({
-        title: "Success",
-        description: "User has been created successfully.",
-      });
-      setShowAddUserDialog(false);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create user",
-        variant: "destructive",
-      });
-    },
-  });
+  // Callback when a user is created
+  const handleUserCreated = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin-users-data'] });
+    setShowAddUserDialog(false);
+  };
 
   // Update user role mutation
   const updateUserRoleMutation = useMutation({
@@ -345,8 +316,6 @@ export default function AdminUsersPage() {
       </div>
     );
   }
-
-  const availableRoles = userData ? getAvailableRolesToCreate(userData) : [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -561,14 +530,11 @@ export default function AdminUsersPage() {
       </Card>
 
       {/* Add User Dialog */}
-      {showAddUserDialog && (
-        <AddUserDialog
-          createUserMutation={createUserMutation}
-          availableRoles={availableRoles}
-          open={showAddUserDialog}
-          onClose={() => setShowAddUserDialog(false)}
-        />
-      )}
+      <AddUserDialog
+        open={showAddUserDialog}
+        onClose={() => setShowAddUserDialog(false)}
+        onUserCreated={handleUserCreated}
+      />
 
       {/* Assign Employer Dialog */}
       <Dialog open={showAssignEmployerDialog} onOpenChange={setShowAssignEmployerDialog}>
