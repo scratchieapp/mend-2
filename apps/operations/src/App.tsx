@@ -25,6 +25,7 @@ import Administrator from "./pages/roles/Administrator";
 import AccountManager from "./pages/AccountManager";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import UserManagementPage from "./pages/UserManagementPage";
+import EnhancedUserManagementAdmin from "./pages/EnhancedUserManagementAdmin";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
@@ -99,7 +100,7 @@ function App() {
             <Route path="public-dashboard" element={<PublicDashboard />} />
             <Route path="admin" element={<AdminDashboard />} />
             <Route path="account-manager" element={<AccountManager />} />
-            <Route path="user-management" element={<UserManagementPage />} />
+            <Route path="user-management" element={<EnhancedUserManagementAdmin />} />
             <Route path="builder-senior" element={<BuilderSeniorDashboard />} />
             <Route path="builder" element={<BuilderDashboard />} />
             <Route path="builder/senior/lti-details" element={<LTIDetailsPage />} />

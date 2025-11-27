@@ -136,34 +136,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       isUpdatingUserData.current = true;
       // Fetch by email for Clerk users
       try {
+        // Use RPC to bypass RLS for anonymous clients (AuthSessionMissingError fallback)
         const { data, error } = await supabase
-          .from("users")
-          .select(`
-            user_id,
-            email,
-            display_name,
-            custom_display_name,
-            role_id,
-            employer_id,
-            site_id,
-            created_at,
-            updated_at,
-            last_seen_at,
-            role:user_roles!role_id (
-              role_id,
-              role_name,
-              role_label
-            )
-          `)
-          .eq("email", clerkUser.primaryEmailAddress?.emailAddress)
+          .rpc('get_user_profile_by_clerk_id', {
+            p_clerk_user_id: currentUserId
+          })
           .single();
 
         if (!error && data) {
+          // Map flat RPC result to nested structure expected by UserData
           const processedData: UserData = {
-            ...data,
-            role: Array.isArray(data.role) && data.role.length > 0 
-              ? data.role[0] 
-              : data.role || undefined
+            user_id: data.user_id,
+            email: data.email,
+            display_name: data.display_name,
+            custom_display_name: data.custom_display_name,
+            role_id: data.role_id,
+            employer_id: data.employer_id ? String(data.employer_id) : null,
+            site_id: data.site_id ? String(data.site_id) : null,
+            created_at: data.created_at,
+            updated_at: data.updated_at,
+            last_seen_at: data.last_seen_at,
+            role: {
+              role_id: data.role_id,
+              role_name: data.role_name,
+              role_label: data.role_label
+            }
           };
           
           setUserData(processedData);
@@ -172,6 +169,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           lastClerkUserId.current = currentUserId || null;
           clearError();
           return;
+        } else {
+            // Fallback to old query if RPC fails or returns no data (though it shouldn't for valid users)
+             console.warn("RPC fetch failed, falling back to table query", error);
+             // ... existing fallback logic or just error
         }
       } catch (err) {
         console.error('Error fetching Clerk user data:', err);

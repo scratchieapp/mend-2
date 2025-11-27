@@ -103,14 +103,14 @@ export function DashboardHeader({
             </div>
           </div>
 
-          {/* Right side - Actions and User Badge */}
+          {/* Right side - Actions */}
           <div className="flex items-center space-x-4">
             {customActions && (
               <div className="flex items-center space-x-2">
                 {customActions}
               </div>
             )}
-            <UserBadge />
+            {/* UserBadge removed to avoid duplication with top navigation */}
           </div>
         </div>
       </div>
