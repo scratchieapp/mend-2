@@ -108,14 +108,19 @@ export function AddUserDialog({
       // They'll create their Clerk account when they first sign in
       const fullName = `${formData.firstName} ${formData.lastName}`.trim();
       
+      // Generate a UUID for the user_id (required field)
+      const userId = crypto.randomUUID();
+      
       const { error: dbError } = await supabase
         .from('users')
         .insert({
+          user_id: userId,
           email: formData.email,
           role_id: formData.roleId ? parseInt(formData.roleId) : null,
-          employer_id: formData.employerId ? parseInt(formData.employerId) : null,
-          user_name: fullName || formData.email,
-          display_name: fullName || null,
+          employer_id: formData.employerId || null, // Keep as string, not number
+          display_name: fullName || formData.email,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         });
 
       if (dbError) {
