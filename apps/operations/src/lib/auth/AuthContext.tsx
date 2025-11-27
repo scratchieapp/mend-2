@@ -135,19 +135,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       isUpdatingUserData.current = true;
-      // Fetch by email for Clerk users
+      // Fetch by clerk_user_id first, then fall back to email
       try {
-        // Use RPC to bypass RLS for anonymous clients (AuthSessionMissingError fallback)
-        const { data, error } = await supabase
+        // Try clerk_user_id first
+        let { data, error } = await supabase
           .rpc('get_user_profile_by_clerk_id', {
             p_clerk_user_id: currentUserId
           })
           .single();
 
-        if (error) {
-          console.warn("RPC fetch failed:", error);
-          // Continue to fallback - don't return here
-        } else if (data) {
+        // If clerk_user_id lookup fails, try email-based lookup
+        if (error || !data) {
+          console.warn("Clerk ID lookup failed, trying email fallback:", error?.message || "no data");
+          
+          if (currentEmail) {
+            const emailResult = await supabase
+              .rpc('get_user_profile_by_email', {
+                p_email: currentEmail
+              })
+              .single();
+            
+            if (!emailResult.error && emailResult.data) {
+              data = emailResult.data;
+              error = null;
+              
+              // Update the clerk_user_id in the database for future lookups
+              await supabase.rpc('update_clerk_user_id', {
+                p_email: currentEmail,
+                p_clerk_user_id: currentUserId
+              }).catch(err => console.warn("Failed to update clerk_user_id:", err));
+            } else {
+              console.warn("Email lookup also failed:", emailResult.error?.message);
+            }
+          }
+        }
+
+        if (!error && data) {
           // Map flat RPC result to nested structure expected by UserData
           const processedData: UserData = {
             user_id: data.user_id,
@@ -175,7 +198,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           clearError();
           return;
         } else {
-          console.warn("RPC returned no data for clerk_user_id:", currentUserId);
+          console.warn("All user lookups failed for:", currentEmail, currentUserId);
         }
       } catch (err) {
         console.error('Error fetching Clerk user data:', err);
