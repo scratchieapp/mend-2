@@ -160,10 +160,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               error = null;
               
               // Update the clerk_user_id in the database for future lookups
-              await supabase.rpc('update_clerk_user_id', {
-                p_email: currentEmail,
-                p_clerk_user_id: currentUserId
-              }).catch(err => console.warn("Failed to update clerk_user_id:", err));
+              try {
+                const updateResult = await supabase.rpc('update_clerk_user_id', {
+                  p_email: currentEmail,
+                  p_clerk_user_id: currentUserId
+                });
+                if (updateResult.error) {
+                  console.warn("Failed to update clerk_user_id:", updateResult.error);
+                }
+              } catch (updateErr) {
+                console.warn("Failed to update clerk_user_id:", updateErr);
+              }
             } else {
               console.warn("Email lookup also failed:", emailResult.error?.message);
             }
