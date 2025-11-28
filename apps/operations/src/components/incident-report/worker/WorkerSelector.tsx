@@ -11,6 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserPlus, X } from "lucide-react";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { toast } from "sonner";
+import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete";
 
 interface WorkerSelectorProps {
   control: Control<IncidentReportFormData>;
@@ -18,7 +21,9 @@ interface WorkerSelectorProps {
 
 export function WorkerSelector({ control }: WorkerSelectorProps) {
   const { setValue, getValues } = useFormContext();
+  const { userData } = useAuth();
   const [isAddingNew, setIsAddingNew] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [newWorker, setNewWorker] = useState({
     given_name: "",
     family_name: "",
@@ -87,22 +92,24 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
   const handleAddNewWorker = async () => {
     if (!newWorker.given_name || !newWorker.family_name) return;
     
+    setIsSaving(true);
     try {
-      const { data, error } = await supabase
-        .from('workers')
-        .insert({
-          given_name: newWorker.given_name,
-          family_name: newWorker.family_name,
-          phone_number: newWorker.phone_number || null,
-          residential_address: newWorker.residential_address || null,
-          date_of_birth: newWorker.date_of_birth || null,
-          gender: newWorker.gender || null,
-          employer_id: selectedEmployerId ? parseInt(selectedEmployerId) : null,
-        })
-        .select()
-        .single();
+      // Use RBAC-aware RPC to add the worker
+      const { data, error } = await supabase.rpc('add_worker_rbac', {
+        p_given_name: newWorker.given_name,
+        p_family_name: newWorker.family_name,
+        p_phone_number: newWorker.phone_number || null,
+        p_residential_address: newWorker.residential_address || null,
+        p_date_of_birth: newWorker.date_of_birth || null,
+        p_gender: newWorker.gender || null,
+        p_employer_id: selectedEmployerId ? parseInt(selectedEmployerId) : null,
+        p_user_role_id: userData?.role_id || null,
+        p_user_employer_id: userData?.employer_id ? parseInt(userData.employer_id) : null
+      });
       
       if (error) throw error;
+      
+      if (!data) throw new Error('No worker data returned');
       
       // Select the new worker
       setValue('worker_id', data.worker_id.toString());
@@ -115,9 +122,13 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
       // Reset form and close
       setNewWorker({ given_name: "", family_name: "", phone_number: "", residential_address: "", date_of_birth: "", gender: "Male" });
       setIsAddingNew(false);
+      toast.success('Worker added successfully');
       refetch();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to add worker:', error);
+      toast.error(error.message || 'Failed to add worker. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -156,10 +167,10 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
           </div>
           <div>
             <Label>Worker's Home Address</Label>
-            <Input
+            <AddressAutocomplete
               value={newWorker.residential_address}
-              onChange={(e) => setNewWorker(prev => ({ ...prev, residential_address: e.target.value }))}
-              placeholder="Address"
+              onChange={(value) => setNewWorker(prev => ({ ...prev, residential_address: value }))}
+              placeholder="Start typing address..."
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -181,10 +192,13 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button onClick={handleAddNewWorker} disabled={!newWorker.given_name || !newWorker.family_name}>
-              Save Worker
+            <Button 
+              onClick={handleAddNewWorker} 
+              disabled={!newWorker.given_name || !newWorker.family_name || isSaving}
+            >
+              {isSaving ? 'Saving...' : 'Save Worker'}
             </Button>
-            <Button variant="outline" onClick={() => setIsAddingNew(false)}>
+            <Button variant="outline" onClick={() => setIsAddingNew(false)} disabled={isSaving}>
               Cancel
             </Button>
           </div>
