@@ -15,7 +15,7 @@ CREATE OR REPLACE FUNCTION public.create_site_for_employer(
   p_project_type TEXT DEFAULT NULL,
   p_latitude NUMERIC DEFAULT NULL,
   p_longitude NUMERIC DEFAULT NULL,
-  p_status TEXT DEFAULT 'active'
+  p_status TEXT DEFAULT 'active' -- Kept as parameter but ignored if column missing
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -41,7 +41,6 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'User not found in database');
   END IF;
   
-  -- Check if user is authorized (Mend staff roles 1-3, or Builder Admin role 5 for their own employer)
   IF v_user_record.role_id IN (1, 2, 3) THEN
     -- Mend staff can create sites for any employer
     NULL;
@@ -54,7 +53,7 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'You do not have permission to create sites');
   END IF;
   
-  -- Create the site
+  -- Create the site (omitting status column since it doesn't exist in the table)
   INSERT INTO public.sites (
     site_name,
     employer_id,
@@ -67,7 +66,6 @@ BEGIN
     project_type,
     latitude,
     longitude,
-    status,
     created_at,
     updated_at
   ) VALUES (
@@ -82,7 +80,6 @@ BEGIN
     p_project_type,
     p_latitude,
     p_longitude,
-    p_status,
     NOW(),
     NOW()
   )
@@ -162,7 +159,7 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'You do not have permission to update sites');
   END IF;
   
-  -- Update the site (only non-null values)
+  -- Update the site (only non-null values, omitting status)
   UPDATE public.sites SET
     site_name = COALESCE(p_site_name, site_name),
     street_address = COALESCE(p_street_address, street_address),
@@ -174,7 +171,6 @@ BEGIN
     project_type = COALESCE(p_project_type, project_type),
     latitude = COALESCE(p_latitude, latitude),
     longitude = COALESCE(p_longitude, longitude),
-    status = COALESCE(p_status, status),
     updated_at = NOW()
   WHERE site_id = p_site_id
   RETURNING * INTO v_updated_site;
@@ -251,4 +247,3 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.delete_site_for_employer TO authenticated;
-
