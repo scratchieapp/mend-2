@@ -61,6 +61,14 @@
       "destination": "/operations/index.html"
     },
     {
+      "source": "/superadmin-dashboard/(.*)",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/superadmin-dashboard",
+      "destination": "/operations/index.html"
+    },
+    {
       "source": "/sign-in",
       "destination": "/operations/index.html"
     },
