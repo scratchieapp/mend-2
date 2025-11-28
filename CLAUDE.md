@@ -116,6 +116,57 @@ AI-augmented incident management to achieve 5x revenue growth without proportion
 
 ---
 
+## 🔄 CLERK-SUPABASE USER SYNC (2025-11-28)
+
+### Overview
+Users are authenticated via **Clerk** but user data is stored in **Supabase**. These systems need to be kept in sync.
+
+### ✅ Sync Mechanism
+1. **On Login (Automatic)**: When a Clerk user logs in:
+   - System first tries `get_user_profile_by_clerk_id()` lookup
+   - If not found, falls back to `get_user_profile_by_email()` 
+   - If email match found, automatically updates `clerk_user_id` in Supabase
+
+2. **Webhook (New Users)**: Clerk webhook syncs new signups to Supabase
+   - Edge Function: `supabase/functions/clerk-webhook/index.ts`
+   - Handles: `user.created`, `user.updated`, `user.deleted`
+   - New users get default role_id=9 (Public User)
+
+3. **Bulk Migration Script**: For existing Supabase users without Clerk accounts
+   - Script: `scripts/sync-supabase-users-to-clerk.ts`
+   - Creates Clerk accounts for all users with `clerk_user_id IS NULL`
+   - Updates Supabase with the new `clerk_user_id`
+
+### Setup Instructions
+
+**1. Deploy Clerk Webhook:**
+```bash
+supabase functions deploy clerk-webhook --project-ref rkzcybthcszeusrohbtc
+```
+
+**2. Configure Webhook in Clerk Dashboard:**
+- Go to: https://dashboard.clerk.com → Webhooks
+- Add endpoint: `https://rkzcybthcszeusrohbtc.supabase.co/functions/v1/clerk-webhook`
+- Select events: `user.created`, `user.updated`, `user.deleted`
+
+**3. Run Bulk Migration (one-time):**
+```bash
+CLERK_SECRET_KEY=sk_live_xxx \
+SUPABASE_SERVICE_ROLE_KEY=xxx \
+npx ts-node scripts/sync-supabase-users-to-clerk.ts
+```
+
+### Key Database Fields
+- `users.clerk_user_id` - Links Supabase user to Clerk user
+- `users.email` - Used as fallback lookup if clerk_user_id not set
+
+### RPC Functions
+- `get_user_profile_by_clerk_id(p_clerk_user_id)` - Primary lookup
+- `get_user_profile_by_email(p_email)` - Fallback lookup  
+- `update_clerk_user_id(p_email, p_clerk_user_id)` - Links accounts
+
+---
+
 ## 🔐 RLS & AUTHENTICATION FIXES (2025-11-27)
 
 ### ✅ AuthSessionMissingError Resolution
