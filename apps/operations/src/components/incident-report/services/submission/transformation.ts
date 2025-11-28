@@ -2,9 +2,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { errorLogger } from "@/lib/monitoring/errorLogger";
 import type { Database } from '@/integrations/supabase/types';
 import type { IncidentFormData } from './types';
+import { fetchWeatherForIncident, type WeatherData } from '@/services/weatherService';
 
 type SiteUpdate = Database['public']['Tables']['sites']['Update'];
-type IncidentInsert = Database['public']['Tables']['incidents']['Insert'];
+type IncidentInsert = Database['public']['Tables']['incidents']['Insert'] & { weather_data?: WeatherData | null };
 
 /**
  * Transformation service to map form field values to database IDs
@@ -281,6 +282,36 @@ export async function transformFormDataToDatabase(formData: IncidentFormData): P
       await updateWorkerEmploymentType(workerId, formData.employment_type);
     }
 
+    // Fetch weather data for the incident location and time
+    let weatherData: WeatherData | null = null;
+    if (siteId && formData.date_of_injury) {
+      try {
+        // Get site coordinates
+        const { data: siteData } = await supabase
+          .from('sites')
+          .select('latitude, longitude')
+          .eq('site_id', siteId)
+          .maybeSingle();
+
+        if (siteData?.latitude && siteData?.longitude) {
+          weatherData = await fetchWeatherForIncident(
+            siteData.latitude,
+            siteData.longitude,
+            formData.date_of_injury,
+            formData.time_of_injury || undefined
+          );
+          if (weatherData) {
+            console.log('Weather data captured for incident:', weatherData.conditions, weatherData.temperature_c + '°C');
+          }
+        } else {
+          console.log('Site coordinates not available for weather lookup');
+        }
+      } catch (error) {
+        // Don't fail incident creation if weather fetch fails
+        console.warn('Failed to fetch weather data:', error);
+      }
+    }
+
     // Transform the data for incidents table
     const transformedData: IncidentInsert = {
       // Date and time fields
@@ -349,6 +380,9 @@ export async function transformFormDataToDatabase(formData: IncidentFormData): P
       
       // Email notification timestamp
       time_date_email_notification: formData.time_date_email_notification || new Date().toISOString(),
+      
+      // Weather data captured from Google Weather API
+      weather_data: weatherData,
     };
 
     // Remove null/undefined values to avoid database errors
