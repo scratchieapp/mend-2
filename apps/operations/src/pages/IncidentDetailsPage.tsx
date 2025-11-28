@@ -133,34 +133,92 @@ const IncidentDetailsPage = () => {
   });
 
   const { data: incident, isLoading, error } = useQuery({
-    queryKey: ['incident', id],
+    queryKey: ['incident', id, userData?.role_id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('incidents')
-        .select(`
-          *,
-          site:sites(
-            site_id, 
-            site_name,
-            street_address,
-            city,
-            post_code,
-            state,
-            longitude,
-            latitude
-          ),
-          worker:workers(worker_id, given_name, family_name, occupation),
-          department:departments(department_name),
-          body_part:body_parts(body_part_name)
-        `)
-        .eq('incident_id', id)
-        .maybeSingle();
+      // Use RPC to fetch incident with RBAC context
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_dashboard_data', {
+        page_size: 1000,
+        page_offset: 0,
+        filter_employer_id: null,
+        filter_worker_id: null,
+        filter_start_date: null,
+        filter_end_date: null,
+        user_role_id: userData?.role_id || null,
+        user_employer_id: userData?.employer_id ? parseInt(userData.employer_id) : null
+      });
 
-      if (error) throw error;
-      if (!data) throw new Error('Incident not found');
-      return data;
+      if (rpcError) {
+        console.error('RPC error fetching incident:', rpcError);
+        throw rpcError;
+      }
+
+      // Find the specific incident from the RBAC-filtered results
+      const incidentFromRpc = rpcData?.incidents?.find(
+        (inc: { incident_id: number }) => inc.incident_id === Number(id)
+      );
+
+      if (!incidentFromRpc) {
+        throw new Error('Incident not found');
+      }
+
+      // Fetch additional site details (longitude/latitude) for the map
+      let siteDetails = null;
+      if (incidentFromRpc.site_id) {
+        const { data: siteData } = await supabase
+          .from('sites')
+          .select('site_id, site_name, street_address, city, post_code, state, longitude, latitude')
+          .eq('site_id', incidentFromRpc.site_id)
+          .maybeSingle();
+        siteDetails = siteData;
+      }
+
+      // Fetch body part details if available
+      let bodyPartDetails = null;
+      if (incidentFromRpc.body_part_id) {
+        const { data: bodyPartData } = await supabase
+          .from('body_parts')
+          .select('body_part_name')
+          .eq('body_part_id', incidentFromRpc.body_part_id)
+          .maybeSingle();
+        bodyPartDetails = bodyPartData;
+      }
+
+      // Map RPC data to the expected format
+      const [givenName, ...familyNameParts] = (incidentFromRpc.worker_name || '').split(' ');
+      
+      return {
+        ...incidentFromRpc,
+        incident_id: incidentFromRpc.incident_id,
+        incident_number: incidentFromRpc.incident_number,
+        date_of_injury: incidentFromRpc.date_of_injury,
+        time_of_injury: incidentFromRpc.time_of_injury,
+        injury_type: incidentFromRpc.injury_type,
+        classification: incidentFromRpc.classification,
+        status: incidentFromRpc.incident_status,
+        injury_description: incidentFromRpc.injury_description,
+        fatality: incidentFromRpc.fatality,
+        returned_to_work: incidentFromRpc.returned_to_work,
+        total_days_lost: incidentFromRpc.total_days_lost,
+        created_at: incidentFromRpc.created_at,
+        updated_at: incidentFromRpc.updated_at,
+        employer_id: incidentFromRpc.employer_id,
+        site: siteDetails || {
+          site_id: incidentFromRpc.site_id,
+          site_name: incidentFromRpc.site_name
+        },
+        worker: incidentFromRpc.worker_id ? {
+          worker_id: incidentFromRpc.worker_id,
+          given_name: givenName || '',
+          family_name: familyNameParts.join(' ') || '',
+          occupation: incidentFromRpc.worker_occupation
+        } : null,
+        department: incidentFromRpc.department_id ? {
+          department_name: incidentFromRpc.department_name
+        } : null,
+        body_part: bodyPartDetails
+      };
     },
-    enabled: !!id
+    enabled: !!id && !!userData
   });
 
   // Fetch activity log for this incident from database
