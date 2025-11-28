@@ -141,10 +141,12 @@ export const incidentReportSchema = z.object({
   time_of_injury: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Invalid time format'),
   injury_type: z.string().min(1, 'Injury type is required'),
   body_part: z.string().min(1, 'Body part is required'),
-  body_side: z.enum(['left', 'right', 'both', 'not_applicable']).optional(),
+  body_side: z.string().optional(), // Now stored as body_side_id
   body_regions: z.array(z.string()).optional().default([]),
   injury_description: z.string().min(10).max(500),
   witness: z.string().optional(),
+  mechanism_of_injury: z.string().optional(), // moi_code_id
+  bodily_location_detail: z.string().optional(), // bl_code_id
   
   // Treatment
   type_of_first_aid: z.string().min(1, 'First aid type is required'),
@@ -197,6 +199,9 @@ export const incidentEditSchema = z.object({
   body_regions: z.array(z.string()).optional().nullable().default([]),
   injury_description: z.string().optional().nullable().default(''),
   witness: z.string().optional().nullable().default(''),
+  // Extended injury fields (stored as IDs in database)
+  mechanism_of_injury: z.string().optional().nullable().default(''), // moi_code_id
+  bodily_location_detail: z.string().optional().nullable().default(''), // bl_code_id
   
   // Treatment - all optional
   type_of_first_aid: z.string().optional().nullable().default(''),
@@ -209,6 +214,7 @@ export const incidentEditSchema = z.object({
   
   // Notes - optional
   case_notes: z.string().optional().nullable().default(''),
+  call_transcripts: z.string().optional().nullable().default(''), // Separate field for voice call transcripts
   
   // Documents - optional
   documents: z.array(z.any()).optional().nullable().default([]),

@@ -317,12 +317,33 @@ get_lookup_data() RETURNS JSONB
 - Mobile: `04## ### ###` (e.g., `0412 345 678`)
 - Landline: `0# #### ####` (e.g., `02 1234 5678`)
 
-### 🔄 IN PROGRESS - Incident Edit Refinements
-**Still working on mapping all fields correctly:**
-- Injury Type dropdown - now uses RPC, may need field mapping verification
-- Body Part dropdown - now uses RPC, may need field mapping verification  
-- Call Transcripts feature (separate from injury_description) - PLANNED
-- RadioGroup controlled/uncontrolled warning - minor UI fix pending
+### ✅ Incident Edit Refinements (2025-11-28)
+**All field mappings now correct:**
+
+1. **Mend Client Field**: Now properly maps `employer_id` to the "Mend Client" dropdown
+   - Form field: `mend_client` → Database field: `employer_id`
+   
+2. **Silent Auto-Save on Navigation**: Next/Previous buttons now save changes silently
+   - No toast notification on tab navigation
+   - "Update Report" button still shows success dialog and redirects
+   
+3. **Call Transcripts Section**: Added to Case Notes tab
+   - Extracts transcripts from `case_notes` field (looks for "Transcript:" marker)
+   - Displays read-only transcript from voice agent calls
+   - Combines back into `case_notes` field on save
+   
+4. **Body Part ↔ Diagram Sync**: Two-way synchronization
+   - Selecting body part in dropdown highlights relevant regions on diagram
+   - Clicking diagram region updates body part dropdown
+   - Uses `BODY_PART_TO_REGIONS` mapping
+   
+5. **Extended Injury Fields**: Now save to correct database columns
+   - `mechanism_of_injury` → `moi_code_id` (integer)
+   - `body_side` → `body_side_id` (integer, not enum string)
+   - `bodily_location_detail` → `bl_code_id` (integer)
+   
+6. **Injury Type**: Uses name as value (not ID) to match database schema
+   - Database stores `injury_type` as string (name), not foreign key
 
 ### ⏳ Pending
 1. **Register Account-Level Webhook**: Retell Dashboard → Settings → Webhooks
@@ -598,5 +619,5 @@ npm run preview      # Preview build
 ---
 
 **Last Updated**: November 28, 2025
-**Version**: 4.8.0
-**Status**: ✅ PRODUCTION READY | ✅ Voice Agent - Fully Operational | ✅ RLS + Clerk Auth - Fixed | ✅ Incident Edit - In Progress
+**Version**: 4.9.0
+**Status**: ✅ PRODUCTION READY | ✅ Voice Agent - Fully Operational | ✅ RLS + Clerk Auth - Fixed | ✅ Incident Edit - Complete

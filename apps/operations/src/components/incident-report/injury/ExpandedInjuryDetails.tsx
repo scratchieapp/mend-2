@@ -45,7 +45,7 @@ export function ExpandedInjuryDetails({ control, selectedBodyPart }: ExpandedInj
         render={({ field }) => (
           <FormItem>
             <Label>Mechanism of Injury</Label>
-            <Select onValueChange={field.onChange} value={field.value}>
+            <Select onValueChange={field.onChange} value={field.value || ''}>
               <SelectTrigger>
                 <SelectValue placeholder="Select mechanism of injury" />
               </SelectTrigger>
@@ -53,7 +53,7 @@ export function ExpandedInjuryDetails({ control, selectedBodyPart }: ExpandedInj
                 {mechanisms.map((mechanism) => (
                   <SelectItem 
                     key={mechanism.moi_code_id} 
-                    value={`${mechanism.moi_code_main}-${mechanism.moi_code_sub}`}
+                    value={mechanism.moi_code_id.toString()}
                   >
                     {mechanism.moi_description}
                   </SelectItem>
@@ -70,7 +70,7 @@ export function ExpandedInjuryDetails({ control, selectedBodyPart }: ExpandedInj
         render={({ field }) => (
           <FormItem>
             <Label>Body Side</Label>
-            <Select onValueChange={field.onChange} value={field.value}>
+            <Select onValueChange={field.onChange} value={field.value || ''}>
               <SelectTrigger>
                 <SelectValue placeholder="Select body side" />
               </SelectTrigger>

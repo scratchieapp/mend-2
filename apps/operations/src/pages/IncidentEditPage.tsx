@@ -30,6 +30,97 @@ import { incidentEditSchema, type IncidentEditFormData } from "@/lib/validations
 import { logValidationError } from "@/lib/monitoring/errorLogger";
 import { supabase } from "@/integrations/supabase/client";
 
+// Helper functions to extract call transcript from case_notes
+// Call transcripts are stored with markers like "Transcript:\n" in case_notes
+function extractCallTranscript(caseNotes: string): string {
+  if (!caseNotes) return "";
+  
+  // Look for transcript section in case notes
+  const transcriptMatch = caseNotes.match(/Transcript:\s*([\s\S]*?)(?:$|\n\n(?=[A-Z]))/i);
+  if (transcriptMatch) {
+    return transcriptMatch[1].trim();
+  }
+  
+  // Also check for "Call ID:" pattern which indicates voice agent data
+  if (caseNotes.includes('Call ID:') || caseNotes.includes('voice agent')) {
+    // Return the whole thing as it's likely all transcript-related
+    const lines = caseNotes.split('\n');
+    const transcriptStart = lines.findIndex(line => 
+      line.toLowerCase().includes('transcript') || 
+      line.toLowerCase().includes('user:') ||
+      line.toLowerCase().includes('agent:')
+    );
+    if (transcriptStart >= 0) {
+      return lines.slice(transcriptStart).join('\n').trim();
+    }
+  }
+  
+  return "";
+}
+
+function extractCaseNotesWithoutTranscript(caseNotes: string): string {
+  if (!caseNotes) return "";
+  
+  // Remove transcript section from case notes
+  const withoutTranscript = caseNotes.replace(/Transcript:\s*[\s\S]*?(?:$|\n\n(?=[A-Z]))/i, '').trim();
+  
+  // If the entire content was transcript-related, return empty
+  if (caseNotes.includes('Call ID:') && !withoutTranscript) {
+    // Extract just the summary/header part before transcript
+    const lines = caseNotes.split('\n');
+    const transcriptStart = lines.findIndex(line => 
+      line.toLowerCase().includes('transcript')
+    );
+    if (transcriptStart > 0) {
+      return lines.slice(0, transcriptStart).join('\n').trim();
+    }
+  }
+  
+  return withoutTranscript || caseNotes;
+}
+
+// Summarize injury description from transcript if it's too long
+function summarizeInjuryDescription(description: string): string {
+  if (!description) return "";
+  
+  // If description looks like a full transcript (contains agent/user dialogue)
+  if (description.includes('Agent:') || description.includes('User:')) {
+    // Extract just the injury-related parts
+    const lines = description.split('\n');
+    const injuryLines = lines.filter(line => 
+      line.toLowerCase().includes('injur') ||
+      line.toLowerCase().includes('hurt') ||
+      line.toLowerCase().includes('pain') ||
+      line.toLowerCase().includes('accident') ||
+      line.toLowerCase().includes('incident')
+    );
+    if (injuryLines.length > 0) {
+      return injuryLines.slice(0, 3).join(' ').substring(0, 500);
+    }
+  }
+  
+  // If it's already a reasonable length, return as-is
+  if (description.length <= 500) return description;
+  
+  // Truncate long descriptions
+  return description.substring(0, 497) + '...';
+}
+
+// Combine case notes and call transcripts back into a single field for storage
+function combineNotesAndTranscripts(caseNotes: string, callTranscripts: string): string {
+  const parts: string[] = [];
+  
+  if (caseNotes && caseNotes.trim()) {
+    parts.push(caseNotes.trim());
+  }
+  
+  if (callTranscripts && callTranscripts.trim()) {
+    parts.push(`\n\nTranscript:\n${callTranscripts.trim()}`);
+  }
+  
+  return parts.join('');
+}
+
 // Field labels for human-readable change descriptions
 const fieldLabels: Record<string, string> = {
   notifying_person_name: 'Notifying Person Name',
@@ -134,7 +225,7 @@ const IncidentEditPage = () => {
     resolver: zodResolver(incidentEditSchema),
     mode: 'onBlur',
     defaultValues: {
-      mend_client: "Mend Safety Platform",
+      mend_client: "",
       notifying_person_name: "",
       notifying_person_position: "",
       notifying_person_telephone: "",
@@ -152,12 +243,15 @@ const IncidentEditPage = () => {
       body_regions: [],
       injury_description: "",
       witness: "",
+      mechanism_of_injury: "",
+      bodily_location_detail: "",
       type_of_first_aid: "",
       referred_to: "none",
       doctor_details: "",
       selected_medical_professional: "",
       actions_taken: [],
       case_notes: "",
+      call_transcripts: "",
       documents: [],
     },
   });
@@ -217,13 +311,13 @@ const IncidentEditPage = () => {
           incidentData.time_of_injury.substring(0, 5) : "", // Extract HH:MM from time
         injury_type: incidentData.injury_type || "",
         body_part: incidentData.body_part_id?.toString() || "", // Use body_part_id
-        body_side: incidentData.body_side_id === 1 ? "left" :
-                   incidentData.body_side_id === 2 ? "right" :
-                   incidentData.body_side_id === 3 ? "both" :
-                   "not_applicable" as const,
+        body_side: incidentData.body_side_id?.toString() || "", // Store as ID string for dropdown
         body_regions: Array.isArray(incidentData.body_regions) ? incidentData.body_regions : [],
         injury_description: incidentData.injury_description || "",
         witness: incidentData.witness || "",
+        // Extended injury fields - store as ID strings
+        mechanism_of_injury: incidentData.moi_code_id?.toString() || "",
+        bodily_location_detail: incidentData.bl_code_id?.toString() || "",
         
         // Treatment details - map from available fields
         type_of_first_aid: incidentData.treatment_provided || "", // Use treatment_provided as first aid
@@ -235,8 +329,9 @@ const IncidentEditPage = () => {
         actions_taken: incidentData.actions ? 
           incidentData.actions.split(';').map((action: string) => action.trim()).filter(Boolean) : [], // Split string into array
         
-        // Case notes
-        case_notes: incidentData.case_notes || "",
+        // Case notes - separate call transcripts from general notes
+        case_notes: extractCaseNotesWithoutTranscript(incidentData.case_notes || ""),
+        call_transcripts: extractCallTranscript(incidentData.case_notes || ""),
         
         // Documents will be loaded separately
         documents: [],
@@ -314,6 +409,7 @@ const IncidentEditPage = () => {
       };
       
       // Only update fields that have actual values
+      if (data.mend_client) updateData.employer_id = parseInt(data.mend_client) || null;
       if (data.notifying_person_name) updateData.notifying_person_name = data.notifying_person_name;
       if (data.notifying_person_position) updateData.notifying_person_position = data.notifying_person_position;
       if (data.notifying_person_telephone) updateData.notifying_person_telephone = data.notifying_person_telephone;
@@ -323,15 +419,22 @@ const IncidentEditPage = () => {
       if (data.time_of_injury) updateData.time_of_injury = data.time_of_injury;
       if (data.injury_type) updateData.injury_type = data.injury_type;
       if (data.body_part) updateData.body_part_id = parseInt(data.body_part) || null;
+      // Body side is now stored as ID directly
+      if (data.body_side) updateData.body_side_id = parseInt(data.body_side) || null;
       if (data.body_regions && data.body_regions.length > 0) updateData.body_regions = data.body_regions;
       if (data.injury_description) updateData.injury_description = data.injury_description;
       if (data.witness !== undefined) updateData.witness = data.witness || null;
+      // Extended injury fields
+      if (data.mechanism_of_injury) updateData.moi_code_id = parseInt(data.mechanism_of_injury) || null;
+      if (data.bodily_location_detail) updateData.bl_code_id = parseInt(data.bodily_location_detail) || null;
       if (data.type_of_first_aid) updateData.treatment_provided = data.type_of_first_aid;
       if (data.referred_to && data.referred_to !== 'none') updateData.referral = data.referred_to;
       if (data.doctor_details !== undefined) updateData.doctor_details = data.doctor_details || null;
       if (data.selected_medical_professional) updateData.doctor_id = parseInt(data.selected_medical_professional) || null;
       if (data.actions_taken && data.actions_taken.length > 0) updateData.actions = data.actions_taken.join('; ');
-      if (data.case_notes !== undefined) updateData.case_notes = data.case_notes || null;
+      // Combine case_notes and call_transcripts back into case_notes field
+      const combinedNotes = combineNotesAndTranscripts(data.case_notes || '', data.call_transcripts || '');
+      if (combinedNotes) updateData.case_notes = combinedNotes;
 
       // Use RBAC-aware RPC for updating
       const { data: updateResult, error: updateError } = await supabase.rpc('update_incident_rbac', {
@@ -420,19 +523,67 @@ const IncidentEditPage = () => {
   const isFirstTab = currentTabIndex === 0;
   const isLastTab = currentTabIndex === tabOrder.length - 1;
 
-  // Auto-save when navigating between tabs
+  // Silent save for auto-save on tab navigation
+  const silentSave = async () => {
+    try {
+      const formData = form.getValues();
+      // Direct database update without triggering onSuccess redirect
+      if (!id) return;
+
+      const workerId = formData.worker_id ? parseInt(formData.worker_id) : null;
+      const siteId = formData.location_site ? parseInt(formData.location_site) : null;
+
+      const updateData: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+      };
+      
+      if (formData.mend_client) updateData.employer_id = parseInt(formData.mend_client) || null;
+      if (formData.notifying_person_name) updateData.notifying_person_name = formData.notifying_person_name;
+      if (formData.notifying_person_position) updateData.notifying_person_position = formData.notifying_person_position;
+      if (formData.notifying_person_telephone) updateData.notifying_person_telephone = formData.notifying_person_telephone;
+      if (workerId !== null) updateData.worker_id = workerId;
+      if (siteId !== null) updateData.site_id = siteId;
+      if (formData.date_of_injury) updateData.date_of_injury = formData.date_of_injury;
+      if (formData.time_of_injury) updateData.time_of_injury = formData.time_of_injury;
+      if (formData.injury_type) updateData.injury_type = formData.injury_type;
+      if (formData.body_part) updateData.body_part_id = parseInt(formData.body_part) || null;
+      // Body side is now stored as ID directly
+      if (formData.body_side) updateData.body_side_id = parseInt(formData.body_side) || null;
+      if (formData.body_regions && formData.body_regions.length > 0) updateData.body_regions = formData.body_regions;
+      if (formData.injury_description) updateData.injury_description = formData.injury_description;
+      if (formData.witness !== undefined) updateData.witness = formData.witness || null;
+      // Extended injury fields
+      if (formData.mechanism_of_injury) updateData.moi_code_id = parseInt(formData.mechanism_of_injury) || null;
+      if (formData.bodily_location_detail) updateData.bl_code_id = parseInt(formData.bodily_location_detail) || null;
+      if (formData.type_of_first_aid) updateData.treatment_provided = formData.type_of_first_aid;
+      if (formData.referred_to && formData.referred_to !== 'none') updateData.referral = formData.referred_to;
+      if (formData.doctor_details !== undefined) updateData.doctor_details = formData.doctor_details || null;
+      if (formData.selected_medical_professional) updateData.doctor_id = parseInt(formData.selected_medical_professional) || null;
+      if (formData.actions_taken && formData.actions_taken.length > 0) updateData.actions = formData.actions_taken.join('; ');
+      // Combine case_notes and call_transcripts back into case_notes field
+      const combinedNotes = combineNotesAndTranscripts(formData.case_notes || '', formData.call_transcripts || '');
+      if (combinedNotes) updateData.case_notes = combinedNotes;
+
+      await supabase.rpc('update_incident_rbac', {
+        p_incident_id: parseInt(id),
+        p_user_role_id: userData?.role_id || null,
+        p_user_employer_id: userData?.employer_id ? parseInt(userData.employer_id) : null,
+        p_update_data: updateData
+      });
+      
+      // Reset form dirty state after save
+      form.reset(form.getValues(), { keepValues: true });
+    } catch (error) {
+      console.warn('Silent save failed:', error);
+    }
+  };
+
+  // Auto-save when navigating between tabs (silent save - no toast)
   const handleNextTab = async () => {
     if (!isLastTab) {
-      // Auto-save current changes if form is dirty
+      // Auto-save current changes if form is dirty (silently)
       if (isDirty) {
-        try {
-          const formData = form.getValues();
-          await updateMutation.mutateAsync(formData);
-          toast.success('Changes saved');
-        } catch (error) {
-          // Don't block navigation on save error, just warn
-          console.warn('Auto-save on next failed:', error);
-        }
+        await silentSave();
       }
       setActiveTab(tabOrder[currentTabIndex + 1].id);
     }
@@ -440,15 +591,9 @@ const IncidentEditPage = () => {
 
   const handlePrevTab = async () => {
     if (!isFirstTab) {
-      // Auto-save current changes if form is dirty
+      // Auto-save current changes if form is dirty (silently)
       if (isDirty) {
-        try {
-          const formData = form.getValues();
-          await updateMutation.mutateAsync(formData);
-          toast.success('Changes saved');
-        } catch (error) {
-          console.warn('Auto-save on previous failed:', error);
-        }
+        await silentSave();
       }
       setActiveTab(tabOrder[currentTabIndex - 1].id);
     }
