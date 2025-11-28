@@ -378,8 +378,8 @@ Claude has access to the Supabase MCP (Model Context Protocol) sub-agent for dir
 | `mcp_supabase_search_docs` | Search Supabase documentation (GraphQL) |
 
 ### Project Reference
-- **Project ID**: `xbhcqpwsqpbgcoeawjdz`
-- **Project URL**: `https://xbhcqpwsqpbgcoeawjdz.supabase.co`
+- **Project ID**: `rkzcybthcszeusrohbtc`
+- **Project URL**: `https://rkzcybthcszeusrohbtc.supabase.co`
 
 ### Permission Limitations
 ⚠️ **Note**: The MCP connection may have limited write permissions depending on the API token role:
