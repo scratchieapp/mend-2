@@ -341,12 +341,18 @@ const IncidentEditPage = () => {
       if (data.actions_taken && data.actions_taken.length > 0) updateData.actions = data.actions_taken.join('; ');
       if (data.case_notes !== undefined) updateData.case_notes = data.case_notes || null;
 
-      const { error: updateError } = await supabase
-        .from('incidents')
-        .update(updateData)
-        .eq('incident_id', id);
+      // Use RBAC-aware RPC for updating
+      const { data: updateResult, error: updateError } = await supabase.rpc('update_incident_rbac', {
+        p_incident_id: parseInt(id),
+        p_user_role_id: userData?.role_id || null,
+        p_user_employer_id: userData?.employer_id ? parseInt(userData.employer_id) : null,
+        p_update_data: updateData
+      });
 
       if (updateError) throw updateError;
+      if (!updateResult?.success) {
+        throw new Error(updateResult?.error || 'Failed to update incident');
+      }
 
       // Log activity if there were changes
       if (changes.length > 0) {
