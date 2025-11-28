@@ -117,8 +117,8 @@ export function IncidentsList({ siteId, month }: IncidentsListProps) {
               <div className="flex items-center gap-2">
                 <span className="font-medium text-lg">
                   {incident.worker 
-                    ? `${incident.worker.given_name || ''} ${incident.worker.family_name || ''}`
-                    : 'Unknown Worker'}
+                    ? `${incident.worker.given_name || ''} ${incident.worker.family_name || ''}`.trim() || '—'
+                    : '—'}
                 </span>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getClassificationColor(incident.classification)}`}>
                   {incident.classification}

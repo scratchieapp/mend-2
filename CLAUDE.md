@@ -289,12 +289,41 @@ get_lookup_data() RETURNS JSONB
 2. **Form validation too strict**: Made `incidentEditSchema` permissive to allow partial saves
 3. **Lookup dropdowns empty**: Created `get_lookup_data()` RPC to bypass RLS for injury_type, body_parts, body_sides tables
 4. **Auto-save on navigation**: Next/Previous buttons now auto-save form changes
+5. **Mechanism of Injury dropdown**: Added `mechanism_of_injury` to `get_lookup_data()` RPC
+6. **Body Sides dropdown**: Now fetches from `body_sides` table via RPC (bypasses RLS)
+7. **Worker sex field**: Radio buttons now editable (removed `disabled` prop)
+8. **Incident list worker display**: Shows "—" for missing workers instead of "Unknown"
+9. **Activity log table name**: Fixed references from `incident_activities` to `incident_activity_log`
+10. **AuthSessionMissingError**: Suppressed expected console warning when using Clerk auth
 
 ### ✅ Worker Add Function (RBAC-Aware)
 **Fixed "new row violates row-level security policy for table workers"**
 - Created `add_worker_rbac` RPC with SECURITY DEFINER
 - File: `/supabase/migrations/20251128_add_worker_rpc.sql`
 - WorkerSelector component now calls RPC instead of direct insert
+
+### ✅ Progressive Case Notes (2025-11-28)
+**Case notes now stack progressively with timestamps**
+- New `case_notes` table stores individual notes with timestamps
+- Each note shows: created date/time, author, edit history
+- Notes can be edited (shows "edited" indicator with timestamp)
+- Notes displayed in reverse chronological order (newest first)
+- For new incidents: falls back to simple textarea until saved
+
+**Database Functions Created:**
+```sql
+-- Add a new case note
+add_case_note(p_incident_id, p_note_text, p_created_by, p_created_by_user_id)
+
+-- Update an existing note
+update_case_note(p_note_id, p_note_text)
+
+-- Get all notes for an incident
+get_case_notes(p_incident_id) RETURNS JSONB
+```
+
+**File Modified:**
+- `/apps/operations/src/components/incident-report/CaseNotesSection.tsx` - Complete rewrite for progressive notes
 
 ### ✅ Google Address Autocomplete
 **Integrated Google Places API for address fields**
@@ -619,5 +648,5 @@ npm run preview      # Preview build
 ---
 
 **Last Updated**: November 28, 2025
-**Version**: 4.9.0
-**Status**: ✅ PRODUCTION READY | ✅ Voice Agent - Fully Operational | ✅ RLS + Clerk Auth - Fixed | ✅ Incident Edit - Complete
+**Version**: 4.10.0
+**Status**: ✅ PRODUCTION READY | ✅ Voice Agent - Fully Operational | ✅ RLS + Clerk Auth - Fixed | ✅ Incident Edit - Enhanced | ✅ Progressive Case Notes

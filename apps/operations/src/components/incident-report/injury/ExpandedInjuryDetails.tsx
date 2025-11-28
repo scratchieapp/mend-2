@@ -12,26 +12,31 @@ export function ExpandedInjuryDetails({ control, selectedBodyPart }: ExpandedInj
 
   useEffect(() => {
     const fetchData = async () => {
-      // Fetch body sides
-      const { data: bodySidesData, error: bodySidesError } = await supabase
-        .from('body_sides')
-        .select('body_side_id, body_side_name');
+      // Use RBAC-aware RPC to fetch lookup data (bypasses RLS)
+      const { data: lookupData, error: lookupError } = await supabase.rpc('get_lookup_data');
       
-      if (bodySidesError) {
-        console.error('Error fetching body sides:', bodySidesError);
-      } else if (bodySidesData) {
-        setBodySides(bodySidesData);
-      }
+      if (lookupError) {
+        console.error('Error fetching lookup data via RPC:', lookupError);
+        // Fallback to direct table queries
+        const { data: bodySidesData } = await supabase
+          .from('body_sides')
+          .select('body_side_id, body_side_name');
+        
+        if (bodySidesData) {
+          setBodySides(bodySidesData);
+        }
 
-      // Fetch mechanisms of injury with correct column names
-      const { data: mechanismsData, error: mechanismsError } = await supabase
-        .from('mechanism_of_injury_codes')
-        .select('moi_code_id, moi_description, moi_code_main, moi_code_sub');
-      
-      if (mechanismsError) {
-        console.error('Error fetching mechanisms:', mechanismsError);
-      } else if (mechanismsData) {
-        setMechanisms(mechanismsData);
+        const { data: mechanismsData } = await supabase
+          .from('mechanism_of_injury_codes')
+          .select('moi_code_id, moi_description, moi_code_main, moi_code_sub');
+        
+        if (mechanismsData) {
+          setMechanisms(mechanismsData);
+        }
+      } else if (lookupData) {
+        // Use RPC data
+        setBodySides(lookupData.body_sides || []);
+        setMechanisms(lookupData.mechanism_of_injury || []);
       }
     };
     fetchData();

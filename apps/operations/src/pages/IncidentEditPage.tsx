@@ -459,16 +459,16 @@ const IncidentEditPage = () => {
         
         const description = `Updated: ${changeDescriptions.join(', ')}`;
         
-        // Insert activity log entry
+        // Insert activity log entry using correct table name and columns
         const { error: activityError } = await supabase
-          .from('incident_activities')
+          .from('incident_activity_log')
           .insert({
             incident_id: parseInt(id),
-            type: 'edit' as const,
-            title: 'Incident Updated',
-            description: description,
-            created_by: userName,
-            created_by_user_id: userData?.user_id || null,
+            action_type: 'edit',
+            summary: 'Incident Updated',
+            details: description,
+            actor_name: userName,
+            actor_id: userData?.user_id || null,
             metadata: {
               changes: changes.map(c => ({
                 field: c.field,

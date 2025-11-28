@@ -191,6 +191,24 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
               />
             </div>
           </div>
+          <div>
+            <Label>Sex</Label>
+            <div className="flex gap-4 mt-2">
+              {["Male", "Female", "Other"].map((option) => (
+                <label key={option} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="gender"
+                    value={option}
+                    checked={newWorker.gender === option}
+                    onChange={(e) => setNewWorker(prev => ({ ...prev, gender: e.target.value }))}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm">{option}</span>
+                </label>
+              ))}
+            </div>
+          </div>
           <div className="flex gap-2">
             <Button 
               onClick={handleAddNewWorker} 

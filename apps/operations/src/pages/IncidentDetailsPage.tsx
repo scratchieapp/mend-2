@@ -226,7 +226,7 @@ const IncidentDetailsPage = () => {
     queryKey: ['incident-activity', id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('incident_activities')
+        .from('incident_activity_log')
         .select('*')
         .eq('incident_id', Number(id))
         .order('created_at', { ascending: false });
@@ -249,11 +249,11 @@ const IncidentDetailsPage = () => {
       const activities: ActivityLogEntry[] = data.map(item => ({
         id: item.id.toString(),
         incident_id: item.incident_id,
-        type: item.type as ActivityLogEntry['type'],
-        title: item.title,
-        description: item.description || undefined,
+        type: (item.action_type || 'edit') as ActivityLogEntry['type'],
+        title: item.summary || 'Activity',
+        description: item.details || undefined,
         created_at: item.created_at,
-        created_by: item.created_by,
+        created_by: item.actor_name || 'System',
         metadata: item.metadata as Record<string, string> | undefined,
       }));
       
@@ -281,14 +281,14 @@ const IncidentDetailsPage = () => {
       const userName = userData?.custom_display_name || userData?.display_name || userData?.email || 'Unknown User';
       
       const { error } = await supabase
-        .from('incident_activities')
+        .from('incident_activity_log')
         .insert({
           incident_id: Number(id),
-          type: activity.type,
-          title: activity.title,
-          description: activity.description || null,
-          created_by: userName,
-          created_by_user_id: userData?.user_id || null,
+          action_type: activity.type,
+          summary: activity.title,
+          details: activity.description || null,
+          actor_name: userName,
+          actor_id: userData?.user_id || null,
           metadata: Object.keys(activity.metadata).length > 0 ? activity.metadata : null,
         });
       

@@ -109,7 +109,7 @@ const IncidentRow = React.memo(({
       <TableCell>
         {incident.date_of_injury ? format(parseISO(incident.date_of_injury), 'MMM d, yyyy') : 'N/A'}
       </TableCell>
-      <TableCell>{incident.worker_name || 'Unknown'}</TableCell>
+      <TableCell>{incident.worker_name || '—'}</TableCell>
       <TableCell>{incident.injury_type || 'N/A'}</TableCell>
       <TableCell>
         <Badge className={getClassificationColor(incident.classification)}>

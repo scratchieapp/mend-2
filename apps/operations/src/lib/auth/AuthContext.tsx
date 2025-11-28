@@ -432,6 +432,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (clerkLoaded && clerkSignedIn && clerkUser) {
           if (mounted) {
             // Sync Clerk token with Supabase to enable RLS
+            // Note: This is optional - Clerk auth works via SECURITY DEFINER functions
+            // that bypass RLS. The setSession call often fails with AuthSessionMissingError
+            // which is expected behavior with Clerk auth.
             try {
               const token = await getToken({ template: 'supabase' });
               if (token) {
@@ -439,12 +442,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   access_token: token,
                   refresh_token: '', // Clerk handles refresh
                 });
-                if (error) {
+                // Only log unexpected errors (not AuthSessionMissingError which is expected)
+                if (error && !error.message?.includes('Auth session missing')) {
                   console.error("Supabase auth sync failed:", error);
                 }
               }
             } catch (e) {
-              console.error("Failed to get Clerk token:", e);
+              // Silently ignore token errors - Clerk auth works via RPC functions
             }
 
             // Create a user object

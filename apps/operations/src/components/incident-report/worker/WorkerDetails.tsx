@@ -69,24 +69,24 @@ export function WorkerDetails({ control }: WorkerDetailsProps) {
           name="worker_gender"
           render={({ field }) => (
             <FormItem>
-              <Label>Gender</Label>
+              <Label>Sex</Label>
               <RadioGroup
                 onValueChange={field.onChange}
-                value={field.value}
+                value={field.value || ''}
+                defaultValue=""
                 className="flex space-x-4"
-                disabled
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="Male" id="gender-m" />
-                  <Label htmlFor="gender-m">Male</Label>
+                  <Label htmlFor="gender-m" className="cursor-pointer">Male</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="Female" id="gender-f" />
-                  <Label htmlFor="gender-f">Female</Label>
+                  <Label htmlFor="gender-f" className="cursor-pointer">Female</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="Other" id="gender-o" />
-                  <Label htmlFor="gender-o">Other</Label>
+                  <Label htmlFor="gender-o" className="cursor-pointer">Other</Label>
                 </div>
               </RadioGroup>
             </FormItem>
