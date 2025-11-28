@@ -37,6 +37,14 @@
       "destination": "/operations/index.html"
     },
     {
+      "source": "/builder/(.*)",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/builder",
+      "destination": "/operations/index.html"
+    },
+    {
       "source": "/site-admin/(.*)",
       "destination": "/operations/site-admin/$1"
     },
