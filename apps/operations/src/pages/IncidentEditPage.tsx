@@ -440,6 +440,13 @@ const IncidentEditPage = () => {
     }
   };
 
+  // Debug: Log validation errors when they change
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      console.log('Form validation errors:', errors);
+    }
+  }, [errors]);
+
   if (isLoading) {
     return <LoadingState message="Loading incident data..." />;
   }
@@ -591,7 +598,14 @@ const IncidentEditPage = () => {
                   <Alert variant="destructive" className="mt-4">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
-                      Please correct the errors in the form before submitting.
+                      <div>Please correct the errors in the form before submitting:</div>
+                      <ul className="mt-2 text-xs list-disc list-inside">
+                        {Object.entries(errors).map(([field, error]) => (
+                          <li key={field}>
+                            <strong>{field}</strong>: {(error as any)?.message || 'Invalid value'}
+                          </li>
+                        ))}
+                      </ul>
                     </AlertDescription>
                   </Alert>
                 )}
