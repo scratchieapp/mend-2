@@ -133,11 +133,12 @@ const SuperAdminDashboard = () => {
       
       const incidents = data?.incidents || [];
       const total = data?.totalCount || incidents.length;
-      const open = incidents.filter((i: any) => i.status?.toLowerCase() === 'open').length;
+      // Note: RPC returns `incident_status`, not `status`
+      const open = incidents.filter((i: any) => i.incident_status?.toLowerCase() === 'open').length;
       const pending = incidents.filter((i: any) => 
-        i.status?.toLowerCase() === 'pending' || i.status?.toLowerCase() === 'in_progress'
+        i.incident_status?.toLowerCase() === 'pending' || i.incident_status?.toLowerCase() === 'in_progress'
       ).length;
-      const closed = incidents.filter((i: any) => i.status?.toLowerCase() === 'closed').length;
+      const closed = incidents.filter((i: any) => i.incident_status?.toLowerCase() === 'closed').length;
       const lti = incidents.filter((i: any) => i.classification?.toUpperCase() === 'LTI').length;
       const mti = incidents.filter((i: any) => i.classification?.toUpperCase() === 'MTI').length;
       
