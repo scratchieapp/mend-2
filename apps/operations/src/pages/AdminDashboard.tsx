@@ -127,6 +127,13 @@ export default function AdminDashboard() {
       requiredRole: 'super' as const
     },
     {
+      title: 'My Sites',
+      description: 'Manage your company\'s construction sites',
+      icon: <MapPin className="h-5 w-5" />,
+      link: '/builder/site-management',
+      requiredRole: 'builder' as const
+    },
+    {
       title: 'Super User Management',
       description: 'Manage ALL users, roles, and company assignments',
       icon: <Shield className="h-5 w-5" />,
