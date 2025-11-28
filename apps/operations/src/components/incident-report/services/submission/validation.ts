@@ -3,7 +3,7 @@ import { z } from "zod";
 export const incidentValidationSchema = z.object({
   // Date and time fields
   date_of_injury: z.string().min(1, "Date of injury is required"),
-  time_of_injury: z.string().min(1, "Time of injury is required"),
+  time_of_injury: z.string().optional(), // Made optional - not always known
   
   // Basic injury information
   injury_type: z.string().min(1, "Injury type is required"),

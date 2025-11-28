@@ -14,6 +14,7 @@ import { UserPlus, X } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { toast } from "sonner";
 import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete";
+import { PhoneInput } from "@/components/ui/PhoneInput";
 
 interface WorkerSelectorProps {
   control: Control<IncidentReportFormData>;
@@ -176,10 +177,9 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Worker's Telephone</Label>
-              <Input
+              <PhoneInput
                 value={newWorker.phone_number}
-                onChange={(e) => setNewWorker(prev => ({ ...prev, phone_number: e.target.value }))}
-                placeholder="Phone number"
+                onChange={(value) => setNewWorker(prev => ({ ...prev, phone_number: value }))}
               />
             </div>
             <div>
