@@ -66,7 +66,7 @@ BEGIN
     p_email,
     COALESCE(p_display_name, split_part(p_email, '@', 1)),
     p_role_id,
-    p_employer_id,
+    CASE WHEN p_employer_id IS NULL OR p_employer_id = '' OR p_employer_id = 'none' THEN NULL ELSE p_employer_id::integer END,
     NOW(),
     NOW()
   );
@@ -134,7 +134,7 @@ BEGIN
   END IF;
 
   -- Check if user exists
-  IF NOT EXISTS (SELECT 1 FROM public.users WHERE user_id = p_user_id) THEN
+  IF NOT EXISTS (SELECT 1 FROM public.users WHERE user_id = p_user_id::uuid) THEN
     RETURN json_build_object('success', false, 'error', 'User not found');
   END IF;
 
@@ -144,11 +144,12 @@ BEGIN
     display_name = COALESCE(p_display_name, display_name),
     role_id = COALESCE(p_role_id, role_id),
     employer_id = CASE 
-      WHEN p_employer_id = '' OR p_employer_id = 'null' THEN NULL 
-      ELSE COALESCE(p_employer_id, employer_id) 
+      WHEN p_employer_id IS NULL THEN employer_id
+      WHEN p_employer_id = '' OR p_employer_id = 'null' OR p_employer_id = 'none' THEN NULL 
+      ELSE p_employer_id::integer 
     END,
     updated_at = NOW()
-  WHERE user_id = p_user_id;
+  WHERE user_id = p_user_id::uuid;
 
   -- Return success
   RETURN json_build_object('success', true, 'user_id', p_user_id);
