@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Building2, Users, FileText, TrendingUp, AlertTriangle, Calendar, Shield, ClipboardList } from "lucide-react";
+import { Building2, Users, FileText, TrendingUp, AlertTriangle, Calendar, Shield, ClipboardList, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEmployerContext } from "@/hooks/useEmployerContext";
 import { EmployerSelector } from '@/components/builder/EmployerSelector';
@@ -244,6 +244,23 @@ export default function BuilderDashboard() {
           <CardContent className="space-y-2">
             <Button className="w-full">View Calendar</Button>
             <Button variant="outline" className="w-full">Schedule Audit</Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              Company Settings
+            </CardTitle>
+            <CardDescription>
+              Edit company details, address, and ABN
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Link to="/settings">
+              <Button className="w-full">Manage Settings</Button>
+            </Link>
           </CardContent>
         </Card>
       </div>

@@ -125,6 +125,14 @@
       "destination": "/operations/index.html"
     },
     {
+      "source": "/settings/(.*)",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/settings",
+      "destination": "/operations/index.html"
+    },
+    {
       "source": "/sign-in",
       "destination": "/operations/index.html"
     },

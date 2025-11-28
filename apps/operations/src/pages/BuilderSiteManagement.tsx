@@ -133,13 +133,16 @@ export default function BuilderSiteManagement() {
   const userEmployerId = userData?.employer_id ? parseInt(userData.employer_id) : null;
   const userEmployerName = userData?.employer_name || 'Your Company';
 
-  // Load Google Maps script
+  // Load Google Maps script with Places library
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-    if (!apiKey) return;
+    if (!apiKey) {
+      console.warn('Google Maps API key not found');
+      return;
+    }
 
-    // Check if already loaded
-    if (window.google?.maps) {
+    // Check if already loaded with Places
+    if (window.google?.maps?.places) {
       setMapLoaded(true);
       return;
     }
@@ -147,15 +150,39 @@ export default function BuilderSiteManagement() {
     // Check if script is already being loaded
     const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
     if (existingScript) {
-      existingScript.addEventListener('load', () => setMapLoaded(true));
+      // If script exists but Places isn't loaded, try importLibrary when ready
+      const checkLoaded = setInterval(() => {
+        if (window.google?.maps?.places) {
+          clearInterval(checkLoaded);
+          setMapLoaded(true);
+        } else if (window.google?.maps?.importLibrary) {
+          clearInterval(checkLoaded);
+          window.google.maps.importLibrary('places').then(() => {
+            setMapLoaded(true);
+          });
+        }
+      }, 100);
+      setTimeout(() => clearInterval(checkLoaded), 10000);
       return;
     }
 
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`;
     script.async = true;
     script.defer = true;
-    script.onload = () => setMapLoaded(true);
+    script.onload = () => {
+      // Wait for Places to be available
+      const checkPlaces = setInterval(() => {
+        if (window.google?.maps?.places) {
+          clearInterval(checkPlaces);
+          setMapLoaded(true);
+        }
+      }, 50);
+      setTimeout(() => {
+        clearInterval(checkPlaces);
+        setMapLoaded(true); // Proceed anyway after timeout
+      }, 3000);
+    };
     document.head.appendChild(script);
   }, []);
 
