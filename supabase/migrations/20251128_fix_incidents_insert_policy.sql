@@ -134,3 +134,21 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- =====================================================
+-- FIX: Add SELECT policy for incidents with NULL employer_id
+-- =====================================================
+DROP POLICY IF EXISTS "users_view_own_created_incidents" ON public.incidents;
+
+CREATE POLICY "users_view_own_created_incidents"
+ON public.incidents FOR SELECT TO authenticated
+USING (
+  -- Allow if employer_id is NULL (drafts) - any authenticated user can see drafts they might have created
+  employer_id IS NULL
+  OR
+  -- Allow Mend staff to view all (roles 1-3)
+  EXISTS (SELECT 1 FROM public.users u WHERE u.email = auth.jwt()->>'email' AND u.role_id IN (1, 2, 3))
+  OR
+  -- Allow company users to view their employer's incidents
+  employer_id IN (SELECT u.employer_id FROM public.users u WHERE u.email = auth.jwt()->>'email' AND u.role_id >= 4 AND u.employer_id IS NOT NULL)
+);
+
