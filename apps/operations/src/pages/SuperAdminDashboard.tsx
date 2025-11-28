@@ -38,6 +38,7 @@ import { startOfMonth, subMonths } from "date-fns";
 import { useEmployerContext } from "@/hooks/useEmployerContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useUserContext } from "@/hooks/useUserContext";
 // Debug component disabled to prevent memory leaks
 // import { DebugPanel } from "@/components/DebugPanel";
 
@@ -106,25 +107,43 @@ const SuperAdminDashboard = () => {
     staleTime: 60 * 1000,
   });
 
-  // Fetch incidents with status breakdown
+  // Get user context for RBAC
+  const { roleId, employerId: userEmployerId } = useUserContext();
+
+  // Fetch incidents with status breakdown using RBAC-aware RPC
   const { data: incidentsData, isLoading: isLoadingIncidents } = useQuery({
-    queryKey: ['super-admin-incidents-stats'],
+    queryKey: ['super-admin-incidents-stats', roleId, userEmployerId, selectedEmployerId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('incidents')
-        .select('status, classification');
+      // Use the dashboard RPC which respects RBAC
+      const { data, error } = await supabase.rpc('get_dashboard_data', {
+        page_size: 1000, // Get all incidents for counting
+        page_offset: 0,
+        filter_employer_id: selectedEmployerId || null,
+        filter_worker_id: null,
+        filter_start_date: null,
+        filter_end_date: null,
+        user_role_id: roleId,
+        user_employer_id: userEmployerId
+      });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching incidents stats:', error);
+        return { total: 0, open: 0, pending: 0, closed: 0, lti: 0, mti: 0 };
+      }
       
-      const total = data?.length || 0;
-      const open = data?.filter(i => i.status?.toLowerCase() === 'open').length || 0;
-      const pending = data?.filter(i => i.status?.toLowerCase() === 'pending' || i.status?.toLowerCase() === 'in_progress').length || 0;
-      const closed = data?.filter(i => i.status?.toLowerCase() === 'closed').length || 0;
-      const lti = data?.filter(i => i.classification?.toUpperCase() === 'LTI').length || 0;
-      const mti = data?.filter(i => i.classification?.toUpperCase() === 'MTI').length || 0;
+      const incidents = data?.incidents || [];
+      const total = data?.totalCount || incidents.length;
+      const open = incidents.filter((i: any) => i.status?.toLowerCase() === 'open').length;
+      const pending = incidents.filter((i: any) => 
+        i.status?.toLowerCase() === 'pending' || i.status?.toLowerCase() === 'in_progress'
+      ).length;
+      const closed = incidents.filter((i: any) => i.status?.toLowerCase() === 'closed').length;
+      const lti = incidents.filter((i: any) => i.classification?.toUpperCase() === 'LTI').length;
+      const mti = incidents.filter((i: any) => i.classification?.toUpperCase() === 'MTI').length;
       
       return { total, open, pending, closed, lti, mti };
     },
+    enabled: roleId !== null,
     staleTime: 30 * 1000,
   });
 
