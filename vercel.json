@@ -77,6 +77,54 @@
       "destination": "/operations/index.html"
     },
     {
+      "source": "/public-dashboard/(.*)",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/public-dashboard",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/medical/(.*)",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/medical",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/insurance/(.*)",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/insurance",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/government/(.*)",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/government",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/user-management/(.*)",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/user-management",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/administrator/(.*)",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/administrator",
+      "destination": "/operations/index.html"
+    },
+    {
       "source": "/sign-in",
       "destination": "/operations/index.html"
     },
