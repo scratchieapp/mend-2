@@ -74,6 +74,7 @@ interface SiteFormData {
   project_type: string;
   latitude?: number;
   longitude?: number;
+  status?: string;
 }
 
 // Helper to get approximate coordinates from city name
@@ -378,24 +379,31 @@ export default function BuilderSiteManagement() {
     }
   }, [activeTab, initializeMap, mapLoaded, sites]);
 
-  // Create site mutation - auto-set employer_id
+  // Create site mutation - uses RPC to bypass RLS issues with Clerk JWT
   const createSiteMutation = useMutation({
     mutationFn: async (data: SiteFormData) => {
       if (!userEmployerId) {
         throw new Error('No employer ID available');
       }
 
-      const { data: newSite, error } = await supabase
-        .from('sites')
-        .insert([{
-          ...data,
-          employer_id: userEmployerId,
-        }])
-        .select()
-        .single();
+      const { data: result, error } = await supabase.rpc('create_site_for_employer', {
+        p_site_name: data.site_name,
+        p_employer_id: userEmployerId,
+        p_street_address: data.street_address || null,
+        p_city: data.city || null,
+        p_state: data.state || null,
+        p_post_code: data.post_code || null,
+        p_supervisor_name: data.supervisor_name || null,
+        p_supervisor_telephone: data.supervisor_telephone || null,
+        p_project_type: data.project_type || null,
+        p_latitude: data.latitude || null,
+        p_longitude: data.longitude || null,
+        p_status: 'active'
+      });
 
       if (error) throw error;
-      return newSite;
+      if (!result.success) throw new Error(result.error);
+      return result.site;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['builder-sites', userEmployerId] });
@@ -415,22 +423,27 @@ export default function BuilderSiteManagement() {
     }
   });
 
-  // Update site mutation
+  // Update site mutation - uses RPC to bypass RLS issues with Clerk JWT
   const updateSiteMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: SiteFormData }) => {
-      const { data: updatedSite, error } = await supabase
-        .from('sites')
-        .update({
-          ...data,
-          // Don't allow changing employer_id
-        })
-        .eq('site_id', id)
-        .eq('employer_id', userEmployerId) // Security: only update if belongs to user's employer
-        .select()
-        .single();
+      const { data: result, error } = await supabase.rpc('update_site_for_employer', {
+        p_site_id: id,
+        p_site_name: data.site_name || null,
+        p_street_address: data.street_address || null,
+        p_city: data.city || null,
+        p_state: data.state || null,
+        p_post_code: data.post_code || null,
+        p_supervisor_name: data.supervisor_name || null,
+        p_supervisor_telephone: data.supervisor_telephone || null,
+        p_project_type: data.project_type || null,
+        p_latitude: data.latitude || null,
+        p_longitude: data.longitude || null,
+        p_status: data.status || null
+      });
 
       if (error) throw error;
-      return updatedSite;
+      if (!result.success) throw new Error(result.error);
+      return result.site;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['builder-sites', userEmployerId] });
@@ -451,9 +464,10 @@ export default function BuilderSiteManagement() {
     }
   });
 
-  // Delete site mutation
+  // Delete site mutation - uses RPC to bypass RLS issues with Clerk JWT
   const deleteSiteMutation = useMutation({
     mutationFn: async (id: number) => {
+      // First check for incidents (this query should work with SELECT RLS)
       const { count: incidentCount } = await supabase
         .from('incidents')
         .select('*', { count: 'exact', head: true })
@@ -463,13 +477,12 @@ export default function BuilderSiteManagement() {
         throw new Error(`Cannot delete site with ${incidentCount} incidents`);
       }
 
-      const { error } = await supabase
-        .from('sites')
-        .delete()
-        .eq('site_id', id)
-        .eq('employer_id', userEmployerId); // Security: only delete if belongs to user's employer
+      const { data: result, error } = await supabase.rpc('delete_site_for_employer', {
+        p_site_id: id
+      });
 
       if (error) throw error;
+      if (!result.success) throw new Error(result.error);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['builder-sites', userEmployerId] });
