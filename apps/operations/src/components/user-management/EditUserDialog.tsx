@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth as useClerkAuth } from "@clerk/clerk-react";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +43,7 @@ interface EditUserDialogProps {
 
 export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps) {
   const { toast } = useToast();
+  const { userId: clerkUserId } = useClerkAuth();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     display_name: "",
@@ -103,43 +105,24 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
 
       console.log("Updating user:", userId, data);
 
-      // 1. Update basic details in Supabase
-      const updates: any = {
-        display_name: data.display_name,
-      };
+      // Use RPC function to bypass RLS (uses Clerk auth)
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_update_user', {
+        p_clerk_user_id: clerkUserId || '',
+        p_user_id: userId,
+        p_display_name: data.display_name || null,
+        p_role_id: data.role_id ? parseInt(data.role_id) : null,
+        p_employer_id: data.employer_id === "null" ? null : data.employer_id || null,
+      });
 
-      // Handle nullable employer_id
-      if (data.employer_id === "null" || !data.employer_id) {
-        updates.employer_id = null;
-      } else {
-        const empId = parseInt(data.employer_id);
-        if (!isNaN(empId)) {
-          updates.employer_id = empId;
-        }
+      if (rpcError) throw rpcError;
+
+      // Check the RPC result for success
+      const result = rpcResult as { success: boolean; error?: string };
+      if (!result.success) {
+        throw new Error(result.error || "Update failed");
       }
 
-      // Handle role_id
-      if (data.role_id) {
-        const roleId = parseInt(data.role_id);
-        if (!isNaN(roleId)) {
-          updates.role_id = roleId;
-        }
-      }
-
-      const { data: updatedData, error: dbError } = await supabase
-        .from('users')
-        .update(updates)
-        .eq('user_id', userId)
-        .select();
-
-      if (dbError) throw dbError;
-
-      if (!updatedData || updatedData.length === 0) {
-        console.error("Update returned no data. ID used:", userId);
-        throw new Error("Update failed: User not found or permission denied");
-      }
-
-      console.log("Update successful:", updatedData);
+      console.log("Update successful:", result);
 
       // 2. Call Edge Function to sync role if needed (Clerk sync)
       if (data.role_id && parseInt(data.role_id) !== user.role_id) {

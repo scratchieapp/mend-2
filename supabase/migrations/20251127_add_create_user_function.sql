@@ -88,9 +88,79 @@ EXCEPTION
 END;
 $$;
 
--- Grant execute permission to authenticated users
+-- Grant execute permission
+GRANT EXECUTE ON FUNCTION public.admin_create_user(text, text, text, integer, text) TO anon;
 GRANT EXECUTE ON FUNCTION public.admin_create_user(text, text, text, integer, text) TO authenticated;
 
--- Add comment
 COMMENT ON FUNCTION public.admin_create_user IS 'Allows Mend staff (roles 1-3) to pre-register users. Uses SECURITY DEFINER to bypass RLS. Requires Clerk user ID for auth.';
+
+-- =====================================================
+-- Update User RPC Function
+-- Purpose: Allow admins to update users with RLS bypass
+-- =====================================================
+
+DROP FUNCTION IF EXISTS public.admin_update_user(text, text, text, integer, text);
+
+CREATE OR REPLACE FUNCTION public.admin_update_user(
+  p_clerk_user_id text,
+  p_user_id text,
+  p_display_name text DEFAULT NULL,
+  p_role_id integer DEFAULT NULL,
+  p_employer_id text DEFAULT NULL
+)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_caller_role_id integer;
+  v_result json;
+BEGIN
+  -- Check that clerk_user_id was provided
+  IF p_clerk_user_id IS NULL OR p_clerk_user_id = '' THEN
+    RETURN json_build_object('success', false, 'error', 'Not authenticated');
+  END IF;
+
+  -- Get caller's role from their clerk_user_id
+  SELECT role_id INTO v_caller_role_id
+  FROM public.users
+  WHERE clerk_user_id = p_clerk_user_id
+  LIMIT 1;
+
+  -- Only roles 1, 2, 3 (Mend staff) can update users
+  IF v_caller_role_id IS NULL OR v_caller_role_id > 3 THEN
+    RETURN json_build_object('success', false, 'error', 'Permission denied: Only Mend staff can update users');
+  END IF;
+
+  -- Check if user exists
+  IF NOT EXISTS (SELECT 1 FROM public.users WHERE user_id = p_user_id) THEN
+    RETURN json_build_object('success', false, 'error', 'User not found');
+  END IF;
+
+  -- Update the user
+  UPDATE public.users
+  SET
+    display_name = COALESCE(p_display_name, display_name),
+    role_id = COALESCE(p_role_id, role_id),
+    employer_id = CASE 
+      WHEN p_employer_id = '' OR p_employer_id = 'null' THEN NULL 
+      ELSE COALESCE(p_employer_id, employer_id) 
+    END,
+    updated_at = NOW()
+  WHERE user_id = p_user_id;
+
+  -- Return success
+  RETURN json_build_object('success', true, 'user_id', p_user_id);
+
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN json_build_object('success', false, 'error', SQLERRM);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.admin_update_user(text, text, text, integer, text) TO anon;
+GRANT EXECUTE ON FUNCTION public.admin_update_user(text, text, text, integer, text) TO authenticated;
+
+COMMENT ON FUNCTION public.admin_update_user IS 'Allows Mend staff (roles 1-3) to update users. Uses SECURITY DEFINER to bypass RLS.';
 
