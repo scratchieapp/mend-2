@@ -128,6 +128,11 @@ export const incidentReportSchema = z.object({
   
   // Worker
   worker_id: z.string().min(1, 'Worker selection is required'),
+  worker_name: z.string().optional(),
+  worker_address: z.string().optional(),
+  worker_phone: z.string().optional(),
+  worker_dob: z.string().optional(),
+  worker_gender: z.enum(['Male', 'Female', 'Other']).optional(),
   
   // Employment
   employer_name: z.string().min(1, 'Employer name is required'),
@@ -182,6 +187,11 @@ export const incidentEditSchema = z.object({
   
   // Worker - optional (allows incidents without assigned worker)
   worker_id: z.string().optional().nullable().default(''),
+  worker_name: z.string().optional().nullable().default(''),
+  worker_address: z.string().optional().nullable().default(''),
+  worker_phone: z.string().optional().nullable().default(''),
+  worker_dob: z.string().optional().nullable().default(''),
+  worker_gender: z.enum(['Male', 'Female', 'Other']).optional().nullable(),
   
   // Employment - all optional
   employer_name: z.string().optional().nullable().default(''),

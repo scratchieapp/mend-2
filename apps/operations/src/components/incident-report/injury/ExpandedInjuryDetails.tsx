@@ -9,34 +9,42 @@ import { ExpandedInjuryDetailsProps, BodySide, MechanismOfInjury } from "./types
 export function ExpandedInjuryDetails({ control, selectedBodyPart }: ExpandedInjuryDetailsProps) {
   const [bodySides, setBodySides] = useState<BodySide[]>([]);
   const [mechanisms, setMechanisms] = useState<MechanismOfInjury[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
-      // Use RBAC-aware RPC to fetch lookup data (bypasses RLS)
-      const { data: lookupData, error: lookupError } = await supabase.rpc('get_lookup_data');
-      
-      if (lookupError) {
-        console.error('Error fetching lookup data via RPC:', lookupError);
-        // Fallback to direct table queries
-        const { data: bodySidesData } = await supabase
-          .from('body_sides')
-          .select('body_side_id, body_side_name');
+      setIsLoading(true);
+      try {
+        // Use RBAC-aware RPC to fetch lookup data (bypasses RLS)
+        const { data: lookupData, error: lookupError } = await supabase.rpc('get_lookup_data');
         
-        if (bodySidesData) {
-          setBodySides(bodySidesData);
-        }
+        if (lookupError) {
+          console.error('Error fetching lookup data via RPC:', lookupError);
+          // Fallback to direct table queries
+          const { data: bodySidesData } = await supabase
+            .from('body_sides')
+            .select('body_side_id, body_side_name');
+          
+          if (bodySidesData) {
+            setBodySides(bodySidesData);
+          }
 
-        const { data: mechanismsData } = await supabase
-          .from('mechanism_of_injury_codes')
-          .select('moi_code_id, moi_description, moi_code_main, moi_code_sub');
-        
-        if (mechanismsData) {
-          setMechanisms(mechanismsData);
+          const { data: mechanismsData } = await supabase
+            .from('mechanism_of_injury_codes')
+            .select('moi_code_id, moi_description, moi_code_main, moi_code_sub');
+          
+          if (mechanismsData) {
+            setMechanisms(mechanismsData);
+          }
+        } else if (lookupData) {
+          // Use RPC data
+          setBodySides(lookupData.body_sides || []);
+          setMechanisms(lookupData.mechanism_of_injury || []);
         }
-      } else if (lookupData) {
-        // Use RPC data
-        setBodySides(lookupData.body_sides || []);
-        setMechanisms(lookupData.mechanism_of_injury || []);
+      } catch (error) {
+        console.error('Error fetching injury lookup data:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
     fetchData();
@@ -50,9 +58,13 @@ export function ExpandedInjuryDetails({ control, selectedBodyPart }: ExpandedInj
         render={({ field }) => (
           <FormItem>
             <Label>Mechanism of Injury</Label>
-            <Select onValueChange={field.onChange} value={field.value || ''}>
+            <Select 
+              onValueChange={field.onChange} 
+              value={field.value || undefined}
+              disabled={isLoading}
+            >
               <SelectTrigger>
-                <SelectValue placeholder="Select mechanism of injury" />
+                <SelectValue placeholder={isLoading ? "Loading..." : "Select mechanism of injury"} />
               </SelectTrigger>
               <SelectContent>
                 {mechanisms.map((mechanism) => (
@@ -75,9 +87,13 @@ export function ExpandedInjuryDetails({ control, selectedBodyPart }: ExpandedInj
         render={({ field }) => (
           <FormItem>
             <Label>Body Side</Label>
-            <Select onValueChange={field.onChange} value={field.value || ''}>
+            <Select 
+              onValueChange={field.onChange} 
+              value={field.value || undefined}
+              disabled={isLoading}
+            >
               <SelectTrigger>
-                <SelectValue placeholder="Select body side" />
+                <SelectValue placeholder={isLoading ? "Loading..." : "Select body side"} />
               </SelectTrigger>
               <SelectContent>
                 {bodySides.map((side) => (

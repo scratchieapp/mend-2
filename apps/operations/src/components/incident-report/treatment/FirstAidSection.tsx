@@ -27,7 +27,13 @@ export function FirstAidSection({ control }: FirstAidSectionProps) {
         render={({ field }) => (
           <FormItem>
             <Label htmlFor="referred_to">Referred To</Label>
-            <Input {...field} id="referred_to" />
+            <Input 
+              {...field} 
+              id="referred_to" 
+              value={field.value === 'none' || !field.value ? '' : field.value}
+              placeholder="None"
+              onChange={(e) => field.onChange(e.target.value || 'none')}
+            />
           </FormItem>
         )}
       />

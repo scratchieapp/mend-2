@@ -497,7 +497,7 @@ const IncidentEditPage = () => {
             incidentId: data.incidentId 
           } 
         });
-      }, 2000);
+      }, 1000); // Navigate back after 1 second
     },
     onError: (error) => {
       console.error('Failed to update incident:', error);
@@ -742,7 +742,7 @@ const IncidentEditPage = () => {
 
                     <Button
                       type="submit"
-                      disabled={updateMutation.isPending || !isDirty}
+                      disabled={updateMutation.isPending}
                       className="min-w-[120px]"
                     >
                       {updateMutation.isPending ? (
