@@ -252,7 +252,6 @@ export default function BuilderDashboard() {
       <IncidentsList 
         selectedEmployerId={selectedEmployerId}
         enableVirtualScroll={true}
-        showActions={true}
         maxHeight="500px"
       />
     </div>

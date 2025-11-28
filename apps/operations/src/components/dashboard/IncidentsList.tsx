@@ -8,9 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
-  Eye, 
-  Edit, 
-  Filter, 
   Search, 
   Calendar,
   AlertTriangle,
@@ -56,7 +53,6 @@ interface IncidentData {
 
 interface IncidentsListOptimizedProps {
   highlightIncidentId?: number;
-  showActions?: boolean;
   maxHeight?: string;
   selectedEmployerId?: number | null;
   enableVirtualScroll?: boolean;
@@ -67,15 +63,11 @@ interface IncidentsListOptimizedProps {
 const IncidentRow = React.memo(({ 
   incident, 
   isHighlighted, 
-  showActions, 
-  onView, 
-  onEdit 
+  onView
 }: {
   incident: IncidentData;
   isHighlighted: boolean;
-  showActions: boolean;
   onView: (id: number) => void;
-  onEdit: (id: number) => void;
 }) => {
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -106,9 +98,10 @@ const IncidentRow = React.memo(({
   return (
     <TableRow 
       className={cn(
-        "hover:bg-muted/50 transition-colors",
+        "hover:bg-muted/50 transition-colors cursor-pointer",
         isHighlighted && "bg-yellow-50 border-yellow-300"
       )}
+      onClick={() => onView(incident.incident_id)}
     >
       <TableCell className="font-medium">
         {incident.incident_number || `INC-${incident.incident_id}`}
@@ -130,28 +123,6 @@ const IncidentRow = React.memo(({
           {incident.incident_status || 'Open'}
         </Badge>
       </TableCell>
-      {showActions && (
-        <TableCell>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onView(incident.incident_id)}
-              aria-label={`View incident ${incident.incident_number}`}
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onEdit(incident.incident_id)}
-              aria-label={`Edit incident ${incident.incident_number}`}
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-          </div>
-        </TableCell>
-      )}
     </TableRow>
   );
 });
@@ -160,7 +131,6 @@ IncidentRow.displayName = 'IncidentRow';
 
 export function IncidentsList({ 
   highlightIncidentId, 
-  showActions = true,
   maxHeight = "600px",
   selectedEmployerId,
   enableVirtualScroll = false,
@@ -285,13 +255,9 @@ export function IncidentsList({
     };
   }, []); // Empty deps - only cleanup on unmount
 
-  // Navigation handlers - Fixed routes to match App.tsx
+  // Navigation handler - clicking a row views the incident
   const handleView = useCallback((incidentId: number) => {
-    navigate(`/incident/${incidentId}`); // Fixed: removed 's' to match route definition
-  }, [navigate]);
-
-  const handleEdit = useCallback((incidentId: number) => {
-    navigate(`/incident/${incidentId}/edit`); // Fixed: removed 's' to match route definition
+    navigate(`/incident/${incidentId}`);
   }, [navigate]);
 
   // Pagination handlers
@@ -308,7 +274,7 @@ export function IncidentsList({
     <TableBody>
       {[...Array(5)].map((_, i) => (
         <TableRow key={i}>
-          {[...Array(showActions ? 9 : 8)].map((_, j) => (
+          {[...Array(8)].map((_, j) => (
             <TableCell key={j}>
               <Skeleton className="h-4 w-full" />
             </TableCell>
@@ -404,14 +370,13 @@ export function IncidentsList({
                 <TableHead>Site</TableHead>
                 <TableHead>Employer</TableHead>
                 <TableHead>Status</TableHead>
-                {showActions && <TableHead className="w-[100px]">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             {isLoading ? renderSkeleton() : (
               <TableBody>
                 {filteredIncidents.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={showActions ? 9 : 8} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                       No incidents found
                     </TableCell>
                   </TableRow>
@@ -421,9 +386,7 @@ export function IncidentsList({
                       key={incident.incident_id}
                       incident={incident}
                       isHighlighted={incident.incident_id === highlightIncidentId}
-                      showActions={showActions}
                       onView={handleView}
-                      onEdit={handleEdit}
                     />
                   ))
                 )}

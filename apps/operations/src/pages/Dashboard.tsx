@@ -114,7 +114,6 @@ const Dashboard = () => {
             <DataErrorBoundary errorTitle="Failed to load recent incidents">
               <IncidentsList 
                 highlightIncidentId={submittedIncidentId || undefined}
-                showActions={true}
                 maxHeight="400px"
                 selectedEmployerId={selectedEmployerId}
                 enableVirtualScroll={true}

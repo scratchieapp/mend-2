@@ -515,7 +515,6 @@ const SuperAdminDashboard = () => {
           <IncidentsList 
             key={`incidents-${selectedEmployerId || 'all'}`} // Force re-mount when employer changes
             highlightIncidentId={submittedIncidentId || undefined}
-            showActions={true}
             maxHeight="400px"
             selectedEmployerId={selectedEmployerId}
             enableVirtualScroll={true}
