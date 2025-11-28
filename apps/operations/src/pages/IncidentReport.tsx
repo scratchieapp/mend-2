@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataErrorBoundary } from "@/components/DataErrorBoundary";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, ArrowLeft, ArrowRight, Save, FileText, Clock } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight, Save, FileText, Clock, RotateCcw } from "lucide-react";
 
 // Form sections
 import { NotificationSection } from "@/components/incident-report/NotificationSection";
@@ -68,16 +68,49 @@ const IncidentReport = () => {
   const { 
     saveDraft, 
     clearDraft, 
+    discardDraft,
     onTabChange, 
     lastSaved, 
     isSaving: isSavingDraft,
-    draftId 
+    draftId,
+    hasDraft 
   } = useAutoSaveDraft({
     form,
     draftKey: 'incident-report-draft',
     autoSaveInterval: 30000, // Save every 30 seconds
     onSaveToServer: true, // Enabled now that we use RLS-bypassing RPCs
   });
+
+  // Start fresh - clear all draft data and reset form
+  const handleStartFresh = () => {
+    discardDraft();
+    form.reset({
+      mend_client: "",
+      notifying_person_name: "",
+      notifying_person_position: "",
+      notifying_person_telephone: "",
+      worker_id: "",
+      employer_name: "",
+      location_site: "",
+      supervisor_contact: "",
+      supervisor_phone: "",
+      employment_type: "full_time",
+      date_of_injury: "",
+      time_of_injury: "",
+      injury_type: "",
+      body_part: "",
+      body_side: "not_applicable",
+      injury_description: "",
+      witness: "",
+      type_of_first_aid: "",
+      referred_to: "none",
+      doctor_details: "",
+      actions_taken: [],
+      case_notes: "",
+      documents: [],
+    });
+    setActiveTab("notification");
+  };
 
   // Format last saved time
   const formatLastSaved = (date: Date | null) => {
@@ -186,17 +219,30 @@ const IncidentReport = () => {
                   </p>
                 </div>
                 {/* Draft status indicator */}
-                <div className="w-[140px] flex flex-col items-end gap-1">
+                <div className="w-[160px] flex flex-col items-end gap-1">
                   {lastSaved && (
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Clock className="h-3 w-3" />
                       <span>Saved {formatLastSaved(lastSaved)}</span>
                     </div>
                   )}
-                  {draftId && (
-                    <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">
-                      Draft
-                    </span>
+                  {(draftId || hasDraft) && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">
+                        Draft
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleStartFresh}
+                        className="h-6 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                        title="Clear draft and start fresh"
+                      >
+                        <RotateCcw className="h-3 w-3 mr-1" />
+                        Clear
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -341,7 +387,7 @@ const IncidentReport = () => {
                       ) : (
                         <Button
                           type="submit"
-                          disabled={!isValid || !isDirty || isSubmitting}
+                          disabled={!isValid || isSubmitting}
                         >
                           <Save className="mr-2 h-4 w-4" />
                           {isSubmitting ? 'Submitting...' : 'Submit Report'}
