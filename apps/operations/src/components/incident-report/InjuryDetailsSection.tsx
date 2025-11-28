@@ -57,25 +57,34 @@ export function InjuryDetailsSection({ form }: InjuryDetailsSectionProps) {
 
   useEffect(() => {
     const fetchData = async () => {
-      // Fetch injury types from injury_type table
-      const { data: typesData, error: typesError } = await supabase
-        .from('injury_type')
-        .select('id, injury_type_name');
+      // Use RBAC-aware RPC to fetch lookup data (bypasses RLS)
+      const { data: lookupData, error: lookupError } = await supabase.rpc('get_lookup_data');
       
-      if (!typesError && typesData) {
-        setInjuryTypes(typesData.map(type => ({
-          type_id: type.id,
-          type_name: type.injury_type_name
-        })));
-      }
+      if (lookupError) {
+        console.error('Error fetching lookup data via RPC:', lookupError);
+        // Fallback to direct table queries
+        const { data: typesData } = await supabase
+          .from('injury_type')
+          .select('id, injury_type_name');
+        
+        if (typesData) {
+          setInjuryTypes(typesData.map(type => ({
+            type_id: type.id,
+            type_name: type.injury_type_name
+          })));
+        }
 
-      // Fetch body parts
-      const { data: partsData, error: partsError } = await supabase
-        .from('body_parts')
-        .select('body_part_id, body_part_name');
-      
-      if (!partsError && partsData) {
-        setBodyParts(partsData);
+        const { data: partsData } = await supabase
+          .from('body_parts')
+          .select('body_part_id, body_part_name');
+        
+        if (partsData) {
+          setBodyParts(partsData);
+        }
+      } else if (lookupData) {
+        // Use RPC data
+        setInjuryTypes(lookupData.injury_types || []);
+        setBodyParts(lookupData.body_parts || []);
       }
     };
 

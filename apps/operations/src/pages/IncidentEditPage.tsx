@@ -420,14 +420,36 @@ const IncidentEditPage = () => {
   const isFirstTab = currentTabIndex === 0;
   const isLastTab = currentTabIndex === tabOrder.length - 1;
 
-  const handleNextTab = () => {
+  // Auto-save when navigating between tabs
+  const handleNextTab = async () => {
     if (!isLastTab) {
+      // Auto-save current changes if form is dirty
+      if (isDirty) {
+        try {
+          const formData = form.getValues();
+          await updateMutation.mutateAsync(formData);
+          toast.success('Changes saved');
+        } catch (error) {
+          // Don't block navigation on save error, just warn
+          console.warn('Auto-save on next failed:', error);
+        }
+      }
       setActiveTab(tabOrder[currentTabIndex + 1].id);
     }
   };
 
-  const handlePrevTab = () => {
+  const handlePrevTab = async () => {
     if (!isFirstTab) {
+      // Auto-save current changes if form is dirty
+      if (isDirty) {
+        try {
+          const formData = form.getValues();
+          await updateMutation.mutateAsync(formData);
+          toast.success('Changes saved');
+        } catch (error) {
+          console.warn('Auto-save on previous failed:', error);
+        }
+      }
       setActiveTab(tabOrder[currentTabIndex - 1].id);
     }
   };
