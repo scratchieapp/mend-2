@@ -199,7 +199,7 @@ const SuperAdminDashboard = () => {
           {/* Total Employers Tile */}
           <Card 
             className="hover:shadow-lg transition-all cursor-pointer hover:border-blue-300 group"
-            onClick={() => navigate("/admin/employers")}
+            onClick={() => navigate("/admin/employer-management")}
           >
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
