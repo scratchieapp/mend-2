@@ -266,7 +266,7 @@ export default function AdminDashboard() {
           Quick Actions
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Link to="/incident-report">
+          <Link to="/incident-report?new=true">
             <Button variant="outline" className="w-full">
               New Incident Report
             </Button>

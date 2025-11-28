@@ -154,7 +154,7 @@ export default function BuilderDashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            <Link to="/incident-report">
+            <Link to="/incident-report?new=true">
               <Button className="w-full">Report New Incident</Button>
             </Link>
             <Link to="/builder-senior">

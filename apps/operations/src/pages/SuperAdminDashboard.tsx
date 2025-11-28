@@ -207,7 +207,7 @@ const SuperAdminDashboard = () => {
               <Download className="mr-2 h-4 w-4" />
               Export Report
             </Button>
-            <Button onClick={() => navigate("/incident-report")}>
+            <Button onClick={() => navigate("/incident-report?new=true")}>
               <PlusCircle className="mr-2 h-4 w-4" />
               Record New Incident
             </Button>

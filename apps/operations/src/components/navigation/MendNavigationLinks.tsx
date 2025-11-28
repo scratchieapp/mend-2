@@ -30,7 +30,7 @@ export function MendNavigationLinks() {
           </Button>
         </Link>
       )}
-      <Link to="/incident-report">
+      <Link to="/incident-report?new=true">
         <Button variant="ghost">
           <FileText className="h-4 w-4 mr-2" />
           Incident Report

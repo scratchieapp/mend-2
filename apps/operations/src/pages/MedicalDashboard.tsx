@@ -21,7 +21,7 @@ export default function MedicalDashboard() {
         <FileText className="mr-2 h-4 w-4" />
         Medical Reports
       </Button>
-      <Button onClick={() => navigate("/incident-report")}>
+      <Button onClick={() => navigate("/incident-report?new=true")}>
         <Activity className="mr-2 h-4 w-4" />
         New Assessment
       </Button>

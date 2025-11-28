@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,8 +29,18 @@ import { logValidationError } from "@/lib/monitoring/errorLogger";
 
 const IncidentReport = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("notification");
   const { handleSubmit: submitIncident, loading: isSubmitting, SuccessDialog } = useIncidentSubmission();
+
+  // Clear draft when starting a new incident (via ?new=true query param)
+  useEffect(() => {
+    if (searchParams.get('new') === 'true') {
+      localStorage.removeItem('incident-report-draft');
+      // Remove the query param from URL without reloading
+      window.history.replaceState({}, '', '/incident-report');
+    }
+  }, [searchParams]);
 
   const form = useForm<IncidentReportFormData>({
     resolver: zodResolver(incidentReportSchema),
