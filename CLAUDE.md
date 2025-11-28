@@ -435,6 +435,74 @@ get_case_notes(p_incident_id) RETURNS JSONB
 
 ---
 
+## 🚨 ONGOING ISSUE: Incident Creation Fails (2025-11-28)
+
+### Problem Summary
+Users cannot create new incidents via the web form. The "Submit Report" button either stays disabled or fails with RLS/permission errors. This has been debugged extensively but remains unresolved.
+
+### Symptoms
+1. User fills out incident report form completely
+2. Submit button may be disabled (validation errors) or enabled
+3. On submit, errors appear:
+   - `401 Unauthorized` on `incidents?select=incident_id`
+   - `42501` RLS policy violation errors
+   - "Failed to save draft to server" messages
+
+### Root Causes Investigated & Partially Fixed
+1. **CHECK constraint missing 'Draft'** ✅ FIXED - Added 'Draft' to `incident_status` constraint
+2. **LTI trigger failing on NULL employer_id** ✅ FIXED - Trigger now skips when employer_id is NULL
+3. **Conflicting RLS policies** ✅ FIXED - Dropped `incidents_insert_policy`
+4. **SELECT after INSERT fails due to RLS** ✅ PARTIALLY FIXED - Removed `.select()` after `.insert()`
+5. **Server-side draft saving** ✅ DISABLED - `onSaveToServer: false` to prevent 401 errors
+
+### Suspected Remaining Issues (UNCERTAIN)
+1. **RLS SELECT policies too restrictive**: Company users (role >= 4) can only SELECT incidents where `employer_id` matches their own. If they create an incident for a different employer (as a Mend client), they can't read it back.
+2. **Authentication token not passed correctly**: The 401 errors suggest the Supabase client might not be sending the auth token on some requests.
+3. **PostgREST configuration**: The API layer may have additional restrictions not visible in RLS policies.
+4. **Multiple conflicting INSERT policies**: There may be old policies still active that aren't visible in our queries.
+
+### Files Modified (Recent Attempts)
+- `/supabase/migrations/20251128_fix_incidents_insert_policy.sql` - RLS fixes, trigger fix, CHECK constraint
+- `/apps/operations/src/components/incident-report/services/submission/database.ts` - Removed SELECT after INSERT
+- `/apps/operations/src/pages/IncidentReport.tsx` - Disabled server-side draft saving
+- `/apps/operations/src/lib/validations/incident.ts` - Made `injury_description` optional
+
+### Database Policies Currently Active
+```sql
+-- INSERT policies
+authenticated_insert_incidents ON incidents FOR INSERT (WITH CHECK true)
+authenticated_insert_workers ON workers FOR INSERT (WITH CHECK true)
+
+-- SELECT policies (may be the problem)
+mend_staff_view_all_incidents - roles 1,2,3 see all
+company_users_view_own_incidents - role >= 4 see only their employer's incidents
+users_view_own_created_incidents - allows NULL employer_id
+```
+
+### Debugging Commands
+```sql
+-- Check current policies
+SELECT policyname, cmd, qual::text, with_check::text 
+FROM pg_policies WHERE tablename = 'incidents';
+
+-- Test insert as service role
+INSERT INTO incidents (incident_status, injury_type, injury_description)
+VALUES ('Draft', 'Test', 'Test description')
+RETURNING incident_id;
+
+-- Check user's role
+SELECT u.email, u.role_id, u.employer_id 
+FROM users u WHERE u.email = 'user@example.com';
+```
+
+### Next Steps to Try
+1. Create a SECURITY DEFINER function for incident INSERT that bypasses RLS entirely
+2. Check if there are API-level restrictions in Supabase dashboard
+3. Test with a role 1-3 user (Mend staff) to see if it works for them
+4. Add detailed logging to identify exactly where the failure occurs
+
+---
+
 ## 🤖 SUPABASE MCP INTEGRATION
 
 ### Overview

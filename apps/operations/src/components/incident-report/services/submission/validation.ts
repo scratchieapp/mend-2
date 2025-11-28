@@ -7,7 +7,7 @@ export const incidentValidationSchema = z.object({
   
   // Basic injury information
   injury_type: z.string().min(1, "Injury type is required"),
-  injury_description: z.string().min(1, "Injury description is required"),
+  injury_description: z.string().optional(),
   classification: z.string().optional(),
   incident_summary: z.string().optional(),
   

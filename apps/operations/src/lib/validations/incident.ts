@@ -68,8 +68,8 @@ export const injuryDetailsSchema = z.object({
   body_part: z.string().min(1, 'Body part is required'),
   body_side: z.enum(['left', 'right', 'both', 'not_applicable']).optional(),
   injury_description: z.string()
-    .min(10, 'Description must be at least 10 characters')
-    .max(500, 'Description must be less than 500 characters'),
+    .max(500, 'Description must be less than 500 characters')
+    .optional(),
   witness: z.string().optional(),
   severity: z.enum(['minor', 'moderate', 'serious', 'critical'], {
     errorMap: () => ({ message: 'Please select injury severity' }),
@@ -148,7 +148,7 @@ export const incidentReportSchema = z.object({
   body_part: z.string().min(1, 'Body part is required'),
   body_side: z.string().optional(), // Now stored as body_side_id
   body_regions: z.array(z.string()).optional().default([]),
-  injury_description: z.string().min(10).max(500),
+  injury_description: z.string().max(500).optional(),
   witness: z.string().optional(),
   mechanism_of_injury: z.string().optional(), // moi_code_id
   bodily_location_detail: z.string().optional(), // bl_code_id

@@ -152,3 +152,97 @@ USING (
   employer_id IN (SELECT u.employer_id FROM public.users u WHERE u.email = auth.jwt()->>'email' AND u.role_id >= 4 AND u.employer_id IS NOT NULL)
 );
 
+-- =====================================================
+-- FIX: SECURITY DEFINER function to bypass RLS for incident creation
+-- This is necessary because company users can create incidents for any employer
+-- but can only SELECT incidents for their own employer
+-- =====================================================
+DROP FUNCTION IF EXISTS create_incident_bypassing_rls(JSONB);
+
+CREATE OR REPLACE FUNCTION create_incident_bypassing_rls(p_incident_data JSONB)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_incident_id INTEGER;
+  v_result JSONB;
+BEGIN
+  -- Insert the incident with all provided fields
+  INSERT INTO incidents (
+    incident_status,
+    employer_id,
+    worker_id,
+    site_id,
+    injury_type,
+    injury_description,
+    date_of_injury,
+    time_of_injury,
+    notifying_person_name,
+    notifying_person_position,
+    notifying_person_telephone,
+    workers_employer,
+    case_notes,
+    witness,
+    referral,
+    doctor_details,
+    doctor_id,
+    actions,
+    body_part_id,
+    body_side_id,
+    moi_code_id,
+    bl_code_id,
+    treatment_provided,
+    shift_arrangement
+  )
+  VALUES (
+    COALESCE(p_incident_data->>'incident_status', 'Open'),
+    NULLIF(p_incident_data->>'employer_id', '')::INTEGER,
+    NULLIF(p_incident_data->>'worker_id', '')::INTEGER,
+    NULLIF(p_incident_data->>'site_id', '')::INTEGER,
+    p_incident_data->>'injury_type',
+    p_incident_data->>'injury_description',
+    NULLIF(p_incident_data->>'date_of_injury', '')::DATE,
+    NULLIF(p_incident_data->>'time_of_injury', '')::TIME,
+    p_incident_data->>'notifying_person_name',
+    p_incident_data->>'notifying_person_position',
+    p_incident_data->>'notifying_person_telephone',
+    p_incident_data->>'workers_employer',
+    p_incident_data->>'case_notes',
+    p_incident_data->>'witness',
+    p_incident_data->>'referral',
+    p_incident_data->>'doctor_details',
+    NULLIF(p_incident_data->>'doctor_id', '')::INTEGER,
+    p_incident_data->>'actions',
+    NULLIF(p_incident_data->>'body_part_id', '')::INTEGER,
+    NULLIF(p_incident_data->>'body_side_id', '')::INTEGER,
+    NULLIF(p_incident_data->>'moi_code_id', '')::INTEGER,
+    NULLIF(p_incident_data->>'bl_code_id', '')::INTEGER,
+    p_incident_data->>'treatment_provided',
+    p_incident_data->>'shift_arrangement'
+  )
+  RETURNING incident_id INTO v_incident_id;
+  
+  -- Return success with the incident_id
+  v_result := jsonb_build_object(
+    'success', true,
+    'incident_id', v_incident_id
+  );
+  
+  RETURN v_result;
+  
+EXCEPTION WHEN OTHERS THEN
+  -- Return error details for debugging
+  RETURN jsonb_build_object(
+    'success', false,
+    'error', SQLERRM,
+    'error_code', SQLSTATE
+  );
+END;
+$$;
+
+-- Grant execute to all roles that need to create incidents
+GRANT EXECUTE ON FUNCTION create_incident_bypassing_rls(JSONB) TO authenticated;
+GRANT EXECUTE ON FUNCTION create_incident_bypassing_rls(JSONB) TO anon;
+
