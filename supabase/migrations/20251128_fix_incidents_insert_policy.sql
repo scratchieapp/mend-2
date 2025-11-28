@@ -6,7 +6,7 @@
 -- INCIDENTS TABLE
 -- =====================================================
 
--- Drop existing manage policies and recreate with separate INSERT policy
+-- Drop ALL conflicting policies including the old role-based ones
 DROP POLICY IF EXISTS "mend_staff_manage_incidents" ON public.incidents;
 DROP POLICY IF EXISTS "company_users_manage_incidents" ON public.incidents;
 DROP POLICY IF EXISTS "authenticated_insert_incidents" ON public.incidents;
@@ -14,6 +14,11 @@ DROP POLICY IF EXISTS "mend_staff_update_incidents" ON public.incidents;
 DROP POLICY IF EXISTS "company_users_update_incidents" ON public.incidents;
 DROP POLICY IF EXISTS "mend_staff_delete_incidents" ON public.incidents;
 DROP POLICY IF EXISTS "company_users_delete_incidents" ON public.incidents;
+-- These were the conflicting policies using get_my_role() function
+DROP POLICY IF EXISTS "incidents_insert_policy" ON public.incidents;
+DROP POLICY IF EXISTS "incidents_select_policy" ON public.incidents;
+DROP POLICY IF EXISTS "incidents_update_policy" ON public.incidents;
+DROP POLICY IF EXISTS "incidents_delete_policy" ON public.incidents;
 
 -- Allow any authenticated user to INSERT new incidents
 -- This is needed for:
