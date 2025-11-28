@@ -64,31 +64,23 @@ const IncidentEditPage = () => {
     queryFn: async () => {
       if (!id) throw new Error('No incident ID provided');
       
-      // First, verify access via RBAC-aware RPC
-      const { data: rpcData, error: rpcError } = await supabase.rpc('get_dashboard_data', {
-        page_size: 1000,
-        page_offset: 0,
-        filter_employer_id: null,
-        filter_worker_id: null,
-        filter_start_date: null,
-        filter_end_date: null,
-        user_role_id: userData?.role_id || null,
-        user_employer_id: userData?.employer_id ? parseInt(userData.employer_id) : null
+      // Use the new dedicated RPC for full incident details
+      const { data: incidentFromRpc, error: rpcError } = await supabase.rpc('get_incident_details', {
+        p_incident_id: parseInt(id),
+        p_user_role_id: userData?.role_id || null,
+        p_user_employer_id: userData?.employer_id ? parseInt(userData.employer_id) : null
       });
 
       if (rpcError) {
-        console.error('RPC error verifying incident access:', rpcError);
+        console.error('RPC error fetching incident details:', rpcError);
         throw rpcError;
       }
-
-      // Find the specific incident from the RBAC-filtered results
-      const incidentFromRpc = rpcData?.incidents?.find(
-        (inc: { incident_id: number }) => inc.incident_id === Number(id)
-      );
 
       if (!incidentFromRpc) {
         throw new Error('Incident not found or access denied');
       }
+
+      console.log('Raw incident data from RPC:', incidentFromRpc);
 
       // Fetch worker details
       let workerData = null;
