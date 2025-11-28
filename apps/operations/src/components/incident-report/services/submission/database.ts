@@ -10,10 +10,12 @@ export async function saveIncidentToDatabase(data: IncidentData): Promise<Submis
     
     // Transformed data for database
 
+    // Insert without SELECT to avoid RLS issues
+    // The incident_id is auto-generated, so we get it from the response
     const { data: incident, error } = await supabase
       .from("incidents")
       .insert([transformedData])
-      .select()
+      .select('incident_id')
       .single();
 
     if (error) {
