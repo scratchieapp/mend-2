@@ -209,10 +209,35 @@ update_clerk_user_id(p_email TEXT, p_clerk_user_id TEXT)
 -- User management (SECURITY DEFINER) - NEW 2025-11-27
 get_users_for_current_user(p_clerk_user_id TEXT)  -- Returns users filtered by caller's role/employer
 
+-- Admin user CRUD (SECURITY DEFINER) - NEW 2025-11-28
+admin_create_user(p_clerk_user_id TEXT, p_email TEXT, p_display_name TEXT, p_role_id INT, p_employer_id TEXT)
+admin_update_user(p_clerk_user_id TEXT, p_user_id TEXT, p_display_name TEXT, p_role_id INT, p_employer_id TEXT)
+
 -- Dashboard data (SECURITY DEFINER)
 get_dashboard_data(page_size, page_offset, filters..., user_role_id, user_employer_id)
 get_incidents_with_details_rbac(page_size, page_offset, filters..., user_role_id, user_employer_id)
 ```
+
+### ✅ Admin User CRUD Functions (2025-11-28)
+**Created RPC functions for user create/update that bypass RLS using Clerk authentication**
+
+**Problem**: Direct table inserts/updates blocked by RLS since Clerk auth doesn't create Supabase sessions.
+
+**Solution**: `SECURITY DEFINER` functions that:
+1. Accept `p_clerk_user_id` to identify the caller
+2. Look up caller's role from `users.clerk_user_id`
+3. Verify caller is Mend staff (role 1-3)
+4. Perform insert/update with RLS bypass
+5. Return JSON result with success/error
+
+**Type Casting Fixes Applied**:
+- `user_id`: Use `uuid` type (not `text::uuid`)
+- `employer_id`: Cast `p_employer_id::integer` (column is integer)
+- Handle "none", "null", "" for nullable employer_id
+
+**Foreign Key Fix**:
+- Dropped `fk_users_auth_users` constraint (legacy Supabase Auth link)
+- Users table no longer requires matching `auth.users` record
 
 ### ⏳ Pending
 1. **Register Account-Level Webhook**: Retell Dashboard → Settings → Webhooks
@@ -221,6 +246,55 @@ get_incidents_with_details_rbac(page_size, page_offset, filters..., user_role_id
 2. **HubSpot Integration**: Not started
    - Sync call logs and transcripts
    - Link voice interactions to contacts
+
+---
+
+## 🤖 SUPABASE MCP INTEGRATION
+
+### Overview
+Claude has access to the Supabase MCP (Model Context Protocol) sub-agent for direct database operations. This enables real-time database queries, migrations, and management without requiring manual SQL execution.
+
+### Available Supabase MCP Tools
+
+| Tool | Purpose |
+|------|---------|
+| `mcp_supabase_list_projects` | List all Supabase projects |
+| `mcp_supabase_get_project` | Get project details |
+| `mcp_supabase_list_tables` | List tables in schema |
+| `mcp_supabase_execute_sql` | Execute raw SQL queries |
+| `mcp_supabase_apply_migration` | Apply database migrations |
+| `mcp_supabase_list_migrations` | List applied migrations |
+| `mcp_supabase_get_logs` | Get service logs (api, postgres, auth, etc.) |
+| `mcp_supabase_get_advisors` | Get security/performance advisories |
+| `mcp_supabase_generate_typescript_types` | Generate TS types from schema |
+| `mcp_supabase_list_edge_functions` | List Edge Functions |
+| `mcp_supabase_deploy_edge_function` | Deploy Edge Functions |
+| `mcp_supabase_search_docs` | Search Supabase documentation (GraphQL) |
+
+### Project Reference
+- **Project ID**: `xbhcqpwsqpbgcoeawjdz`
+- **Project URL**: `https://xbhcqpwsqpbgcoeawjdz.supabase.co`
+
+### Permission Limitations
+⚠️ **Note**: The MCP connection may have limited write permissions depending on the API token role:
+- **Read operations**: Generally available (list tables, execute SELECT queries)
+- **Write operations**: May require "Developer" or "Owner" role for migrations/DDL
+- **Workaround**: For DDL operations, provide SQL for manual execution in Supabase SQL Editor
+
+### Usage Pattern
+When Claude encounters database issues:
+1. Uses `mcp_supabase_execute_sql` to diagnose issues
+2. Uses `mcp_supabase_list_tables` to verify schema
+3. Attempts `mcp_supabase_apply_migration` for fixes
+4. If permission denied → provides SQL for manual execution
+
+### Example: Create RPC Function
+```
+Claude can:
+1. Design the SQL function
+2. Attempt to apply via MCP
+3. If blocked, provide formatted SQL for user to run in Supabase SQL Editor
+```
 
 ### 📚 Voice Agent Documentation
 - `/docs/Voice Agent Strategy For Incident Management.md` - Strategic architecture & business case
@@ -438,6 +512,6 @@ npm run preview      # Preview build
 
 ---
 
-**Last Updated**: November 27, 2025
-**Version**: 4.6.0
-**Status**: ✅ PRODUCTION READY | ✅ Voice Agent - Fully Operational | ✅ RLS + Clerk Auth - Fixed | ✅ User Management RLS - Fixed
+**Last Updated**: November 28, 2025
+**Version**: 4.7.0
+**Status**: ✅ PRODUCTION READY | ✅ Voice Agent - Fully Operational | ✅ RLS + Clerk Auth - Fixed | ✅ User Management RLS - Fixed | ✅ Admin User CRUD - Working
