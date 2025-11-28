@@ -23,7 +23,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_user_id text;
+  v_user_id uuid;
   v_caller_role_id integer;
   v_caller_email text;
   v_result json;
@@ -50,7 +50,7 @@ BEGIN
   END IF;
 
   -- Generate a new UUID for the user
-  v_user_id := gen_random_uuid()::text;
+  v_user_id := gen_random_uuid();
 
   -- Insert the new user
   INSERT INTO public.users (
