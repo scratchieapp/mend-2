@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataErrorBoundary } from "@/components/DataErrorBoundary";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, ArrowLeft, ArrowRight, Save, FileText, Clock, RotateCcw } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight, Save, FileText, Clock } from "lucide-react";
 
 // Form sections
 import { NotificationSection } from "@/components/incident-report/NotificationSection";
@@ -62,55 +62,22 @@ const IncidentReport = () => {
     },
   });
 
-  const { handleSubmit, formState: { errors, isValid, isDirty } } = form;
+  const { formState: { errors, isValid } } = form;
 
-  // Auto-save draft functionality
+  // Auto-save draft functionality (only save to localStorage, not server until Save Draft clicked)
   const { 
     saveDraft, 
     clearDraft, 
-    discardDraft,
     onTabChange, 
     lastSaved, 
     isSaving: isSavingDraft,
-    draftId,
-    hasDraft 
+    draftId 
   } = useAutoSaveDraft({
     form,
     draftKey: 'incident-report-draft',
-    autoSaveInterval: 30000, // Save every 30 seconds
-    onSaveToServer: true, // Enabled now that we use RLS-bypassing RPCs
+    autoSaveInterval: 30000, // Save to localStorage every 30 seconds
+    onSaveToServer: false, // Only save to server when user clicks Save Draft
   });
-
-  // Start fresh - clear all draft data and reset form
-  const handleStartFresh = () => {
-    discardDraft();
-    form.reset({
-      mend_client: "",
-      notifying_person_name: "",
-      notifying_person_position: "",
-      notifying_person_telephone: "",
-      worker_id: "",
-      employer_name: "",
-      location_site: "",
-      supervisor_contact: "",
-      supervisor_phone: "",
-      employment_type: "full_time",
-      date_of_injury: "",
-      time_of_injury: "",
-      injury_type: "",
-      body_part: "",
-      body_side: "not_applicable",
-      injury_description: "",
-      witness: "",
-      type_of_first_aid: "",
-      referred_to: "none",
-      doctor_details: "",
-      actions_taken: [],
-      case_notes: "",
-      documents: [],
-    });
-    setActiveTab("notification");
-  };
 
   // Format last saved time
   const formatLastSaved = (date: Date | null) => {
@@ -165,14 +132,29 @@ const IncidentReport = () => {
     saveDraft(activeTab, true);
   };
 
-  const onSubmit = async (data: IncidentReportFormData) => {
+  // Manual submit handler - prevents accidental form submission
+  const handleFormSubmit = async () => {
+    // Validate and submit the form manually
+    const isFormValid = await form.trigger();
+    if (!isFormValid) {
+      return; // Don't submit if validation fails
+    }
+    
+    const data = form.getValues();
     try {
       await submitIncident(data);
-      clearDraft(); // Clear draft on successful submission
+      // Clear draft and localStorage on successful submission
+      clearDraft();
+      localStorage.removeItem('incident-report-draft');
     } catch (error) {
       // Error handling is done in the submission hook
       logValidationError('incident-report', errors);
     }
+  };
+  
+  // Prevent default form submission (we handle it manually)
+  const preventFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
   };
 
   // Check if current tab has validation errors
@@ -219,30 +201,17 @@ const IncidentReport = () => {
                   </p>
                 </div>
                 {/* Draft status indicator */}
-                <div className="w-[160px] flex flex-col items-end gap-1">
+                <div className="w-[140px] flex flex-col items-end gap-1">
                   {lastSaved && (
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Clock className="h-3 w-3" />
                       <span>Saved {formatLastSaved(lastSaved)}</span>
                     </div>
                   )}
-                  {(draftId || hasDraft) && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">
-                        Draft
-                      </span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleStartFresh}
-                        className="h-6 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                        title="Clear draft and start fresh"
-                      >
-                        <RotateCcw className="h-3 w-3 mr-1" />
-                        Clear
-                      </Button>
-                    </div>
+                  {draftId && (
+                    <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">
+                      Draft #{draftId}
+                    </span>
                   )}
                 </div>
               </div>
@@ -267,7 +236,7 @@ const IncidentReport = () => {
 
             <CardContent className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm p-8">
               <Form {...form}>
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+                <form onSubmit={preventFormSubmit} className="space-y-8">
                   <Tabs value={activeTab} onValueChange={handleTabClick}>
                     {/* Improved responsive tab layout */}
                     <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1 h-auto p-1">
@@ -386,7 +355,8 @@ const IncidentReport = () => {
                         </Button>
                       ) : (
                         <Button
-                          type="submit"
+                          type="button"
+                          onClick={handleFormSubmit}
                           disabled={!isValid || isSubmitting}
                         >
                           <Save className="mr-2 h-4 w-4" />

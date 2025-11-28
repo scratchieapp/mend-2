@@ -136,11 +136,12 @@ export function useAutoSaveDraft({
     return null;
   }, [draftKey]);
 
-  // Clear draft
+  // Clear draft (call this after successful submission)
   const clearDraft = useCallback(() => {
     localStorage.removeItem(draftKey);
     setDraftId(null);
     setLastSaved(null);
+    hasLoadedDraft.current = true; // Prevent reloading draft
   }, [draftKey]);
 
   // Discard draft (also delete from server)
