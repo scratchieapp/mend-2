@@ -78,10 +78,10 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
       const selectedWorker = workers.find(w => w.worker_id.toString() === currentWorkerId);
       if (selectedWorker && !getValues('worker_name')) {
         setValue('worker_name', `${selectedWorker.given_name} ${selectedWorker.family_name}`);
-        setValue('worker_address', selectedWorker.residential_address);
-        setValue('worker_phone', selectedWorker.phone_number);
-        setValue('worker_dob', selectedWorker.date_of_birth);
-        setValue('worker_gender', selectedWorker.gender);
+        setValue('worker_address', selectedWorker.residential_address || '');
+        setValue('worker_phone', selectedWorker.phone_number || '');
+        setValue('worker_dob', selectedWorker.date_of_birth || '');
+        setValue('worker_gender', selectedWorker.gender || undefined);
         if (selectedWorker.employment_type) {
           setValue('employment_type', selectedWorker.employment_type);
         }
@@ -114,10 +114,10 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
       // Select the new worker
       setValue('worker_id', data.worker_id.toString());
       setValue('worker_name', `${data.given_name} ${data.family_name}`);
-      setValue('worker_address', data.residential_address);
-      setValue('worker_phone', data.phone_number);
-      setValue('worker_dob', data.date_of_birth);
-      setValue('worker_gender', data.gender);
+      setValue('worker_address', data.residential_address || '');
+      setValue('worker_phone', data.phone_number || '');
+      setValue('worker_dob', data.date_of_birth || '');
+      setValue('worker_gender', data.gender || undefined);
       
       // Reset form and close
       setNewWorker({ given_name: "", family_name: "", phone_number: "", residential_address: "", date_of_birth: "", gender: "Male" });
@@ -244,10 +244,10 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
                 const selectedWorker = workers.find(w => w.worker_id.toString() === value);
                 if (selectedWorker) {
                   setValue('worker_name', `${selectedWorker.given_name} ${selectedWorker.family_name}`);
-                  setValue('worker_address', selectedWorker.residential_address);
-                  setValue('worker_phone', selectedWorker.phone_number);
-                  setValue('worker_dob', selectedWorker.date_of_birth);
-                  setValue('worker_gender', selectedWorker.gender);
+                  setValue('worker_address', selectedWorker.residential_address || '');
+                  setValue('worker_phone', selectedWorker.phone_number || '');
+                  setValue('worker_dob', selectedWorker.date_of_birth || '');
+                  setValue('worker_gender', selectedWorker.gender || undefined);
                   if (selectedWorker.employment_type) {
                     setValue('employment_type', selectedWorker.employment_type);
                   }
