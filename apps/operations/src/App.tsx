@@ -49,6 +49,7 @@ import UserManagementAdmin from "./pages/UserManagementAdmin";
 import EmployerManagementAdmin from "./pages/EmployerManagementAdmin";
 import SiteManagementAdmin from "./pages/SiteManagementAdmin";
 import BuilderSiteManagement from "./pages/BuilderSiteManagement";
+import BuilderWorkerManagement from "./pages/BuilderWorkerManagement";
 import CompanySettings from "./pages/CompanySettings";
 import SuperUserManagement from "./pages/SuperUserManagement";
 import AdminUsersPage from "./pages/AdminUsersPage";
@@ -107,6 +108,7 @@ function App() {
             <Route path="builder" element={<BuilderDashboard />} />
             <Route path="builder/senior/lti-details" element={<LTIDetailsPage />} />
             <Route path="builder/site-management" element={<BuilderSiteManagement />} />
+            <Route path="builder/workers" element={<BuilderWorkerManagement />} />
             <Route path="settings" element={<CompanySettings />} />
             <Route path="site-admin" element={<SiteAdmin />} />
             <Route path="medical-dashboard" element={<MedicalDashboard />} />
