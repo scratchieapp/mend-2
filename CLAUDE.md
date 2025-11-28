@@ -438,23 +438,67 @@ get_case_notes(p_incident_id) RETURNS JSONB
 ## ✅ RESOLVED: Incident Creation Fixed (2025-11-28)
 
 ### Problem Summary
-Users could not create new incidents via the web form. The "Submit Report" button failed with RLS/permission errors because non-admin users could not search/create related entities (Employers, Sites, Workers) required for the incident.
+Users could not create new incidents via the web form. The "Submit Report" button failed with RLS/permission errors because:
+1. The form passes `mend_client` as the employer **ID** (e.g., "9")
+2. But the RPC functions treated it as an employer **NAME**
+3. So it tried to find/create an employer named "9" instead of using employer_id=9
 
-### Fix Implemented
-1. **Created RLS-Bypassing RPCs**:
-   - `create_employer_bypassing_rls`: Safely gets/creates employer
-   - `create_site_bypassing_rls`: Safely gets/creates site
-   - `create_worker_bypassing_rls`: Safely gets/creates worker
-2. **Updated Transformation Logic**: Modified `transformation.ts` to use these RPCs instead of direct client calls.
-3. **Fixed Draft Saving**:
-   - Updated `useAutoSaveDraft.ts` to use the secure transformation logic
-   - Re-enabled server-side draft saving (`onSaveToServer: true`)
+### Root Causes (ALL FIXED)
+1. **RPC functions didn't handle numeric IDs** ✅ FIXED - Updated RPCs to detect and handle IDs passed as strings
+2. **Transformation service failed due to RLS** ✅ FIXED - Using SECURITY DEFINER RPCs
+3. **Clerk auth doesn't create Supabase session** ✅ FIXED - RPCs bypass RLS with SECURITY DEFINER
+
+### Solution Implemented (2025-11-28 - Latest Fix)
+Updated `create_employer_bypassing_rls`, `create_site_bypassing_rls`, and `create_worker_bypassing_rls` to:
+1. First check if the input is a numeric string (e.g., "9")
+2. If numeric, look up by ID directly
+3. If not numeric, look up by name as before
+4. Only create new records if neither lookup succeeds
+
+**Migration Applied**: `20251128_fix_employer_rpc_handle_id.sql`
+
+### Database Functions Fixed
+```sql
+-- Now handles both IDs and names correctly
+create_employer_bypassing_rls(p_employer_name text) RETURNS INTEGER
+create_site_bypassing_rls(p_site_name text, p_employer_id integer) RETURNS INTEGER  
+create_worker_bypassing_rls(p_given_name text, p_family_name text, p_employer_id integer) RETURNS INTEGER
+```
+
+### Data Cleanup Performed
+- Fixed incidents 451, 452 that incorrectly referenced employer_id=11 (bogus "9")
+- Fixed worker 165 that incorrectly referenced employer_id=11
+- Deleted bogus employer with name "9" (was employer_id=11)
 
 ### Files Modified
-- `/supabase/migrations/20251128_create_rls_bypass_functions.sql` - New RPCs
-- `/apps/operations/src/components/incident-report/services/submission/transformation.ts` - Updated logic
-- `/apps/operations/src/hooks/useAutoSaveDraft.ts` - Fixed drafts
-- `/apps/operations/src/pages/IncidentReport.tsx` - Enabled drafts
+- `/supabase/migrations/20251128_fix_incident_creation_comprehensive.sql` - New RPC functions
+- `/apps/operations/src/lib/validations/incident.ts` - Relaxed form validation
+- `/apps/operations/src/components/incident-report/services/submission/validation.ts` - Relaxed submission validation
+- `/apps/operations/src/components/incident-report/services/submission/database.ts` - Simplified to use new RPC
+- `/apps/operations/src/pages/IncidentReport.tsx` - Removed `isDirty` condition from submit button
+
+### Database Functions Created
+```sql
+-- Primary function for incident submission (SECURITY DEFINER)
+submit_incident_report(p_form_data JSONB) RETURNS JSONB
+
+-- Returns: { "success": true, "incident_id": 123 }
+-- Or: { "success": false, "error": "error message" }
+
+-- Also updated: create_incident_bypassing_rls(p_incident_data JSONB)
+```
+
+### Testing
+```sql
+-- Test the new function
+SELECT submit_incident_report('{
+  "mend_client": "1",
+  "notifying_person_name": "Test User",
+  "injury_type": "Laceration",
+  "date_of_injury": "2025-11-28"
+}'::jsonb);
+-- Returns: {"success": true, "incident_id": XXX}
+```
 
 ---
 
