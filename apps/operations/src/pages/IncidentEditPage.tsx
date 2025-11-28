@@ -321,7 +321,7 @@ const IncidentEditPage = () => {
         
         // Treatment details - map from available fields
         type_of_first_aid: incidentData.treatment_provided || "", // Use treatment_provided as first aid
-        referred_to: incidentData.referral || "none" as const,
+        referred_to: (incidentData.referral?.toLowerCase() || "none") as "none" | "hospital" | "gp" | "specialist" | "physio",
         doctor_details: incidentData.doctor_details || incidentData.doctor_notes || "",
         selected_medical_professional: incidentData.doctor_id?.toString() || "",
         
