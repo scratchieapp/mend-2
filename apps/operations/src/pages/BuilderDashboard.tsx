@@ -208,7 +208,7 @@ export default function BuilderDashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            <Link to="/site-admin">
+            <Link to="/builder/site-management">
               <Button className="w-full">Manage Sites</Button>
             </Link>
             <Button variant="outline" className="w-full">Safety Inspections</Button>
