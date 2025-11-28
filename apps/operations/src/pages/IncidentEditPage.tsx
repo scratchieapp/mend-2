@@ -58,57 +58,84 @@ const IncidentEditPage = () => {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const originalDataRef = useRef<Record<string, unknown> | null>(null);
 
-  // Fetch existing incident data
+  // Fetch existing incident data using RBAC-aware approach
   const { data: incidentData, isLoading, error } = useQuery({
-    queryKey: ['incident', id],
+    queryKey: ['incident-edit', id, userData?.role_id],
     queryFn: async () => {
       if (!id) throw new Error('No incident ID provided');
       
-      const { data, error } = await supabase
-        .from('incidents')
-        .select(`
-          *,
-          workers:worker_id(
-            worker_id,
-            given_name,
-            family_name,
-            phone_number,
-            mobile_number,
-            employer_id,
-            employment_type,
-            employment_arrangement,
-            basis_of_employment
-          ),
-          employers:employer_id(
-            employer_id,
-            employer_name,
-            employer_address,
-            employer_phone,
-            manager_name
-          ),
-          sites:site_id(
-            site_id,
-            site_name,
-            street_address,
-            city,
-            state,
-            post_code,
-            supervisor_name,
-            supervisor_telephone
-          )
-        `)
-        .eq('incident_id', id)
-        .single();
+      // First, verify access via RBAC-aware RPC
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_dashboard_data', {
+        page_size: 1000,
+        page_offset: 0,
+        filter_employer_id: null,
+        filter_worker_id: null,
+        filter_start_date: null,
+        filter_end_date: null,
+        user_role_id: userData?.role_id || null,
+        user_employer_id: userData?.employer_id ? parseInt(userData.employer_id) : null
+      });
 
-      if (error) {
-        console.error('Error fetching incident data:', error);
-        throw error;
+      if (rpcError) {
+        console.error('RPC error verifying incident access:', rpcError);
+        throw rpcError;
       }
+
+      // Find the specific incident from the RBAC-filtered results
+      const incidentFromRpc = rpcData?.incidents?.find(
+        (inc: { incident_id: number }) => inc.incident_id === Number(id)
+      );
+
+      if (!incidentFromRpc) {
+        throw new Error('Incident not found or access denied');
+      }
+
+      // Fetch worker details
+      let workerData = null;
+      if (incidentFromRpc.worker_id) {
+        const { data } = await supabase
+          .from('workers')
+          .select('worker_id, given_name, family_name, phone_number, mobile_number, employer_id, employment_type, employment_arrangement, basis_of_employment')
+          .eq('worker_id', incidentFromRpc.worker_id)
+          .maybeSingle();
+        workerData = data;
+      }
+
+      // Fetch employer details
+      let employerData = null;
+      if (incidentFromRpc.employer_id) {
+        const { data } = await supabase
+          .from('employers')
+          .select('employer_id, employer_name, employer_address, employer_phone, manager_name')
+          .eq('employer_id', incidentFromRpc.employer_id)
+          .maybeSingle();
+        employerData = data;
+      }
+
+      // Fetch site details
+      let siteData = null;
+      if (incidentFromRpc.site_id) {
+        const { data } = await supabase
+          .from('sites')
+          .select('site_id, site_name, street_address, city, state, post_code, supervisor_name, supervisor_telephone')
+          .eq('site_id', incidentFromRpc.site_id)
+          .maybeSingle();
+        siteData = data;
+      }
+
+      // Construct the full incident data object
+      const fullIncidentData = {
+        ...incidentFromRpc,
+        incident_id: incidentFromRpc.incident_id,
+        workers: workerData,
+        employers: employerData,
+        sites: siteData
+      };
       
-      console.log('Fetched incident data:', data);
-      return data;
+      console.log('Fetched incident data:', fullIncidentData);
+      return fullIncidentData;
     },
-    enabled: !!id,
+    enabled: !!id && !!userData,
   });
 
   const form = useForm<IncidentEditFormData>({
