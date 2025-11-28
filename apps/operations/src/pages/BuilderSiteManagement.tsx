@@ -101,7 +101,8 @@ function getCoordinatesFromCity(city: string): { lat: number; lng: number } | nu
 }
 
 export default function BuilderSiteManagement() {
-  const { isAuthenticated, isLoading: authLoading, userData } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, userData, user } = useAuth();
+  const clerkUserId = user?.id; // This is the Clerk user ID
   
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -385,8 +386,12 @@ export default function BuilderSiteManagement() {
       if (!userEmployerId) {
         throw new Error('No employer ID available');
       }
+      if (!clerkUserId) {
+        throw new Error('Not authenticated');
+      }
 
       const { data: result, error } = await supabase.rpc('create_site_for_employer', {
+        p_clerk_user_id: clerkUserId,
         p_site_name: data.site_name,
         p_employer_id: userEmployerId,
         p_street_address: data.street_address || null,
@@ -426,7 +431,12 @@ export default function BuilderSiteManagement() {
   // Update site mutation - uses RPC to bypass RLS issues with Clerk JWT
   const updateSiteMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: SiteFormData }) => {
+      if (!clerkUserId) {
+        throw new Error('Not authenticated');
+      }
+
       const { data: result, error } = await supabase.rpc('update_site_for_employer', {
+        p_clerk_user_id: clerkUserId,
         p_site_id: id,
         p_site_name: data.site_name || null,
         p_street_address: data.street_address || null,
@@ -467,6 +477,10 @@ export default function BuilderSiteManagement() {
   // Delete site mutation - uses RPC to bypass RLS issues with Clerk JWT
   const deleteSiteMutation = useMutation({
     mutationFn: async (id: number) => {
+      if (!clerkUserId) {
+        throw new Error('Not authenticated');
+      }
+
       // First check for incidents (this query should work with SELECT RLS)
       const { count: incidentCount } = await supabase
         .from('incidents')
@@ -478,6 +492,7 @@ export default function BuilderSiteManagement() {
       }
 
       const { data: result, error } = await supabase.rpc('delete_site_for_employer', {
+        p_clerk_user_id: clerkUserId,
         p_site_id: id
       });
 

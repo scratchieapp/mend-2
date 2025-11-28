@@ -1,7 +1,9 @@
 -- RPC function to create a site for builder admins
 -- This bypasses direct RLS and handles auth internally
+-- Accepts clerk_user_id as parameter (same pattern as admin_create_user)
 
 CREATE OR REPLACE FUNCTION public.create_site_for_employer(
+  p_clerk_user_id TEXT,
   p_site_name TEXT,
   p_employer_id INTEGER,
   p_street_address TEXT DEFAULT NULL,
@@ -23,20 +25,17 @@ AS $$
 DECLARE
   v_user_record RECORD;
   v_new_site RECORD;
-  v_clerk_user_id TEXT;
 BEGIN
-  -- Get the clerk_user_id from the JWT 'sub' claim (Clerk's user ID)
-  v_clerk_user_id := auth.jwt()->>'sub';
-  
-  IF v_clerk_user_id IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'No user ID found in JWT');
+  -- Validate clerk_user_id was provided
+  IF p_clerk_user_id IS NULL OR p_clerk_user_id = '' THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');
   END IF;
 
   -- Look up the user by clerk_user_id
   SELECT u.user_id, u.email, u.role_id, u.employer_id
   INTO v_user_record
   FROM public.users u
-  WHERE u.clerk_user_id = v_clerk_user_id;
+  WHERE u.clerk_user_id = p_clerk_user_id;
   
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'error', 'User not found in database');
@@ -104,6 +103,7 @@ GRANT EXECUTE ON FUNCTION public.create_site_for_employer TO authenticated;
 
 -- RPC function to update a site
 CREATE OR REPLACE FUNCTION public.update_site_for_employer(
+  p_clerk_user_id TEXT,
   p_site_id INTEGER,
   p_site_name TEXT DEFAULT NULL,
   p_street_address TEXT DEFAULT NULL,
@@ -126,20 +126,17 @@ DECLARE
   v_user_record RECORD;
   v_site_record RECORD;
   v_updated_site RECORD;
-  v_clerk_user_id TEXT;
 BEGIN
-  -- Get the clerk_user_id from the JWT 'sub' claim
-  v_clerk_user_id := auth.jwt()->>'sub';
-  
-  IF v_clerk_user_id IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'No user ID found in JWT');
+  -- Validate clerk_user_id was provided
+  IF p_clerk_user_id IS NULL OR p_clerk_user_id = '' THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');
   END IF;
 
   -- Look up the user by clerk_user_id
   SELECT u.user_id, u.email, u.role_id, u.employer_id
   INTO v_user_record
   FROM public.users u
-  WHERE u.clerk_user_id = v_clerk_user_id;
+  WHERE u.clerk_user_id = p_clerk_user_id;
   
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'error', 'User not found in database');
@@ -195,7 +192,10 @@ $$;
 GRANT EXECUTE ON FUNCTION public.update_site_for_employer TO authenticated;
 
 -- RPC function to delete a site
-CREATE OR REPLACE FUNCTION public.delete_site_for_employer(p_site_id INTEGER)
+CREATE OR REPLACE FUNCTION public.delete_site_for_employer(
+  p_clerk_user_id TEXT,
+  p_site_id INTEGER
+)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -204,20 +204,17 @@ AS $$
 DECLARE
   v_user_record RECORD;
   v_site_record RECORD;
-  v_clerk_user_id TEXT;
 BEGIN
-  -- Get the clerk_user_id from the JWT 'sub' claim
-  v_clerk_user_id := auth.jwt()->>'sub';
-  
-  IF v_clerk_user_id IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'No user ID found in JWT');
+  -- Validate clerk_user_id was provided
+  IF p_clerk_user_id IS NULL OR p_clerk_user_id = '' THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');
   END IF;
 
   -- Look up the user by clerk_user_id
   SELECT u.user_id, u.email, u.role_id, u.employer_id
   INTO v_user_record
   FROM public.users u
-  WHERE u.clerk_user_id = v_clerk_user_id;
+  WHERE u.clerk_user_id = p_clerk_user_id;
   
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'error', 'User not found in database');
