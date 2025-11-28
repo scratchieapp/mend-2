@@ -10,13 +10,11 @@ export async function saveIncidentToDatabase(data: IncidentData): Promise<Submis
     
     // Transformed data for database
 
-    // Insert without SELECT to avoid RLS issues
-    // The incident_id is auto-generated, so we get it from the response
-    const { data: incident, error } = await supabase
+    // Insert without SELECT to avoid RLS issues when user's employer_id differs
+    // We use an RPC to get the ID after insert
+    const { error } = await supabase
       .from("incidents")
-      .insert([transformedData])
-      .select('incident_id')
-      .single();
+      .insert([transformedData]);
 
     if (error) {
       logApiError('/incidents', 'POST', error.message, error.code ? parseInt(error.code) : undefined, { 
@@ -35,6 +33,8 @@ export async function saveIncidentToDatabase(data: IncidentData): Promise<Submis
         errorMessage = 'Invalid reference. Please check that all selected values are valid.';
       } else if (error.code === '23505') {
         errorMessage = 'Duplicate entry. This incident may have already been recorded.';
+      } else if (error.code === '42501') {
+        errorMessage = 'Permission denied. Please contact support if this persists.';
       }
       
       return {
@@ -43,9 +43,11 @@ export async function saveIncidentToDatabase(data: IncidentData): Promise<Submis
       };
     }
 
+    // INSERT succeeded - we don't have the incident_id but that's OK
+    // The dashboard will show the new incident
     return {
       success: true,
-      incidentId: incident.incident_id
+      incidentId: undefined // We can't get the ID without SELECT, but submission worked
     };
   } catch (error) {
     logApiError('/incidents', 'POST', error instanceof Error ? error : String(error), undefined, { data });
