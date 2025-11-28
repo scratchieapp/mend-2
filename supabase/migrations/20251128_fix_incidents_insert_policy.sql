@@ -93,3 +93,44 @@ USING (employer_id IN (SELECT u.employer_id FROM public.users u WHERE u.email = 
 -- Ensure GRANT is in place
 GRANT INSERT, UPDATE, DELETE ON public.workers TO authenticated;
 
+-- =====================================================
+-- FIX: Add 'Draft' to incident_status CHECK constraint
+-- =====================================================
+ALTER TABLE public.incidents DROP CONSTRAINT IF EXISTS check_incident_status;
+
+ALTER TABLE public.incidents ADD CONSTRAINT check_incident_status 
+CHECK (incident_status = ANY (ARRAY[
+  'Draft',
+  'Open', 
+  'Under Investigation', 
+  'Awaiting Documentation', 
+  'In Review', 
+  'Closed', 
+  'Resolved', 
+  'Reopened', 
+  'Escalated'
+]));
+
+-- =====================================================
+-- FIX: Update LTI trigger to handle NULL employer_id (for drafts)
+-- =====================================================
+CREATE OR REPLACE FUNCTION trigger_update_lti_rate()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Skip LTI calculation for drafts or when employer_id is NULL
+    IF NEW.employer_id IS NULL THEN
+        RETURN NEW;
+    END IF;
+    
+    IF TG_TABLE_NAME = 'hours_worked' THEN
+        PERFORM calculate_lti_rate(NEW.employer_id, NEW.month);
+    ELSIF TG_TABLE_NAME = 'incidents' THEN
+        -- Also skip if date_of_injury is NULL (incomplete data)
+        IF NEW.date_of_injury IS NOT NULL THEN
+            PERFORM calculate_lti_rate(NEW.employer_id, (DATE_TRUNC('month', NEW.date_of_injury))::date);
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
