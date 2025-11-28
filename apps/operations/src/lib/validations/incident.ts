@@ -167,58 +167,51 @@ export const incidentReportSchema = z.object({
 });
 
 // Relaxed schema for editing existing incidents (allows partial data)
-// Optional phone validation that allows empty strings
-const optionalPhoneValidation = z.string().refine(
-  (phone) => !phone || phone.length === 0 || validateAustralianPhone(phone),
-  { message: "Please enter a valid Australian phone number (e.g., 04## ### ### or 02 #### ####)" }
-);
+// This schema is intentionally very permissive - incidents may have been created
+// via phone calls or other channels with incomplete data, so we allow saving
+// whatever partial updates the user makes without requiring all fields.
 
 export const incidentEditSchema = z.object({
-  // Notification - optional for edits
-  mend_client: z.string().optional().default(''),
-  notifying_person_name: z.string().optional().default(''),
-  notifying_person_position: z.string().optional().default(''),
-  notifying_person_telephone: optionalPhoneValidation.optional().default(''),
+  // Notification - all optional, no validation
+  mend_client: z.string().optional().nullable().default(''),
+  notifying_person_name: z.string().optional().nullable().default(''),
+  notifying_person_position: z.string().optional().nullable().default(''),
+  notifying_person_telephone: z.string().optional().nullable().default(''),
   
-  // Worker - optional for edits (allows incidents without assigned worker)
-  worker_id: z.string().optional().default(''),
+  // Worker - optional (allows incidents without assigned worker)
+  worker_id: z.string().optional().nullable().default(''),
   
-  // Employment - optional for edits
-  employer_name: z.string().optional().default(''),
-  location_site: z.string().optional().default(''),
-  supervisor_contact: z.string().optional().default(''),
-  supervisor_phone: optionalPhoneValidation.optional().default(''),
-  employment_type: z.enum(['full_time', 'part_time', 'casual', 'contractor']).optional().default('full_time'),
+  // Employment - all optional
+  employer_name: z.string().optional().nullable().default(''),
+  location_site: z.string().optional().nullable().default(''),
+  supervisor_contact: z.string().optional().nullable().default(''),
+  supervisor_phone: z.string().optional().nullable().default(''),
+  employment_type: z.string().optional().nullable().default('full_time'),
   
-  // Injury - keep some basic validation but be more lenient
-  date_of_injury: z.string().optional().default(''),
-  time_of_injury: z.string().optional().default(''),
-  injury_type: z.string().optional().default(''),
-  body_part: z.string().optional().default(''),
-  body_side: z.enum(['left', 'right', 'both', 'not_applicable']).optional(),
-  body_regions: z.array(z.string()).optional().default([]),
-  injury_description: z.string().max(500).optional().default(''),
-  witness: z.string().optional().default(''),
+  // Injury - all optional
+  date_of_injury: z.string().optional().nullable().default(''),
+  time_of_injury: z.string().optional().nullable().default(''),
+  injury_type: z.string().optional().nullable().default(''),
+  body_part: z.string().optional().nullable().default(''),
+  body_side: z.string().optional().nullable(),
+  body_regions: z.array(z.string()).optional().nullable().default([]),
+  injury_description: z.string().optional().nullable().default(''),
+  witness: z.string().optional().nullable().default(''),
   
-  // Treatment - optional for edits
-  type_of_first_aid: z.string().optional().default(''),
-  referred_to: z.enum(['none', 'hospital', 'gp', 'specialist', 'physio']).optional().default('none'),
-  doctor_details: z.string().optional().default(''),
-  selected_medical_professional: z.string().optional().default(''),
+  // Treatment - all optional
+  type_of_first_aid: z.string().optional().nullable().default(''),
+  referred_to: z.string().optional().nullable().default('none'),
+  doctor_details: z.string().optional().nullable().default(''),
+  selected_medical_professional: z.string().optional().nullable().default(''),
   
-  // Actions - optional for edits (allow empty array)
-  actions_taken: z.array(z.string()).optional().default([]),
+  // Actions - optional (allow empty array)
+  actions_taken: z.array(z.string()).optional().nullable().default([]),
   
   // Notes - optional
-  case_notes: z.string().max(2000).optional().default(''),
+  case_notes: z.string().optional().nullable().default(''),
   
   // Documents - optional
-  documents: z.array(z.object({
-    url: z.string().url('Invalid document URL'),
-    name: z.string(),
-    type: z.string(),
-    size: z.number(),
-  })).optional().default([]),
+  documents: z.array(z.any()).optional().nullable().default([]),
 });
 
 // Type exports
