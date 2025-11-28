@@ -3,6 +3,7 @@ import { UseFormReturn } from 'react-hook-form';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { toast } from 'sonner';
+import { transformFormDataToDatabase } from '../components/incident-report/services/submission/transformation';
 
 interface AutoSaveDraftOptions {
   form: UseFormReturn<any>;
@@ -51,63 +52,52 @@ export function useAutoSaveDraft({
 
     setIsSaving(true);
     try {
-      // Prepare minimal incident data for draft
-      const incidentData: any = {
+      // Transform data using the service that handles lookups/creation
+      const transformedData = await transformFormDataToDatabase(formData);
+      
+      // Ensure status is Draft
+      const incidentData = {
+        ...transformedData,
         incident_status: 'Draft',
-        // Notification
-        notifying_person_name: formData.notifying_person_name || null,
-        notifying_person_position: formData.notifying_person_position || null,
-        notifying_person_telephone: formData.notifying_person_telephone || null,
-        // Worker
-        worker_id: formData.worker_id ? parseInt(formData.worker_id) : null,
-        // Employer
-        employer_id: formData.mend_client ? parseInt(formData.mend_client) : null,
-        // Site
-        site_id: formData.location_site ? parseInt(formData.location_site) : null,
-        // Injury details
-        date_of_injury: formData.date_of_injury || null,
-        time_of_injury: formData.time_of_injury || null,
-        injury_type: formData.injury_type || null,
-        injury_description: formData.injury_description || null,
-        // Treatment
-        treatment_provided: formData.type_of_first_aid || null,
-        referral: formData.referred_to !== 'none' ? formData.referred_to : null,
-        doctor_details: formData.doctor_details || null,
-        // Actions and notes
-        actions: formData.actions_taken?.join('; ') || null,
-        case_notes: formData.case_notes || null,
-        // Metadata
         recorded_by: userData.user_id ? parseInt(userData.user_id) : null,
       };
 
       if (draftId) {
-        // Update existing draft
+        // Update existing draft using RBAC-safe RPC
         const { error } = await supabase
-          .from('incidents')
-          .update({ ...incidentData, updated_at: new Date().toISOString() })
-          .eq('incident_id', draftId);
+          .rpc('update_incident_rbac', {
+            p_incident_id: draftId,
+            p_user_role_id: userData.role_id,
+            p_user_employer_id: userData.employer_id ? parseInt(userData.employer_id) : null,
+            p_update_data: incidentData
+          });
 
         if (error) throw error;
         return draftId;
       } else {
-        // Create new draft
-        const { data, error } = await supabase
-          .from('incidents')
-          .insert(incidentData)
-          .select('incident_id')
-          .single();
+        // Create new draft using RLS-bypassing RPC
+        const { data: result, error } = await supabase
+          .rpc('create_incident_bypassing_rls', {
+            p_incident_data: incidentData
+          });
 
         if (error) throw error;
-        if (data) {
-          setDraftId(data.incident_id);
+        
+        // Parse result from RPC
+        const rpcResult = result as { success: boolean; incident_id?: number; error?: string };
+        
+        if (rpcResult.success && rpcResult.incident_id) {
+          setDraftId(rpcResult.incident_id);
           // Update localStorage with the new draft ID
           const localDraft = localStorage.getItem(draftKey);
           if (localDraft) {
             const parsed = JSON.parse(localDraft);
-            parsed.draftId = data.incident_id;
+            parsed.draftId = rpcResult.incident_id;
             localStorage.setItem(draftKey, JSON.stringify(parsed));
           }
-          return data.incident_id;
+          return rpcResult.incident_id;
+        } else {
+            throw new Error(rpcResult.error || 'Failed to create draft');
         }
       }
     } catch (error) {

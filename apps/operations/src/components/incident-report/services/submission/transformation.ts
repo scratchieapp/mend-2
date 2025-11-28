@@ -55,33 +55,18 @@ async function getEmployerId(employerName: string | null | undefined): Promise<n
   }
 
   try {
-    // Try to find existing employer
-    const { data: existing } = await supabase
-      .from('employers')
-      .select('employer_id')
-      .ilike('employer_name', employerName)
-      .single();
-
-    if (existing) {
-      cache.employers.set(employerName, existing.employer_id);
-      return existing.employer_id;
-    }
-
-    // Create new employer if not found
-    const { data: newEmployer, error } = await supabase
-      .from('employers')
-      .insert({ employer_name: employerName })
-      .select('employer_id')
-      .single();
+    // Use RPC to get or create employer bypassing RLS
+    const { data: employerId, error } = await supabase
+      .rpc('create_employer_bypassing_rls', { p_employer_name: employerName });
 
     if (error) {
-      errorLogger.error('Error creating employer', error);
+      errorLogger.error('Error getting/creating employer', error);
       return null;
     }
 
-    if (newEmployer) {
-      cache.employers.set(employerName, newEmployer.employer_id);
-      return newEmployer.employer_id;
+    if (employerId) {
+      cache.employers.set(employerName, employerId);
+      return employerId;
     }
   } catch (error) {
     errorLogger.error('Error getting employer ID', error);
@@ -102,41 +87,21 @@ async function getSiteId(siteName: string | null | undefined, employerId: number
   }
 
   try {
-    // Try to find existing site
-    const query = supabase
-      .from('sites')
-      .select('site_id')
-      .ilike('site_name', siteName);
-    
-    if (employerId) {
-      query.eq('employer_id', employerId);
-    }
-
-    const { data: existing } = await query.single();
-
-    if (existing) {
-      cache.sites.set(cacheKey, existing.site_id);
-      return existing.site_id;
-    }
-
-    // Create new site if not found
-    const { data: newSite, error } = await supabase
-      .from('sites')
-      .insert({ 
-        site_name: siteName,
-        employer_id: employerId 
-      })
-      .select('site_id')
-      .single();
+    // Use RPC to get or create site bypassing RLS
+    const { data: siteId, error } = await supabase
+      .rpc('create_site_bypassing_rls', { 
+        p_site_name: siteName, 
+        p_employer_id: employerId 
+      });
 
     if (error) {
-      errorLogger.error('Error creating site', error);
+      errorLogger.error('Error getting/creating site', error);
       return null;
     }
 
-    if (newSite) {
-      cache.sites.set(cacheKey, newSite.site_id);
-      return newSite.site_id;
+    if (siteId) {
+      cache.sites.set(cacheKey, siteId);
+      return siteId;
     }
   } catch (error) {
     errorLogger.error('Error getting site ID', error);
@@ -162,46 +127,22 @@ async function getWorkerId(workerName: string | null | undefined, employerId: nu
     const givenName = nameParts[0] || workerName;
     const familyName = nameParts.slice(1).join(' ') || '';
 
-    // Try to find existing worker
-    const query = supabase
-      .from('workers')
-      .select('worker_id')
-      .ilike('given_name', givenName);
-    
-    if (familyName) {
-      query.ilike('family_name', familyName);
-    }
-    
-    if (employerId) {
-      query.eq('employer_id', employerId);
-    }
-
-    const { data: existing } = await query.single();
-
-    if (existing) {
-      cache.workers.set(cacheKey, existing.worker_id);
-      return existing.worker_id;
-    }
-
-    // Create new worker if not found
-    const { data: newWorker, error } = await supabase
-      .from('workers')
-      .insert({ 
-        given_name: givenName,
-        family_name: familyName,
-        employer_id: employerId
-      })
-      .select('worker_id')
-      .single();
+    // Use RPC to get or create worker bypassing RLS
+    const { data: workerId, error } = await supabase
+      .rpc('create_worker_bypassing_rls', { 
+        p_given_name: givenName,
+        p_family_name: familyName,
+        p_employer_id: employerId
+      });
 
     if (error) {
-      errorLogger.error('Error creating worker', error);
+      errorLogger.error('Error getting/creating worker', error);
       return null;
     }
 
-    if (newWorker) {
-      cache.workers.set(cacheKey, newWorker.worker_id);
-      return newWorker.worker_id;
+    if (workerId) {
+      cache.workers.set(cacheKey, workerId);
+      return workerId;
     }
   } catch (error) {
     errorLogger.error('Error getting worker ID', error);

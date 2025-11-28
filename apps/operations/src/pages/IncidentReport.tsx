@@ -76,7 +76,7 @@ const IncidentReport = () => {
     form,
     draftKey: 'incident-report-draft',
     autoSaveInterval: 30000, // Save every 30 seconds
-    onSaveToServer: false, // Disabled server-side drafts until RLS is fully configured
+    onSaveToServer: true, // Enabled now that we use RLS-bypassing RPCs
   });
 
   // Format last saved time
