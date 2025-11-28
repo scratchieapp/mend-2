@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Table, 
@@ -73,6 +74,8 @@ interface SiteFormData {
   supervisor_name: string;
   supervisor_telephone: string;
   project_type: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export default function SiteManagementAdmin() {
@@ -94,6 +97,8 @@ export default function SiteManagementAdmin() {
     supervisor_name: "",
     supervisor_telephone: "",
     project_type: "",
+    latitude: undefined,
+    longitude: undefined,
   });
 
   const { toast } = useToast();
@@ -464,6 +469,8 @@ export default function SiteManagementAdmin() {
       supervisor_name: "",
       supervisor_telephone: "",
       project_type: "",
+      latitude: undefined,
+      longitude: undefined,
     });
   };
 
@@ -479,6 +486,8 @@ export default function SiteManagementAdmin() {
       supervisor_name: site.supervisor_name || "",
       supervisor_telephone: site.supervisor_telephone || "",
       project_type: site.project_type || "",
+      latitude: site.latitude,
+      longitude: site.longitude,
     });
     setIsEditDialogOpen(true);
   };
@@ -603,10 +612,22 @@ export default function SiteManagementAdmin() {
                     </div>
                     <div className="col-span-2 space-y-2">
                       <Label htmlFor="street_address">Street Address</Label>
-                      <Input
+                      <AddressAutocomplete
                         id="street_address"
                         value={formData.street_address}
-                        onChange={(e) => setFormData({ ...formData, street_address: e.target.value })}
+                        onChange={(value) => setFormData({ ...formData, street_address: value })}
+                        onAddressChange={(address) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            street_address: address.streetAddress,
+                            city: address.city,
+                            state: address.state,
+                            post_code: address.postCode,
+                            latitude: address.latitude,
+                            longitude: address.longitude,
+                          }));
+                        }}
+                        placeholder="Start typing an address..."
                       />
                     </div>
                     <div className="space-y-2">
@@ -938,10 +959,22 @@ export default function SiteManagementAdmin() {
                 </div>
                 <div className="col-span-2 space-y-2">
                   <Label htmlFor="edit_street_address">Street Address</Label>
-                  <Input
+                  <AddressAutocomplete
                     id="edit_street_address"
                     value={formData.street_address}
-                    onChange={(e) => setFormData({ ...formData, street_address: e.target.value })}
+                    onChange={(value) => setFormData({ ...formData, street_address: value })}
+                    onAddressChange={(address) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        street_address: address.streetAddress,
+                        city: address.city,
+                        state: address.state,
+                        post_code: address.postCode,
+                        latitude: address.latitude,
+                        longitude: address.longitude,
+                      }));
+                    }}
+                    placeholder="Start typing an address..."
                   />
                 </div>
                 <div className="space-y-2">
