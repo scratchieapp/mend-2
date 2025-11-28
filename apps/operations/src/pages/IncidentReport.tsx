@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataErrorBoundary } from "@/components/DataErrorBoundary";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, ArrowLeft, ArrowRight, Save } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight, Save, FileText, Clock } from "lucide-react";
 
 // Form sections
 import { NotificationSection } from "@/components/incident-report/NotificationSection";
@@ -23,6 +23,7 @@ import { DocumentsSection } from "@/components/incident-report/DocumentsSection"
 
 // Hooks and validation
 import { useIncidentSubmission } from "@/components/incident-report/hooks/useIncidentSubmission";
+import { useAutoSaveDraft } from "@/hooks/useAutoSaveDraft";
 import { incidentReportSchema, type IncidentReportFormData } from "@/lib/validations/incident";
 import { logValidationError } from "@/lib/monitoring/errorLogger";
 
@@ -63,6 +64,34 @@ const IncidentReport = () => {
 
   const { handleSubmit, formState: { errors, isValid, isDirty } } = form;
 
+  // Auto-save draft functionality
+  const { 
+    saveDraft, 
+    clearDraft, 
+    onTabChange, 
+    lastSaved, 
+    isSaving: isSavingDraft,
+    draftId 
+  } = useAutoSaveDraft({
+    form,
+    draftKey: 'incident-report-draft',
+    autoSaveInterval: 30000, // Save every 30 seconds
+    onSaveToServer: true,
+  });
+
+  // Format last saved time
+  const formatLastSaved = (date: Date | null) => {
+    if (!date) return null;
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    
+    if (diffSecs < 60) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
   const tabOrder = [
     { id: "notification", title: "Notification", required: true },
     { id: "worker", title: "Worker Details", required: true },
@@ -80,19 +109,33 @@ const IncidentReport = () => {
 
   const handleNextTab = () => {
     if (!isLastTab) {
-      setActiveTab(tabOrder[currentTabIndex + 1].id);
+      const newTab = tabOrder[currentTabIndex + 1].id;
+      onTabChange(newTab); // Auto-save on tab change
+      setActiveTab(newTab);
     }
   };
 
   const handlePrevTab = () => {
     if (!isFirstTab) {
-      setActiveTab(tabOrder[currentTabIndex - 1].id);
+      const newTab = tabOrder[currentTabIndex - 1].id;
+      onTabChange(newTab); // Auto-save on tab change
+      setActiveTab(newTab);
     }
+  };
+
+  const handleTabClick = (tabId: string) => {
+    onTabChange(tabId); // Auto-save on tab change
+    setActiveTab(tabId);
+  };
+
+  const handleSaveDraft = () => {
+    saveDraft(activeTab, true);
   };
 
   const onSubmit = async (data: IncidentReportFormData) => {
     try {
       await submitIncident(data);
+      clearDraft(); // Clear draft on successful submission
     } catch (error) {
       // Error handling is done in the submission hook
       logValidationError('incident-report', errors);
@@ -142,7 +185,20 @@ const IncidentReport = () => {
                     Report workplace incidents and injuries
                   </p>
                 </div>
-                <div className="w-[140px]"></div> {/* Spacer to balance the layout */}
+                {/* Draft status indicator */}
+                <div className="w-[140px] flex flex-col items-end gap-1">
+                  {lastSaved && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      <span>Saved {formatLastSaved(lastSaved)}</span>
+                    </div>
+                  )}
+                  {draftId && (
+                    <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">
+                      Draft
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Validation errors summary */}
@@ -166,7 +222,7 @@ const IncidentReport = () => {
             <CardContent className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm p-8">
               <Form {...form}>
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-                  <Tabs value={activeTab} onValueChange={setActiveTab}>
+                  <Tabs value={activeTab} onValueChange={handleTabClick}>
                     {/* Improved responsive tab layout */}
                     <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1 h-auto p-1">
                       {tabOrder.map((tab) => (
@@ -262,6 +318,17 @@ const IncidentReport = () => {
                     </Button>
 
                     <div className="flex space-x-2">
+                      {/* Save Draft button - always visible */}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleSaveDraft}
+                        disabled={isSubmitting || isSavingDraft}
+                      >
+                        <FileText className="mr-2 h-4 w-4" />
+                        {isSavingDraft ? 'Saving...' : 'Save Draft'}
+                      </Button>
+
                       {!isLastTab ? (
                         <Button
                           type="button"

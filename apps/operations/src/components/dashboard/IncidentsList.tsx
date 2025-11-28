@@ -71,12 +71,19 @@ const IncidentRow = React.memo(({
 }) => {
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
+      case 'draft':
+        return 'bg-gray-100 text-gray-800 border border-dashed border-gray-400';
       case 'open':
         return 'bg-yellow-100 text-yellow-800';
       case 'closed':
+      case 'resolved':
         return 'bg-green-100 text-green-800';
       case 'pending':
+      case 'in review':
+      case 'under investigation':
         return 'bg-blue-100 text-blue-800';
+      case 'escalated':
+        return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -255,10 +262,17 @@ export function IncidentsList({
     };
   }, []); // Empty deps - only cleanup on unmount
 
-  // Navigation handler - clicking a row views the incident
+  // Navigation handler - clicking a row views the incident (or edits if draft)
   const handleView = useCallback((incidentId: number) => {
-    navigate(`/incident/${incidentId}`);
-  }, [navigate]);
+    // Find the incident to check if it's a draft
+    const incident = incidents.find(i => i.incident_id === incidentId);
+    if (incident?.incident_status?.toLowerCase() === 'draft') {
+      // For drafts, go to edit mode to continue working on it
+      navigate(`/incident/${incidentId}/edit`);
+    } else {
+      navigate(`/incident/${incidentId}`);
+    }
+  }, [navigate, incidents]);
 
   // Pagination handlers
   const handlePageChange = useCallback((newPage: number) => {
@@ -323,14 +337,18 @@ export function IncidentsList({
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
                 <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="under investigation">Under Investigation</SelectItem>
+                <SelectItem value="in review">In Review</SelectItem>
+                <SelectItem value="resolved">Resolved</SelectItem>
                 <SelectItem value="closed">Closed</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="escalated">Escalated</SelectItem>
               </SelectContent>
             </Select>
             <Select value={dateFilter} onValueChange={setDateFilter}>
