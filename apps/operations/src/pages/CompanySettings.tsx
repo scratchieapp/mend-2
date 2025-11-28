@@ -26,14 +26,14 @@ import { Badge } from "@/components/ui/badge";
 interface CompanyData {
   employer_id: number;
   employer_name: string;
-  employer_address: string;
-  employer_phone: string;
-  employer_email?: string;
+  employer_address?: string;
+  employer_phone?: string;
   employer_state?: string;
+  employer_post_code?: string;
   abn?: string;
   manager_name?: string;
-  latitude?: number;
-  longitude?: number;
+  manager_phone?: string;
+  manager_email?: string;
 }
 
 interface ABNLookupResult {
@@ -56,10 +56,12 @@ export default function CompanySettings() {
     employer_name: "",
     employer_address: "",
     employer_phone: "",
-    employer_email: "",
     employer_state: "",
+    employer_post_code: "",
     abn: "",
     manager_name: "",
+    manager_phone: "",
+    manager_email: "",
   });
   
   const [abnVerifying, setAbnVerifying] = useState(false);
@@ -92,12 +94,12 @@ export default function CompanySettings() {
         employer_name: companyData.employer_name || "",
         employer_address: companyData.employer_address || "",
         employer_phone: companyData.employer_phone || "",
-        employer_email: companyData.employer_email || "",
         employer_state: companyData.employer_state || "",
+        employer_post_code: companyData.employer_post_code || "",
         abn: companyData.abn || "",
         manager_name: companyData.manager_name || "",
-        latitude: companyData.latitude,
-        longitude: companyData.longitude,
+        manager_phone: companyData.manager_phone || "",
+        manager_email: companyData.manager_email || "",
       });
     }
   }, [companyData]);
@@ -113,12 +115,12 @@ export default function CompanySettings() {
           employer_name: data.employer_name,
           employer_address: data.employer_address,
           employer_phone: data.employer_phone,
-          employer_email: data.employer_email,
           employer_state: data.employer_state,
+          employer_post_code: data.employer_post_code,
           abn: data.abn,
           manager_name: data.manager_name,
-          latitude: data.latitude,
-          longitude: data.longitude,
+          manager_phone: data.manager_phone,
+          manager_email: data.manager_email,
           updated_at: new Date().toISOString(),
         })
         .eq('employer_id', userEmployerId);
@@ -325,7 +327,7 @@ export default function CompanySettings() {
                   <div className="space-y-2">
                     <Label htmlFor="employer_phone" className="flex items-center gap-1">
                       <Phone className="h-3 w-3" />
-                      Phone Number
+                      Company Phone
                     </Label>
                     <Input
                       id="employer_phone"
@@ -335,18 +337,31 @@ export default function CompanySettings() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="employer_email" className="flex items-center gap-1">
-                      <Mail className="h-3 w-3" />
-                      Email Address
+                    <Label htmlFor="manager_phone" className="flex items-center gap-1">
+                      <Phone className="h-3 w-3" />
+                      Manager Phone
                     </Label>
                     <Input
-                      id="employer_email"
-                      type="email"
-                      value={formData.employer_email}
-                      onChange={(e) => setFormData({ ...formData, employer_email: e.target.value })}
-                      placeholder="contact@company.com"
+                      id="manager_phone"
+                      value={formData.manager_phone}
+                      onChange={(e) => setFormData({ ...formData, manager_phone: e.target.value })}
+                      placeholder="0400 123 456"
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="manager_email" className="flex items-center gap-1">
+                    <Mail className="h-3 w-3" />
+                    Manager Email
+                  </Label>
+                  <Input
+                    id="manager_email"
+                    type="email"
+                    value={formData.manager_email}
+                    onChange={(e) => setFormData({ ...formData, manager_email: e.target.value })}
+                    placeholder="manager@company.com"
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -448,8 +463,7 @@ export default function CompanySettings() {
                         ...prev,
                         employer_address: address.formattedAddress,
                         employer_state: address.state,
-                        latitude: address.latitude,
-                        longitude: address.longitude,
+                        employer_post_code: address.postCode,
                       }));
                     }}
                     placeholder="Start typing your business address..."
@@ -463,6 +477,15 @@ export default function CompanySettings() {
                       value={formData.employer_state}
                       onChange={(e) => setFormData({ ...formData, employer_state: e.target.value })}
                       placeholder="e.g., NSW"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="employer_post_code">Post Code</Label>
+                    <Input
+                      id="employer_post_code"
+                      value={formData.employer_post_code}
+                      onChange={(e) => setFormData({ ...formData, employer_post_code: e.target.value })}
+                      placeholder="e.g., 2000"
                     />
                   </div>
                 </div>
