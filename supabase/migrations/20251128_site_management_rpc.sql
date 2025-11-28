@@ -23,24 +23,20 @@ AS $$
 DECLARE
   v_user_record RECORD;
   v_new_site RECORD;
-  v_user_email TEXT;
+  v_clerk_user_id TEXT;
 BEGIN
-  -- Get the email from the JWT (try multiple locations for Clerk compatibility)
-  v_user_email := COALESCE(
-    auth.jwt()->>'email',
-    auth.jwt()->'user_metadata'->>'email',
-    (auth.jwt()->'app_metadata'->>'email')
-  );
+  -- Get the clerk_user_id from the JWT 'sub' claim (Clerk's user ID)
+  v_clerk_user_id := auth.jwt()->>'sub';
   
-  IF v_user_email IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'No email found in JWT');
+  IF v_clerk_user_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'No user ID found in JWT');
   END IF;
 
-  -- Look up the user and verify permissions
+  -- Look up the user by clerk_user_id
   SELECT u.user_id, u.email, u.role_id, u.employer_id
   INTO v_user_record
   FROM public.users u
-  WHERE u.email = v_user_email;
+  WHERE u.clerk_user_id = v_clerk_user_id;
   
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'error', 'User not found in database');
@@ -130,24 +126,20 @@ DECLARE
   v_user_record RECORD;
   v_site_record RECORD;
   v_updated_site RECORD;
-  v_user_email TEXT;
+  v_clerk_user_id TEXT;
 BEGIN
-  -- Get the email from the JWT
-  v_user_email := COALESCE(
-    auth.jwt()->>'email',
-    auth.jwt()->'user_metadata'->>'email',
-    (auth.jwt()->'app_metadata'->>'email')
-  );
+  -- Get the clerk_user_id from the JWT 'sub' claim
+  v_clerk_user_id := auth.jwt()->>'sub';
   
-  IF v_user_email IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'No email found in JWT');
+  IF v_clerk_user_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'No user ID found in JWT');
   END IF;
 
-  -- Look up the user
+  -- Look up the user by clerk_user_id
   SELECT u.user_id, u.email, u.role_id, u.employer_id
   INTO v_user_record
   FROM public.users u
-  WHERE u.email = v_user_email;
+  WHERE u.clerk_user_id = v_clerk_user_id;
   
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'error', 'User not found in database');
@@ -212,24 +204,20 @@ AS $$
 DECLARE
   v_user_record RECORD;
   v_site_record RECORD;
-  v_user_email TEXT;
+  v_clerk_user_id TEXT;
 BEGIN
-  -- Get the email from the JWT
-  v_user_email := COALESCE(
-    auth.jwt()->>'email',
-    auth.jwt()->'user_metadata'->>'email',
-    (auth.jwt()->'app_metadata'->>'email')
-  );
+  -- Get the clerk_user_id from the JWT 'sub' claim
+  v_clerk_user_id := auth.jwt()->>'sub';
   
-  IF v_user_email IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'No email found in JWT');
+  IF v_clerk_user_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'No user ID found in JWT');
   END IF;
 
-  -- Look up the user
+  -- Look up the user by clerk_user_id
   SELECT u.user_id, u.email, u.role_id, u.employer_id
   INTO v_user_record
   FROM public.users u
-  WHERE u.email = v_user_email;
+  WHERE u.clerk_user_id = v_clerk_user_id;
   
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'error', 'User not found in database');
