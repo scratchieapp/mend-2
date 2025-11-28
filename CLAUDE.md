@@ -239,6 +239,91 @@ get_incidents_with_details_rbac(page_size, page_offset, filters..., user_role_id
 - Dropped `fk_users_auth_users` constraint (legacy Supabase Auth link)
 - Users table no longer requires matching `auth.users` record
 
+---
+
+## 🛠️ INCIDENT EDIT PAGE IMPROVEMENTS (2025-11-28)
+
+### ✅ Super Admin Dashboard Interactive Tiles
+**Made dashboard tiles meaningful and interactive:**
+- **Total Employers**: Shows real count, clicks through to employer management
+- **Active Incidents**: Shows open/in-progress counts with preview dialog
+- **System Health**: Calculated health percentage with breakdown dialog
+- **Total Users**: Real user count with role breakdown
+
+### ✅ Incident List Click-Through
+**Removed "Actions" column - entire row is now clickable**
+- Files: `IncidentsList.tsx`, `BuilderDashboard.tsx`, `Dashboard.tsx`
+- Click anywhere on a row to view incident details
+- Cleaner UI without redundant buttons
+
+### ✅ Incident Details Page (RBAC-Aware)
+**Fixed "Error loading incident" for non-Mend staff users**
+- Uses `get_dashboard_data` RPC instead of direct table query
+- Separately fetches related `site` and `body_part` data
+- File: `IncidentDetailsPage.tsx`
+
+### ✅ Incident Edit Page (RBAC-Aware)
+**Complete rewrite to work with Clerk auth and RLS**
+
+**Key Files:**
+- `/apps/operations/src/pages/IncidentEditPage.tsx` - Main edit page
+- `/apps/operations/src/lib/validations/incident.ts` - Permissive edit schema
+- `/supabase/migrations/20251128_update_incident_rpc.sql` - Update RPC
+- `/supabase/migrations/20251128_get_incident_details_rpc.sql` - Get incident RPC
+- `/supabase/migrations/20251128_fix_update_incident_rpc.sql` - Fixed type mismatch
+
+**Database Functions Created:**
+```sql
+-- Fetch incident details for edit form (all fields)
+get_incident_details(p_incident_id INTEGER, p_user_role_id INTEGER, p_user_employer_id INTEGER)
+
+-- Update incident with RBAC (SECURITY DEFINER)
+update_incident_rbac(p_incident_id INTEGER, p_user_role_id INTEGER, p_user_employer_id INTEGER, p_update_data JSONB)
+
+-- Fetch lookup data (injury types, body parts, body sides)
+get_lookup_data() RETURNS JSONB
+```
+
+**Issues Fixed:**
+1. **COALESCE type mismatch**: `time_of_injury` is TIME type, not TEXT - now handles conversion properly
+2. **Form validation too strict**: Made `incidentEditSchema` permissive to allow partial saves
+3. **Lookup dropdowns empty**: Created `get_lookup_data()` RPC to bypass RLS for injury_type, body_parts, body_sides tables
+4. **Auto-save on navigation**: Next/Previous buttons now auto-save form changes
+
+### ✅ Worker Add Function (RBAC-Aware)
+**Fixed "new row violates row-level security policy for table workers"**
+- Created `add_worker_rbac` RPC with SECURITY DEFINER
+- File: `/supabase/migrations/20251128_add_worker_rpc.sql`
+- WorkerSelector component now calls RPC instead of direct insert
+
+### ✅ Google Address Autocomplete
+**Integrated Google Places API for address fields**
+- Component: `/apps/operations/src/components/ui/AddressAutocomplete.tsx`
+- Uses `google.maps.places.Autocomplete` with async library loading
+- Returns structured address data (street, city, state, country, postal_code, lat, lng)
+- Integrated in WorkerSelector for residential_address field
+- Environment variable: `VITE_GOOGLE_MAPS_API_KEY`
+
+### ✅ Weather API Integration
+**Automatically capture weather at incident time/location**
+- Service: `/apps/operations/src/services/weatherService.ts`
+- Column added: `weather_data JSONB` in incidents table
+- Display component: `/apps/operations/src/components/incidents/WeatherDisplay.tsx`
+- Captures: temperature, conditions, precipitation, humidity, wind
+- Migration: `/supabase/migrations/20251128_add_weather_columns.sql`
+
+### ✅ Phone Number Formatting (Australian)
+**PhoneInput component formats Australian numbers:**
+- Mobile: `04## ### ###` (e.g., `0412 345 678`)
+- Landline: `0# #### ####` (e.g., `02 1234 5678`)
+
+### 🔄 IN PROGRESS - Incident Edit Refinements
+**Still working on mapping all fields correctly:**
+- Injury Type dropdown - now uses RPC, may need field mapping verification
+- Body Part dropdown - now uses RPC, may need field mapping verification  
+- Call Transcripts feature (separate from injury_description) - PLANNED
+- RadioGroup controlled/uncontrolled warning - minor UI fix pending
+
 ### ⏳ Pending
 1. **Register Account-Level Webhook**: Retell Dashboard → Settings → Webhooks
    - URL: `https://rkzcybthcszeusrohbtc.supabase.co/functions/v1/retell-webhook-handler`
@@ -513,5 +598,5 @@ npm run preview      # Preview build
 ---
 
 **Last Updated**: November 28, 2025
-**Version**: 4.7.0
-**Status**: ✅ PRODUCTION READY | ✅ Voice Agent - Fully Operational | ✅ RLS + Clerk Auth - Fixed | ✅ User Management RLS - Fixed | ✅ Admin User CRUD - Working
+**Version**: 4.8.0
+**Status**: ✅ PRODUCTION READY | ✅ Voice Agent - Fully Operational | ✅ RLS + Clerk Auth - Fixed | ✅ Incident Edit - In Progress
