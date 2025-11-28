@@ -10,7 +10,9 @@ interface PhoneInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 
 export const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
   ({ className, value = "", onChange, error, ...props }, ref) => {
-    const formatPhoneNumber = (input: string): string => {
+    const formatPhoneNumber = (input: string | null | undefined): string => {
+      if (!input) return "";
+      
       // Remove all non-digits
       const digits = input.replace(/\D/g, "");
       
