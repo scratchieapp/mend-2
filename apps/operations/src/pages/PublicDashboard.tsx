@@ -187,7 +187,7 @@ export default function PublicDashboard() {
 
   // Check if user can see incidents (roles 1-8, not role 9 which is public)
   const userRoleId = userData?.role_id ? parseInt(userData.role_id) : null;
-  const canViewIncidents = isAuthenticated && userRoleId && userRoleId < 9;
+  const canViewIncidents = !!(isAuthenticated && userRoleId && userRoleId < 9);
 
   useEffect(() => {
     if (isAuthenticated && userData?.employer_id) {
@@ -249,7 +249,7 @@ export default function PublicDashboard() {
       return data || [];
     },
     staleTime: 60 * 1000, // 1 minute
-    enabled: canViewIncidents && !!employerId
+    enabled: canViewIncidents && employerId !== null
   });
 
   const handleLogin = () => navigate('/auth/login');
