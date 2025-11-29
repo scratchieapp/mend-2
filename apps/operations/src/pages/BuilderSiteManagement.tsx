@@ -471,7 +471,7 @@ export default function BuilderSiteManagement() {
                       onAddressChange={(address) => {
                         setFormData(prev => ({
                           ...prev,
-                          street_address: address.streetAddress,
+                          street_address: address.streetAddress || address.formattedAddress,
                           city: address.city,
                           state: address.state,
                           post_code: address.postCode,
@@ -479,8 +479,10 @@ export default function BuilderSiteManagement() {
                           longitude: address.longitude,
                         }));
                       }}
-                      placeholder="Start typing an address..."
+                      searchType="all"
+                      placeholder="Start typing a location or address..."
                     />
+                    <p className="text-xs text-muted-foreground">Search for addresses, roads, or locations</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="city">City *</Label>
@@ -707,7 +709,7 @@ export default function BuilderSiteManagement() {
                     onAddressChange={(address) => {
                       setFormData(prev => ({
                         ...prev,
-                        street_address: address.streetAddress,
+                        street_address: address.streetAddress || address.formattedAddress,
                         city: address.city,
                         state: address.state,
                         post_code: address.postCode,
@@ -715,8 +717,10 @@ export default function BuilderSiteManagement() {
                         longitude: address.longitude,
                       }));
                     }}
-                    placeholder="Start typing an address..."
+                    searchType="all"
+                    placeholder="Start typing a location or address..."
                   />
+                  <p className="text-xs text-muted-foreground">Search for addresses, roads, or locations</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit_city">City *</Label>

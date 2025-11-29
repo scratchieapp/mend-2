@@ -29,7 +29,8 @@ import {
   Server,
   Database,
   Zap,
-  Loader2
+  Loader2,
+  Bot
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { DataErrorBoundary } from "@/components/DataErrorBoundary";
@@ -128,7 +129,7 @@ const SuperAdminDashboard = () => {
       
       if (error) {
         console.error('Error fetching incidents stats:', error);
-        return { total: 0, open: 0, pending: 0, closed: 0, lti: 0, mti: 0 };
+        return { total: 0, open: 0, pending: 0, closed: 0, voiceAgent: 0, lti: 0, mti: 0 };
       }
       
       const incidents = data?.incidents || [];
@@ -139,10 +140,11 @@ const SuperAdminDashboard = () => {
         i.incident_status?.toLowerCase() === 'pending' || i.incident_status?.toLowerCase() === 'in_progress'
       ).length;
       const closed = incidents.filter((i: any) => i.incident_status?.toLowerCase() === 'closed').length;
+      const voiceAgent = incidents.filter((i: any) => i.incident_status?.toLowerCase() === 'voice agent').length;
       const lti = incidents.filter((i: any) => i.classification?.toUpperCase() === 'LTI').length;
       const mti = incidents.filter((i: any) => i.classification?.toUpperCase() === 'MTI').length;
       
-      return { total, open, pending, closed, lti, mti };
+      return { total, open, pending, closed, voiceAgent, lti, mti };
     },
     enabled: roleId !== null,
     staleTime: 30 * 1000,
@@ -260,8 +262,14 @@ const SuperAdminDashboard = () => {
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   ) : (
                     <>
-                      <div className="text-3xl font-bold">{incidentsData?.open || 0}</div>
-                      <div className="flex gap-2 mt-1">
+                      <div className="text-3xl font-bold">{(incidentsData?.open || 0) + (incidentsData?.voiceAgent || 0)}</div>
+                      <div className="flex gap-2 mt-1 flex-wrap">
+                        {(incidentsData?.voiceAgent || 0) > 0 && (
+                          <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200 flex items-center gap-1">
+                            <Bot className="h-3 w-3" />
+                            {incidentsData?.voiceAgent} AI
+                          </Badge>
+                        )}
                         <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">
                           {incidentsData?.pending || 0} pending
                         </Badge>
@@ -350,7 +358,16 @@ const SuperAdminDashboard = () => {
               {/* Status breakdown */}
               <div className="space-y-3">
                 <h4 className="text-sm font-medium text-muted-foreground">By Status</h4>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  {(incidentsData?.voiceAgent || 0) > 0 && (
+                    <div className="p-3 rounded-lg bg-purple-50 border border-purple-200 col-span-2 flex items-center gap-2">
+                      <Bot className="h-5 w-5 text-purple-600" />
+                      <div>
+                        <div className="text-xl font-bold text-purple-700">{incidentsData?.voiceAgent || 0}</div>
+                        <div className="text-xs text-purple-600">Voice Agent Reported</div>
+                      </div>
+                    </div>
+                  )}
                   <div className="p-3 rounded-lg bg-yellow-50 border border-yellow-200">
                     <div className="text-2xl font-bold text-yellow-700">{incidentsData?.open || 0}</div>
                     <div className="text-xs text-yellow-600">Open</div>
@@ -359,6 +376,8 @@ const SuperAdminDashboard = () => {
                     <div className="text-2xl font-bold text-blue-700">{incidentsData?.pending || 0}</div>
                     <div className="text-xs text-blue-600">Pending</div>
                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
                   <div className="p-3 rounded-lg bg-green-50 border border-green-200">
                     <div className="text-2xl font-bold text-green-700">{incidentsData?.closed || 0}</div>
                     <div className="text-xs text-green-600">Closed</div>

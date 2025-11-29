@@ -13,7 +13,8 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
-  RefreshCw
+  RefreshCw,
+  Bot
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -84,10 +85,15 @@ const IncidentRow = React.memo(({
         return 'bg-blue-100 text-blue-800';
       case 'escalated':
         return 'bg-red-100 text-red-800';
+      case 'voice agent':
+        return 'bg-purple-100 text-purple-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
+
+  // Check if this is a voice agent incident
+  const isVoiceAgentIncident = incident.incident_status?.toLowerCase() === 'voice agent';
 
   const getClassificationColor = (classification: string) => {
     switch (classification?.toUpperCase()) {
@@ -127,6 +133,7 @@ const IncidentRow = React.memo(({
       <TableCell>{incident.employer_name || 'N/A'}</TableCell>
       <TableCell>
         <Badge className={getStatusColor(incident.incident_status)}>
+          {isVoiceAgentIncident && <Bot className="h-3 w-3 mr-1" />}
           {incident.incident_status || 'Open'}
         </Badge>
       </TableCell>
@@ -342,6 +349,12 @@ export function IncidentsList({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="voice agent">
+                  <span className="flex items-center gap-1">
+                    <Bot className="h-3 w-3" />
+                    Voice Agent
+                  </span>
+                </SelectItem>
                 <SelectItem value="draft">Draft</SelectItem>
                 <SelectItem value="open">Open</SelectItem>
                 <SelectItem value="under investigation">Under Investigation</SelectItem>

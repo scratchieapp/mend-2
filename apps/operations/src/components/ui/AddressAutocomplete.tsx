@@ -18,6 +18,13 @@ interface AddressAutocompleteProps {
   className?: string;
   disabled?: boolean;
   id?: string;
+  // Type of place to search for:
+  // 'address' - strict street addresses only
+  // 'geocode' - addresses and geographic locations (roads, regions)
+  // 'establishment' - businesses and named places
+  // 'regions' - larger areas like suburbs, cities
+  // undefined - all types (most flexible)
+  searchType?: 'address' | 'geocode' | 'establishment' | 'regions' | 'all';
   // For structured address data
   onAddressChange?: (address: {
     streetAddress: string;
@@ -45,6 +52,7 @@ export function AddressAutocomplete({
   className,
   disabled = false,
   id,
+  searchType = 'geocode', // Default to geocode which includes addresses and geographic locations
 }: AddressAutocompleteProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
@@ -67,21 +75,36 @@ export function AddressAutocomplete({
     }
 
     try {
-      // Create autocomplete instance
-      autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, {
+      // Build autocomplete options
+      const options: google.maps.places.AutocompleteOptions = {
         componentRestrictions: { country: 'au' }, // Restrict to Australia
-        fields: ['address_components', 'formatted_address', 'geometry', 'name'],
-        types: ['address'], // Only return addresses
-      });
+        fields: ['address_components', 'formatted_address', 'geometry', 'name', 'place_id'],
+      };
+
+      // Set search type - 'all' means no restriction
+      if (searchType && searchType !== 'all') {
+        if (searchType === 'regions') {
+          options.types = ['(regions)'];
+        } else {
+          options.types = [searchType];
+        }
+      }
+      // If searchType is 'all' or undefined, don't set types - allows all results
+
+      // Create autocomplete instance
+      autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, options);
 
       // Handle place selection
       autocompleteRef.current.addListener('place_changed', () => {
         const place = autocompleteRef.current?.getPlace();
         if (!place) return;
 
-        // Update the simple value
-        if (place.formatted_address) {
-          onChange(place.formatted_address);
+        console.log('Selected place:', place); // Debug logging
+
+        // Update the simple value - use name if formatted_address is not available
+        const displayValue = place.formatted_address || place.name || '';
+        if (displayValue) {
+          onChange(displayValue);
         }
 
         // Call onPlaceSelect callback
@@ -90,18 +113,20 @@ export function AddressAutocomplete({
         }
 
         // Parse and return structured address data
-        if (onAddressChange && place.address_components) {
+        if (onAddressChange) {
           const addressData = parseAddressComponents(place);
+          console.log('Parsed address data:', addressData); // Debug logging
           onAddressChange(addressData);
         }
       });
 
       initRef.current = true;
       setIsLoaded(true);
+      console.log('Google Places Autocomplete initialized with type:', searchType || 'all');
     } catch (error) {
       console.error('Failed to initialize Google Places Autocomplete:', error);
     }
-  }, [onChange, onPlaceSelect, onAddressChange]);
+  }, [onChange, onPlaceSelect, onAddressChange, searchType]);
 
   // Parse Google address components into structured data
   const parseAddressComponents = (place: google.maps.places.PlaceResult) => {
@@ -124,17 +149,29 @@ export function AddressAutocomplete({
     // Build street address from components
     const streetNumber = getComponent(['street_number']);
     const streetName = getComponent(['route']);
-    const streetAddress = [streetNumber, streetName].filter(Boolean).join(' ');
+    let streetAddress = [streetNumber, streetName].filter(Boolean).join(' ');
+    
+    // If no street address, try to use the place name (for non-address locations)
+    if (!streetAddress && place.name) {
+      streetAddress = place.name;
+    }
+
+    // Get city - try multiple component types
+    let city = getComponent(['locality', 'sublocality', 'sublocality_level_1']);
+    if (!city) {
+      // Fallback to administrative_area_level_2 (like a council area) or neighborhood
+      city = getComponent(['administrative_area_level_2', 'neighborhood', 'colloquial_area']);
+    }
 
     return {
       streetAddress,
-      city: getComponent(['locality', 'sublocality', 'sublocality_level_1']),
+      city,
       state: getShortComponent(['administrative_area_level_1']),
       postCode: getComponent(['postal_code']),
       country: getComponent(['country']),
       latitude: place.geometry?.location?.lat(),
       longitude: place.geometry?.location?.lng(),
-      formattedAddress: place.formatted_address || '',
+      formattedAddress: place.formatted_address || place.name || '',
     };
   };
 
