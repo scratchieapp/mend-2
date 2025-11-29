@@ -22,6 +22,8 @@ interface GoogleSitesMapProps {
   className?: string;
   height?: string | number;
   onSiteClick?: (site: SiteLocation) => void;
+  mode?: 'default' | 'public' | 'read_only';
+  showWeatherOverlay?: boolean;
 }
 
 // Australian city coordinates for geocoding fallback
@@ -58,7 +60,13 @@ const getCoordinatesFromCity = (city?: string): { lat: number; lng: number } | n
   return null;
 };
 
-export function GoogleSitesMap({ sites, className = "", height = "600px", onSiteClick }: GoogleSitesMapProps) {
+export function GoogleSitesMap({ 
+  sites, 
+  className = "", 
+  height = "600px", 
+  onSiteClick,
+  mode = 'default'
+}: GoogleSitesMapProps) {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const { isLoaded: mapLoaded } = useGoogleMaps(apiKey);
   
@@ -120,11 +128,15 @@ export function GoogleSitesMap({ sites, className = "", height = "600px", onSite
 
         if (!coords) return;
 
-        // Determine marker color based on status
+        // Determine marker color based on status or mode
         let markerColor = '#22c55e'; // Green for active (working)
         let markerIcon = 'https://maps.google.com/mapfiles/ms/icons/green-dot.png';
         
-        if (site.status === 'paused') {
+        if (mode === 'public' || mode === 'read_only') {
+          // Neutral color for public/read-only mode
+          markerColor = '#3b82f6'; // Blue
+          markerIcon = 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png';
+        } else if (site.status === 'paused') {
           markerColor = '#f59e0b'; // Amber for paused
           markerIcon = 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png';
         } else if (site.status === 'finished') {
@@ -146,24 +158,44 @@ export function GoogleSitesMap({ sites, className = "", height = "600px", onSite
             onSiteClick(site);
           }
 
-          const content = `
-            <div style="padding: 8px; max-width: 250px;">
-              <h3 style="margin: 0 0 8px 0; font-weight: 600;">${site.site_name}</h3>
-              <p style="margin: 0 0 4px 0; color: #666; font-size: 12px;">${site.employer_name || ''}</p>
-              <p style="margin: 0 0 4px 0; font-size: 12px;">${site.street_address || ''}</p>
-              <p style="margin: 0 0 8px 0; font-size: 12px;">${site.city}, ${site.state} ${site.post_code}</p>
-              <div style="display: flex; gap: 8px; align-items: center;">
-                <span style="
-                  background: ${markerColor};
-                  color: white;
-                  padding: 2px 8px;
-                  border-radius: 12px;
-                  font-size: 11px;
-                ">${site.status || 'Active'}</span>
-                <span style="font-size: 11px; color: #666;">${site.incident_count || 0} incidents</span>
+          let content = '';
+          
+          if (mode === 'public' || mode === 'read_only') {
+            // Simplified info window for public mode
+            content = `
+              <div style="padding: 8px; max-width: 250px;">
+                <h3 style="margin: 0 0 8px 0; font-weight: 600;">${site.site_name}</h3>
+                <p style="margin: 0 0 4px 0; font-size: 12px;">${site.street_address || ''}</p>
+                <p style="margin: 0 0 8px 0; font-size: 12px;">${site.city}, ${site.state} ${site.post_code}</p>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                   <a href="https://maps.google.com/?q=${encodeURIComponent((site.street_address ? site.street_address + ', ' : '') + site.city + ', ' + site.state)}" target="_blank" style="color: #3b82f6; text-decoration: none; font-size: 12px;">Get Directions</a>
+                </div>
               </div>
-            </div>
-          `;
+            `;
+          } else {
+            // Standard info window
+            content = `
+              <div style="padding: 8px; max-width: 250px;">
+                <h3 style="margin: 0 0 8px 0; font-weight: 600;">${site.site_name}</h3>
+                <p style="margin: 0 0 4px 0; color: #666; font-size: 12px;">${site.employer_name || ''}</p>
+                <p style="margin: 0 0 4px 0; font-size: 12px;">${site.street_address || ''}</p>
+                <p style="margin: 0 0 8px 0; font-size: 12px;">${site.city}, ${site.state} ${site.post_code}</p>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <span style="
+                    background: ${markerColor};
+                    color: white;
+                    padding: 2px 8px;
+                    border-radius: 12px;
+                    font-size: 11px;
+                    min-width: 60px;
+                    text-align: center;
+                  ">${site.status || 'Active'}</span>
+                  <span style="font-size: 11px; color: #666;">${site.incident_count || 0} incidents</span>
+                </div>
+              </div>
+            `;
+          }
+          
           infoWindow.setContent(content);
           infoWindow.open(map, marker);
         });
