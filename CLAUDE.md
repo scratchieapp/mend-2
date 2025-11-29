@@ -95,28 +95,43 @@ AI-augmented incident management to achieve 5x revenue growth without proportion
    - Stores alternative names/abbreviations (e.g., "RIX", "Rix Group" for "The RIX Group")
    - GIN index for efficient array searching
    - Pre-seeded aliases for existing employers
+   - **Phonetic variations included** (e.g., "Ricks", "Rick's", "Rex" for "RIX")
 
 2. **Improved Employer Matching**
    - Now searches BOTH `employer_name` AND `aliases` array
    - "Rix" → auto-matches "The RIX Group" (via alias)
+   - "Ricks" → auto-matches "The RIX Group" (via phonetic alias)
    - Alias match scores 98 (just below exact match of 100)
    - Case-insensitive alias matching
 
-3. **Site Lookup Filtered by Employer**
+3. **Site Aliases Column Added** (2025-11-29)
+   - New `aliases` column on `sites` table (TEXT[] array)
+   - Stores phonetic variations for voice agent recognition
+   - Example: "Kurri Kurri Bypass" has aliases: "Curry Curry", "Kerry Kerry", "Kurri"
+   - GIN index for efficient array searching
+   - `lookup-site` Edge Function searches both `site_name` and `aliases`
+
+4. **Site Lookup Filtered by Employer**
    - `lookup_site` now accepts `employer_id` parameter
    - After employer is identified, site search only shows THAT employer's sites
    - Prevents confusion when multiple employers have similar site names
 
-4. **New "Voice Agent" Incident Status**
+5. **New "Voice Agent" Incident Status**
    - Added "Voice Agent" to valid `incident_status` values
    - Voice agent-created incidents are tagged for easy filtering
    - Helps case coordinators identify phone-reported incidents
 
-5. **Enhanced Data Collection**
+6. **Enhanced Data Collection**
    - Voice agent now collects `injury_type` (Cut, Sprain, Fracture, etc.)
    - Voice agent now collects `body_side` (left, right, both)
    - Maps to `body_part_id` and `body_side_id` in incidents table
    - Severity mapped to `classification` field
+
+7. **UI for Managing Aliases** (2025-11-29)
+   - Employer Management: "Voice Agent Aliases" field in Create/Edit dialogs
+   - Site Management: "Voice Agent Aliases" field in Create/Edit dialogs
+   - Comma-separated input converted to array for database storage
+   - Allows admins to add phonetic variations without database access
 
 **Retell Function Config Updates Required:**
 - `lookup_site` function now accepts: `{ site_name: "...", employer_id: 123 }`
@@ -136,6 +151,40 @@ AI-augmented incident management to achieve 5x revenue growth without proportion
   - Solved `Map` constructor naming collision with Lucide icons.
   - Implemented safe async script loading hook `useGoogleMaps`.
   - Optimized markers for performance with 50+ sites.
+
+### ✅ Site Management UI Redesign (2025-11-29)
+**Map-First Layout with Head Office Markers**
+
+**New Layout:**
+- Map displayed at TOP of page (always visible)
+- Site list displayed BELOW the map
+- Toggle between Map View / List View for the map section
+- Click on map marker opens Edit Site dialog
+
+**Map Marker Types:**
+- 🔴 **Head Office** (Red Square) - Employer headquarters
+- 🟢 **Active Site** (Green Pin) - Sites with status "Active"
+- 🟡 **Paused Site** (Amber Pin) - Sites with status "Paused"
+- ⚪ **Finished Site** (Gray Pin) - Sites with status "Finished"
+
+**Legend:**
+- Bottom-left corner of map
+- Shows all marker types with labels
+
+**Pages Updated:**
+- `/admin/site-management` → `SiteManagementAdmin.tsx`
+- `/builder/site-management` → `BuilderSiteManagement.tsx`
+- `/public-dashboard` → `PublicDashboard.tsx` (map fixed)
+
+**Component Modified:**
+- `/apps/operations/src/components/maps/GoogleSitesMap.tsx`
+  - Added `headOfficeLocations` prop
+  - Different marker shapes for head offices vs sites
+  - Legend display with configurable visibility
+
+**Google APIs Required:**
+- Maps JavaScript API ✅ (already enabled)
+- Places API ✅ (already enabled - provides lat/lng from addresses)
 
 ### ✅ Enhanced User Management
 **Full "Edit User" Capabilities for Super Admins**
@@ -794,5 +843,5 @@ npm run preview      # Preview build
 ---
 
 **Last Updated**: November 29, 2025
-**Version**: 4.11.0
-**Status**: ✅ PRODUCTION READY | ✅ Incident Submission - WORKING | ✅ Voice Agent - Fully Operational | ✅ RLS + Clerk Auth - Fixed | ✅ Worker Management - Added
+**Version**: 4.12.0
+**Status**: ✅ PRODUCTION READY | ✅ Incident Submission - WORKING | ✅ Voice Agent - Fully Operational (with Phonetic Matching) | ✅ RLS + Clerk Auth - Fixed | ✅ Site Management Redesign - Complete

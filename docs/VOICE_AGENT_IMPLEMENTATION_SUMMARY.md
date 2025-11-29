@@ -1,9 +1,9 @@
 # Voice Agent Implementation Summary
 
 ## Project: Retell AI Integration with Mend Platform
-**Date**: January 15, 2025
-**Status**: MVP Foundation Complete - Ready for Configuration & Deployment
-**Timeline**: 4-6 Week Aggressive MVP
+**Date**: January 15, 2025 (Updated: November 29, 2025)
+**Status**: ✅ FULLY OPERATIONAL - Phonetic Matching & Enhanced Accuracy
+**Timeline**: 4-6 Week Aggressive MVP → **COMPLETE**
 
 ---
 
@@ -18,6 +18,68 @@ We've implemented a complete voice agent foundation for the Mend workplace safet
 3. **Voice Agents**: 4 fully-prompted Retell AI agents (booking, check-in, reminder, incident reporting)
 4. **Frontend Integration**: TypeScript types and React hooks ready for UI implementation
 5. **Documentation**: Complete setup guides, prompts, and operational procedures
+6. **Phonetic Matching**: ✅ NEW - Handles speech-to-text transcription variations for employers and sites
+
+---
+
+## ✅ Enhanced Accuracy Improvements (November 2025)
+
+### Problem: Speech-to-Text Transcription Mismatches
+When callers spoke company or site names, the voice agent's speech-to-text would often transcribe phonetically:
+- "Rix" → transcribed as "Ricks" or "Rex"
+- "Kurri Kurri" → transcribed as "Curry Curry" or "Kerry Kerry"
+
+This caused lookup failures even though the caller said the correct name.
+
+### Solution: Alias & Phonetic Variation System
+
+#### 1. Employer Aliases
+**Database**: `employers.aliases` column (TEXT[] array with GIN index)
+
+**Example - The RIX Group:**
+```sql
+aliases = ARRAY['RIX', 'Rix Group', 'RIX Group', 'Ricks', 'Rick\'s', 'Rex', 'Rix Construction']
+```
+
+**Edge Function**: `lookup-employer` searches both `employer_name` AND `aliases`
+
+#### 2. Site Aliases
+**Database**: `sites.aliases` column (TEXT[] array with GIN index)
+
+**Example - Kurri Kurri Bypass:**
+```sql
+aliases = ARRAY['Kurri Kurri', 'Curry Curry', 'Kerry Kerry', 'Kurri', 'Curry', 'The Bypass', 'Kurri Bypass']
+```
+
+**Edge Function**: `lookup-site` searches both `site_name` AND `aliases`, filtered by `employer_id`
+
+#### 3. UI for Managing Aliases
+Admins can add/edit aliases directly in the UI without database access:
+- **Employer Management** (`/admin/employer-management`): "Voice Agent Aliases" field
+- **Site Management** (`/admin/site-management`): "Voice Agent Aliases" field
+
+Input format: Comma-separated values → converted to array on save
+
+#### 4. Employer-Scoped Site Lookup
+Once an employer is identified, site searches are filtered to ONLY that employer's sites:
+```typescript
+// Retell custom function call
+lookup_site({ site_name: "curry curry", employer_id: 5 })
+// Returns: Kurri Kurri Bypass (matched via alias, filtered to employer 5)
+```
+
+### Matching Score System
+| Match Type | Score |
+|------------|-------|
+| Exact name match | 100 |
+| Alias exact match | 98 |
+| Name after suffix removal | 95 |
+| Search starts name | 90 |
+| Search contained in name | 70 |
+| All words match | 60 |
+| Some words match | 40 |
+
+Auto-selects when: only 1 match, score ≥70, or best match 20+ points above second
 
 ---
 
@@ -275,6 +337,9 @@ SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
 ✅ **Types**: Complete TypeScript type system
 ✅ **Hooks**: React hooks for frontend integration
 ✅ **Documentation**: 2 comprehensive guides (50+ pages combined)
+✅ **Phonetic Matching**: Employer & site aliases with UI management (NEW)
+✅ **SIP Connection**: Inbound calls routing to Retell AI (WORKING)
+✅ **Incident Auto-Creation**: Voice calls create incident records (WORKING)
 
 ---
 
@@ -436,25 +501,37 @@ SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
 
 ### Database
 - `supabase/migrations/20250115_voice_agent_tables.sql` (400+ lines)
+- `supabase/migrations/20251129_add_employer_aliases.sql` - Employer aliases column
+- `supabase/migrations/20251201_add_site_aliases.sql` - Site aliases column
+- `supabase/migrations/20251129_add_voice_agent_status.sql` - Voice Agent incident status
 
-### Backend
+### Backend (Edge Functions)
 - `supabase/functions/retell-webhook-handler/index.ts` (450+ lines)
 - `supabase/functions/create-voice-task/index.ts` (300+ lines)
 - `supabase/functions/process-inbound-incident/index.ts` (250+ lines)
+- `supabase/functions/lookup-employer/index.ts` - Real-time employer lookup with alias matching
+- `supabase/functions/lookup-site/index.ts` - Real-time site lookup with alias matching
 
 ### Frontend
 - `apps/operations/src/types/voice.ts` (350+ lines)
 - `apps/operations/src/hooks/useVoiceAgent.ts` (200+ lines)
+- `apps/operations/src/pages/EmployerManagementAdmin.tsx` - Updated with aliases field
+- `apps/operations/src/pages/SiteManagementAdmin.tsx` - Updated with aliases field & map-first layout
+- `apps/operations/src/pages/BuilderSiteManagement.tsx` - Updated with map-first layout
+- `apps/operations/src/components/maps/GoogleSitesMap.tsx` - Head office markers & legend
 
 ### Documentation
 - `docs/retell-agent-prompts.md` (900+ lines)
 - `docs/VOICE_AGENT_SETUP.md` (500+ lines)
 - `docs/VOICE_AGENT_IMPLEMENTATION_SUMMARY.md` (this file)
+- `docs/voice_agent_inbound_incident_reporting_prompt.txt` - Current agent prompt
+- `docs/incident_reporter_custom_functions.txt` - Retell custom function schemas
+- `docs/RETELL_CONFIGURATION_GUIDE.md` - Step-by-step Retell config
 
 ### Configuration
 - `.env` (updated with Retell variables)
 
-**Total Code**: ~3,000+ lines of production-ready code and documentation
+**Total Code**: ~4,500+ lines of production-ready code and documentation
 
 ---
 
@@ -567,19 +644,24 @@ SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
 
 ## Conclusion
 
-We've built a **production-ready foundation** for voice agent automation in the Mend platform. All core infrastructure is complete:
-- Database schema with security
-- Backend orchestration with Edge Functions
-- AI agent prompts with Australian compliance
-- Frontend integration ready
+We've built a **fully operational** voice agent system for the Mend platform. All core infrastructure is complete and working:
+- ✅ Database schema with security
+- ✅ Backend orchestration with Edge Functions
+- ✅ AI agent prompts with Australian compliance
+- ✅ Frontend integration ready
+- ✅ SIP connection working (inbound calls route to Retell)
+- ✅ Incident auto-creation from voice calls
+- ✅ Phonetic matching for employer/site identification
+- ✅ UI for managing aliases (no database access required)
 
-**Next steps**: Configure Retell account, deploy Edge Functions, and you're ready to start saving 20+ hours per week per case manager.
+**Current Status**: Voice agent is LIVE and receiving inbound calls at +61 2 9136 2358
 
 **Expected ROI**: 5x team productivity = 5x revenue growth with same headcount.
 
 ---
 
 **Prepared by**: Claude (Anthropic AI)
-**Date**: January 15, 2025
+**Original Date**: January 15, 2025
+**Last Updated**: November 29, 2025
 **Project**: Mend Voice Agent Integration
-**Version**: 1.0.0 - MVP Foundation Complete
+**Version**: 2.0.0 - Fully Operational with Phonetic Matching
