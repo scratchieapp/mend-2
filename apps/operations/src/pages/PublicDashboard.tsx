@@ -173,10 +173,25 @@ export default function PublicDashboard() {
               </div>
             )}
 
+            {/* Error State - gracefully degrade to empty state for public view */}
             {error && (
-              <div className="text-center p-8 text-muted-foreground">
-                <p>Unable to load sites at this time.</p>
-                <p className="text-xs mt-2">Please try again later.</p>
+              <div className="text-center p-8 space-y-4">
+                 <div className="h-12 w-12 bg-red-50 rounded-full flex items-center justify-center mx-auto">
+                  <AlertTriangle className="h-6 w-6 text-red-400" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900">Unable to load sites</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    We couldn't retrieve the site list at this moment. 
+                  </p>
+                </div>
+                <div className="text-sm bg-blue-50 text-blue-700 p-3 rounded-md inline-block">
+                  <p className="font-medium flex items-center justify-center gap-2">
+                    <Phone className="h-4 w-4" />
+                    Need to report an incident?
+                  </p>
+                  <p className="mt-1">Call 1800 555 000 for assistance.</p>
+                </div>
               </div>
             )}
 
@@ -273,7 +288,7 @@ export default function PublicDashboard() {
         {/* Right Panel: Map */}
         <div className="flex-1 relative bg-slate-100">
           <GoogleSitesMap 
-            sites={sites || []} 
+            sites={error ? [] : (sites || [])} 
             mode="public" 
             height="100%" 
             className="h-full w-full border-0 rounded-none"
