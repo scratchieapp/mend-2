@@ -55,6 +55,7 @@ interface Site {
   supervisor_name?: string;
   supervisor_telephone?: string;
   project_type?: string;
+  aliases?: string[];
   created_at: string;
   updated_at: string;
   employer_name?: string;
@@ -74,6 +75,7 @@ interface SiteFormData {
   supervisor_name: string;
   supervisor_telephone: string;
   project_type: string;
+  aliases: string;
   latitude?: number;
   longitude?: number;
 }
@@ -97,6 +99,7 @@ export default function SiteManagementAdmin() {
     supervisor_name: "",
     supervisor_telephone: "",
     project_type: "",
+    aliases: "",
     latitude: undefined,
     longitude: undefined,
   });
@@ -330,11 +333,26 @@ export default function SiteManagementAdmin() {
   // Create site mutation
   const createSiteMutation = useMutation({
     mutationFn: async (data: SiteFormData) => {
+      // Convert comma-separated aliases to array
+      const aliasesArray = data.aliases
+        ? data.aliases.split(',').map(a => a.trim()).filter(a => a.length > 0)
+        : [];
+      
       const { data: newSite, error } = await supabase
         .from('sites')
         .insert([{
-          ...data,
+          site_name: data.site_name,
+          street_address: data.street_address,
+          city: data.city,
+          state: data.state,
+          post_code: data.post_code,
+          supervisor_name: data.supervisor_name,
+          supervisor_telephone: data.supervisor_telephone,
+          project_type: data.project_type,
+          latitude: data.latitude,
+          longitude: data.longitude,
           employer_id: parseInt(data.employer_id),
+          aliases: aliasesArray,
         }])
         .select()
         .single();
@@ -363,11 +381,26 @@ export default function SiteManagementAdmin() {
   // Update site mutation
   const updateSiteMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: SiteFormData }) => {
+      // Convert comma-separated aliases to array
+      const aliasesArray = data.aliases
+        ? data.aliases.split(',').map(a => a.trim()).filter(a => a.length > 0)
+        : [];
+      
       const { data: updatedSite, error } = await supabase
         .from('sites')
         .update({
-          ...data,
+          site_name: data.site_name,
+          street_address: data.street_address,
+          city: data.city,
+          state: data.state,
+          post_code: data.post_code,
+          supervisor_name: data.supervisor_name,
+          supervisor_telephone: data.supervisor_telephone,
+          project_type: data.project_type,
+          latitude: data.latitude,
+          longitude: data.longitude,
           employer_id: parseInt(data.employer_id),
+          aliases: aliasesArray,
         })
         .eq('site_id', id)
         .select()
@@ -469,6 +502,7 @@ export default function SiteManagementAdmin() {
       supervisor_name: "",
       supervisor_telephone: "",
       project_type: "",
+      aliases: "",
       latitude: undefined,
       longitude: undefined,
     });
@@ -486,6 +520,7 @@ export default function SiteManagementAdmin() {
       supervisor_name: site.supervisor_name || "",
       supervisor_telephone: site.supervisor_telephone || "",
       project_type: site.project_type || "",
+      aliases: site.aliases?.join(', ') || "",
       latitude: site.latitude,
       longitude: site.longitude,
     });
@@ -692,6 +727,18 @@ export default function SiteManagementAdmin() {
                         value={formData.supervisor_telephone}
                         onChange={(e) => setFormData({ ...formData, supervisor_telephone: e.target.value })}
                       />
+                    </div>
+                    <div className="col-span-2 space-y-2">
+                      <Label htmlFor="aliases">Voice Agent Aliases</Label>
+                      <Input
+                        id="aliases"
+                        value={formData.aliases}
+                        onChange={(e) => setFormData({ ...formData, aliases: e.target.value })}
+                        placeholder="e.g., Curry Curry, Kerry Kerry (comma-separated)"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Alternative names/phonetic spellings for voice agent recognition
+                      </p>
                     </div>
                   </div>
                   <DialogFooter>
@@ -1038,6 +1085,18 @@ export default function SiteManagementAdmin() {
                     value={formData.supervisor_telephone}
                     onChange={(e) => setFormData({ ...formData, supervisor_telephone: e.target.value })}
                   />
+                </div>
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="edit_aliases">Voice Agent Aliases</Label>
+                  <Input
+                    id="edit_aliases"
+                    value={formData.aliases}
+                    onChange={(e) => setFormData({ ...formData, aliases: e.target.value })}
+                    placeholder="e.g., Curry Curry, Kerry Kerry (comma-separated)"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Alternative names/phonetic spellings for voice agent recognition
+                  </p>
                 </div>
               </div>
               <DialogFooter>

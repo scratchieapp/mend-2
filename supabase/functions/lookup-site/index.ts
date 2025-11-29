@@ -52,55 +52,82 @@ interface SiteMatch {
   supervisor_telephone?: string;
   employer_id?: number;
   employers?: any;
+  aliases?: string[];
   score?: number;
 }
 
 /**
- * Calculate match score between search term and site name
+ * Calculate match score between search term and site name (or alias)
  * Higher score = better match
  */
-function calculateMatchScore(searchTerm: string, siteName: string): number {
+function calculateSingleMatchScore(searchTerm: string, targetName: string): number {
   const search = searchTerm.toLowerCase().trim();
-  const site = siteName.toLowerCase().trim();
+  const target = targetName.toLowerCase().trim();
 
   // Exact match = 100
-  if (search === site) return 100;
+  if (search === target) return 100;
 
-  // Search term is the start of site name = 90
+  // Search term is the start of target name = 90
   // e.g., "Metro Station" matches "Metro Station - Sydney"
-  if (site.startsWith(search)) return 90;
+  if (target.startsWith(search)) return 90;
 
-  // Site name contains search term as a distinct part = 85
+  // Target name contains search term as a distinct part = 85
   // e.g., "Central Tower" matches "Central Tower Building"
-  const siteWords = site.split(/[\s\-]+/);
+  const targetWords = target.split(/[\s\-]+/);
   const searchWords = search.split(/[\s\-]+/);
 
-  // Check if all search words appear at start of site words
+  // Check if all search words appear at start of target words
   let allWordsMatchStart = true;
-  for (let i = 0; i < searchWords.length && i < siteWords.length; i++) {
-    if (!siteWords[i].startsWith(searchWords[i])) {
+  for (let i = 0; i < searchWords.length && i < targetWords.length; i++) {
+    if (!targetWords[i].startsWith(searchWords[i])) {
       allWordsMatchStart = false;
       break;
     }
   }
   if (allWordsMatchStart && searchWords.length > 0) return 85;
 
-  // Search term is contained within site name = 70
-  if (site.includes(search)) return 70;
+  // Search term is contained within target name = 70
+  if (target.includes(search)) return 70;
 
-  // All words from search term are in site name = 60
+  // All words from search term are in target name = 60
   const allWordsMatch = searchWords.filter(w => w.length > 2).every(sw =>
-    siteWords.some(sitew => sitew.includes(sw) || sw.includes(sitew))
+    targetWords.some(targetw => targetw.includes(sw) || sw.includes(targetw))
   );
   if (allWordsMatch && searchWords.length > 0) return 60;
 
   // Some significant words match = 40
   const someWordsMatch = searchWords.filter(w => w.length > 2).some(sw =>
-    siteWords.some(sitew => sitew.includes(sw) || sw.includes(sitew))
+    targetWords.some(targetw => targetw.includes(sw) || sw.includes(targetw))
   );
   if (someWordsMatch) return 40;
 
   return 0;
+}
+
+/**
+ * Calculate match score between search term and site (including aliases)
+ * Higher score = better match
+ */
+function calculateMatchScore(searchTerm: string, siteName: string, aliases?: string[]): number {
+  // Get score for main site name
+  const siteNameScore = calculateSingleMatchScore(searchTerm, siteName);
+  
+  // If no aliases, return site name score
+  if (!aliases || aliases.length === 0) {
+    return siteNameScore;
+  }
+  
+  // Check each alias and get the best score
+  let bestAliasScore = 0;
+  for (const alias of aliases) {
+    const aliasScore = calculateSingleMatchScore(searchTerm, alias);
+    if (aliasScore > bestAliasScore) {
+      bestAliasScore = aliasScore;
+    }
+  }
+  
+  // Return the best score from site name or aliases
+  return Math.max(siteNameScore, bestAliasScore);
 }
 
 serve(async (req: Request) => {
@@ -184,6 +211,7 @@ serve(async (req: Request) => {
     console.log('Looking up site:', searchTerm, employer_id ? `for employer ${employer_id}` : '', city ? `in ${city}` : '');
 
     // Build query - join with employers to get employer info
+    // First try site_name match
     let query = supabase
       .from('sites')
       .select(
@@ -195,6 +223,7 @@ serve(async (req: Request) => {
         supervisor_name,
         supervisor_telephone,
         employer_id,
+        aliases,
         employers (
           employer_id,
           employer_name,
@@ -223,21 +252,68 @@ serve(async (req: Request) => {
       throw error;
     }
 
-    if (siteMatches && siteMatches.length > 0) {
-      // Score all matches
-      const scoredMatches: SiteMatch[] = siteMatches.map((m) => ({
+    // Also search aliases array (Supabase RPC for case-insensitive array search)
+    // Use a raw SQL query via RPC to search aliases
+    let aliasQuery = supabase
+      .from('sites')
+      .select(
+        `
+        site_id,
+        site_name,
+        street_address,
+        city,
+        supervisor_name,
+        supervisor_telephone,
+        employer_id,
+        aliases,
+        employers (
+          employer_id,
+          employer_name,
+          manager_name,
+          manager_phone
+        )
+      `
+      )
+      .not('aliases', 'is', null);
+
+    // Filter by employer if provided
+    if (employer_id) {
+      aliasQuery = aliasQuery.eq('employer_id', employer_id);
+    }
+
+    const { data: sitesWithAliases } = await aliasQuery.limit(50);
+
+    // Filter sites where any alias matches the search term (case-insensitive)
+    const aliasMatches = (sitesWithAliases || []).filter((site: any) => {
+      if (!site.aliases || !Array.isArray(site.aliases)) return false;
+      return site.aliases.some((alias: string) =>
+        alias.toLowerCase().includes(searchTerm) ||
+        searchTerm.includes(alias.toLowerCase())
+      );
+    });
+
+    // Combine matches and deduplicate
+    const allMatches = [...(siteMatches || []), ...aliasMatches];
+    const uniqueMatches = allMatches.filter(
+      (match, index, self) =>
+        index === self.findIndex((m) => m.site_id === match.site_id)
+    );
+
+    if (uniqueMatches.length > 0) {
+      // Score all matches (including alias matching)
+      const scoredMatches: SiteMatch[] = uniqueMatches.map((m) => ({
         ...m,
-        score: calculateMatchScore(searchTerm, m.site_name),
+        score: calculateMatchScore(searchTerm, m.site_name, m.aliases),
       }));
 
       // Sort by score descending
       scoredMatches.sort((a, b) => (b.score || 0) - (a.score || 0));
 
-      const bestMatch = scoredMatches[0];
-      const secondBest = scoredMatches[1];
-      const employer = bestMatch.employers as any;
+    const bestMatch = scoredMatches[0];
+    const secondBest = scoredMatches[1];
+    const employer = bestMatch.employers as any;
 
-      console.log('Scored site matches:', scoredMatches.map(m => `${m.site_name}: ${m.score}`));
+    console.log('Scored site matches:', scoredMatches.map(m => `${m.site_name}: ${m.score}`));
 
       // Auto-select if:
       // 1. Only one match, OR
@@ -299,6 +375,7 @@ serve(async (req: Request) => {
           supervisor_name,
           supervisor_telephone,
           employer_id,
+          aliases,
           employers (
             employer_id,
             employer_name
@@ -333,6 +410,7 @@ serve(async (req: Request) => {
           supervisor_name,
           supervisor_telephone,
           employer_id,
+          aliases,
           employers (
             employer_id,
             employer_name
@@ -354,24 +432,24 @@ serve(async (req: Request) => {
     }
 
     // Deduplicate and score
-    const uniqueMatches = fuzzyMatches
+    const uniqueFuzzyMatches = fuzzyMatches
       .filter(
         (match, index, self) =>
           index === self.findIndex((m) => m.site_id === match.site_id)
       )
       .map((m) => ({
         ...m,
-        score: calculateMatchScore(searchTerm, m.site_name),
+        score: calculateMatchScore(searchTerm, m.site_name, m.aliases),
       }))
       .sort((a, b) => (b.score || 0) - (a.score || 0));
 
-    if (uniqueMatches.length > 0) {
-      const bestFuzzy = uniqueMatches[0];
+    if (uniqueFuzzyMatches.length > 0) {
+      const bestFuzzy = uniqueFuzzyMatches[0];
       const employer = bestFuzzy.employers as any;
-      console.log('Fuzzy site matches found:', uniqueMatches.length, 'best:', bestFuzzy.site_name, 'score:', bestFuzzy.score);
+      console.log('Fuzzy site matches found:', uniqueFuzzyMatches.length, 'best:', bestFuzzy.site_name, 'score:', bestFuzzy.score);
 
       // Auto-select if only one match OR score is good enough
-      if (uniqueMatches.length === 1 || (bestFuzzy.score || 0) >= 60) {
+      if (uniqueFuzzyMatches.length === 1 || (bestFuzzy.score || 0) >= 60) {
         console.log('Auto-selecting fuzzy site match:', bestFuzzy.site_name);
         return new Response(
           JSON.stringify({
@@ -390,7 +468,7 @@ serve(async (req: Request) => {
         );
       }
 
-      const suggestions = uniqueMatches
+      const suggestions = uniqueFuzzyMatches
         .slice(0, 5)
         .map((s) => `${s.site_name} in ${s.city || 'unknown'}`);
 
