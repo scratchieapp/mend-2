@@ -64,7 +64,7 @@ const LazyWeatherDisplay = ({ lat, lng, address }: { lat?: number; lng?: number;
 export default function PublicDashboard() {
   const navigate = useNavigate();
   const [selectedSiteId, setSelectedSiteId] = useState<number | null>(null);
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, userData } = useAuth();
 
   // Get employer_id from URL params
   const searchParams = new URLSearchParams(window.location.search);
@@ -78,12 +78,12 @@ export default function PublicDashboard() {
   );
 
   useEffect(() => {
-    if (isAuthenticated && user?.employer_id) {
-      setEmployerId(parseInt(user.employer_id));
+    if (isAuthenticated && userData?.employer_id) {
+      setEmployerId(parseInt(userData.employer_id));
     } else if (employerIdParam) {
       setEmployerId(parseInt(employerIdParam));
     }
-  }, [isAuthenticated, user, employerIdParam]);
+  }, [isAuthenticated, userData, employerIdParam]);
 
   // Fetch public sites using the secure RPC
   const { data: sites, isLoading, error } = useQuery({

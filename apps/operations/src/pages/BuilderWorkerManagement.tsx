@@ -68,35 +68,37 @@ export default function BuilderWorkerManagement() {
   // Determine the employer ID to use
   const effectiveEmployerId = selectedEmployerId || (userData?.employer_id ? parseInt(userData.employer_id) : null);
   
-  // Fetch workers for the employer
-  useEffect(() => {
-    async function fetchWorkers() {
-      if (!effectiveEmployerId) {
-        setWorkers([]);
-        setIsLoading(false);
-        return;
-      }
-      
-      setIsLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('workers')
-          .select('*')
-          .eq('employer_id', effectiveEmployerId)
-          .order('family_name', { ascending: true });
-        
-        if (error) throw error;
-        setWorkers(data || []);
-      } catch (error) {
-        console.error('Error fetching workers:', error);
-        toast.error('Failed to load workers');
-      } finally {
-        setIsLoading(false);
-      }
+  // Function to fetch workers using RBAC
+  const fetchWorkers = async () => {
+    if (!effectiveEmployerId && !userData) {
+      setWorkers([]);
+      setIsLoading(false);
+      return;
     }
     
+    setIsLoading(true);
+    try {
+      // Use RBAC function to bypass RLS issues
+      const { data, error } = await supabase.rpc('get_workers_rbac', {
+        p_employer_id: effectiveEmployerId,
+        p_user_role_id: userData?.role_id || null,
+        p_user_employer_id: userData?.employer_id ? parseInt(userData.employer_id) : null
+      });
+      
+      if (error) throw error;
+      setWorkers(data || []);
+    } catch (error) {
+      console.error('Error fetching workers:', error);
+      toast.error('Failed to load workers');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch workers for the employer
+  useEffect(() => {
     fetchWorkers();
-  }, [effectiveEmployerId]);
+  }, [effectiveEmployerId, userData?.role_id, userData?.employer_id]);
   
   // Filter workers by search term
   const filteredWorkers = workers.filter(worker => {
@@ -210,34 +212,27 @@ export default function BuilderWorkerManagement() {
         
         if (error) throw error;
         
-        if (data) {
-          // Fetch the full worker record
-          const { data: newWorker, error: fetchError } = await supabase
+        if (data?.worker_id) {
+          // Update additional fields using RPC-style approach
+          await supabase
             .from('workers')
-            .select('*')
-            .eq('worker_id', data.worker_id)
-            .single();
-          
-          if (!fetchError && newWorker) {
-            // Update additional fields that weren't in the RPC
-            await supabase
-              .from('workers')
-              .update({
-                mobile_number: formData.mobile_number || null,
-                email: formData.email || null,
-                suburb: formData.suburb || null,
-                state: formData.state || null,
-                post_code: formData.post_code || null,
-                occupation: formData.occupation || null,
-                employment_type: formData.employment_type || null,
-                employment_arrangement: formData.employment_arrangement || null,
-              })
-              .eq('worker_id', data.worker_id);
-            
-            setWorkers(prev => [...prev, { ...newWorker, ...formData }]);
-          }
+            .update({
+              mobile_number: formData.mobile_number || null,
+              email: formData.email || null,
+              suburb: formData.suburb || null,
+              state: formData.state || null,
+              post_code: formData.post_code || null,
+              occupation: formData.occupation || null,
+              employment_type: formData.employment_type || null,
+              employment_arrangement: formData.employment_arrangement || null,
+            })
+            .eq('worker_id', data.worker_id);
         }
+        
         toast.success('Worker added successfully');
+        
+        // Refresh the workers list using RBAC function
+        await fetchWorkers();
       }
       
       setIsDialogOpen(false);
