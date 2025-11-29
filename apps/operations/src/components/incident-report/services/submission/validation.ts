@@ -56,9 +56,9 @@ export const incidentValidationSchema = z.object({
   // Claim information
   claim_type: z.string().optional(),
   
-  // Actions and notes
-  actions_taken: z.string().optional(),
-  actions: z.string().optional(),
+  // Actions and notes - accept both string and array formats
+  actions_taken: z.union([z.string(), z.array(z.string())]).optional(),
+  actions: z.union([z.string(), z.array(z.string())]).optional(),
   case_notes: z.string().optional(),
   
   // Witness information

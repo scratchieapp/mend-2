@@ -279,8 +279,10 @@ export async function transformFormDataToDatabase(formData: IncidentFormData): P
       referral: formData.referred_to || formData.referral,
       doctor_details: formData.doctor_details,
       
-      // Actions and notes
-      actions: formData.actions_taken || formData.actions,
+      // Actions and notes - convert array to comma-separated string if needed
+      actions: Array.isArray(formData.actions_taken) 
+        ? formData.actions_taken.join(', ') 
+        : (formData.actions_taken || formData.actions),
       case_notes: formData.case_notes,
       
       // Witness
