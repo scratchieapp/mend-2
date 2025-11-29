@@ -435,70 +435,63 @@ get_case_notes(p_incident_id) RETURNS JSONB
 
 ---
 
-## ✅ RESOLVED: Incident Creation Fixed (2025-11-28)
+## ✅ RESOLVED: Incident Submission FULLY WORKING (2025-11-29)
+
+### 🎉 MILESTONE ACHIEVED
+**Incidents can now be successfully submitted via the web form!** This was a persistent issue that required multiple rounds of debugging and fixes.
 
 ### Problem Summary
-Users could not create new incidents via the web form. The "Submit Report" button failed with RLS/permission errors because:
-1. The form passes `mend_client` as the employer **ID** (e.g., "9")
-2. But the RPC functions treated it as an employer **NAME**
-3. So it tried to find/create an employer named "9" instead of using employer_id=9
+Users could not create new incidents via the web form. Multiple issues caused submission failures:
+1. Form passed `mend_client` as employer **ID** but RPCs expected **NAME**
+2. Strict form validation prevented submission (phone format, required fields)
+3. `actions_taken` sent as array but validation expected string
+4. RLS blocked all operations due to Clerk auth not creating Supabase sessions
 
-### Root Causes (ALL FIXED)
-1. **RPC functions didn't handle numeric IDs** ✅ FIXED - Updated RPCs to detect and handle IDs passed as strings
-2. **Transformation service failed due to RLS** ✅ FIXED - Using SECURITY DEFINER RPCs
-3. **Clerk auth doesn't create Supabase session** ✅ FIXED - RPCs bypass RLS with SECURITY DEFINER
+### All Root Causes Fixed ✅
+1. **RPC functions didn't handle numeric IDs** ✅ - Updated RPCs to detect and handle IDs passed as strings
+2. **Transformation service failed due to RLS** ✅ - Using SECURITY DEFINER RPCs
+3. **Clerk auth doesn't create Supabase session** ✅ - RPCs bypass RLS with SECURITY DEFINER
+4. **Form validation too strict** ✅ - Made `incidentReportSchema` permissive (only 4 required fields)
+5. **actions_taken array vs string** ✅ - Validation accepts both; transformation converts to comma-separated string
 
-### Solution Implemented (2025-11-28 - Latest Fix)
-Updated `create_employer_bypassing_rls`, `create_site_bypassing_rls`, and `create_worker_bypassing_rls` to:
-1. First check if the input is a numeric string (e.g., "9")
-2. If numeric, look up by ID directly
-3. If not numeric, look up by name as before
-4. Only create new records if neither lookup succeeds
+### Final Solution (2025-11-29)
+**Form Validation** - Reduced required fields to minimum:
+- `mend_client` (employer)
+- `notifying_person_name`
+- `date_of_injury`
+- `injury_type`
 
-**Migration Applied**: `20251128_fix_employer_rpc_handle_id.sql`
+**Submission Validation** - Accept flexible data types:
+```typescript
+actions_taken: z.union([z.string(), z.array(z.string())]).optional()
+```
 
-### Database Functions Fixed
+**Transformation** - Convert arrays to strings for database:
+```typescript
+actions: Array.isArray(formData.actions_taken) 
+  ? formData.actions_taken.join(', ') 
+  : formData.actions_taken
+```
+
+### Database Functions (SECURITY DEFINER)
 ```sql
--- Now handles both IDs and names correctly
 create_employer_bypassing_rls(p_employer_name text) RETURNS INTEGER
 create_site_bypassing_rls(p_site_name text, p_employer_id integer) RETURNS INTEGER  
 create_worker_bypassing_rls(p_given_name text, p_family_name text, p_employer_id integer) RETURNS INTEGER
+create_incident_bypassing_rls(p_incident_data JSONB) RETURNS JSONB
 ```
 
-### Data Cleanup Performed
-- Fixed incidents 451, 452 that incorrectly referenced employer_id=11 (bogus "9")
-- Fixed worker 165 that incorrectly referenced employer_id=11
-- Deleted bogus employer with name "9" (was employer_id=11)
+### Key Files Modified
+- `/apps/operations/src/lib/validations/incident.ts` - Permissive form validation
+- `/apps/operations/src/components/incident-report/services/submission/validation.ts` - Flexible submission validation
+- `/apps/operations/src/components/incident-report/services/submission/transformation.ts` - Array to string conversion
+- `/apps/operations/src/pages/IncidentReport.tsx` - Debug logging, fixed submit button
 
-### Files Modified
-- `/supabase/migrations/20251128_fix_incident_creation_comprehensive.sql` - New RPC functions
-- `/apps/operations/src/lib/validations/incident.ts` - Relaxed form validation
-- `/apps/operations/src/components/incident-report/services/submission/validation.ts` - Relaxed submission validation
-- `/apps/operations/src/components/incident-report/services/submission/database.ts` - Simplified to use new RPC
-- `/apps/operations/src/pages/IncidentReport.tsx` - Removed `isDirty` condition from submit button
-
-### Database Functions Created
-```sql
--- Primary function for incident submission (SECURITY DEFINER)
-submit_incident_report(p_form_data JSONB) RETURNS JSONB
-
--- Returns: { "success": true, "incident_id": 123 }
--- Or: { "success": false, "error": "error message" }
-
--- Also updated: create_incident_bypassing_rls(p_incident_data JSONB)
-```
-
-### Testing
-```sql
--- Test the new function
-SELECT submit_incident_report('{
-  "mend_client": "1",
-  "notifying_person_name": "Test User",
-  "injury_type": "Laceration",
-  "date_of_injury": "2025-11-28"
-}'::jsonb);
--- Returns: {"success": true, "incident_id": XXX}
-```
+### ⏳ Future Work: Incident View/Display
+The incident submission flow is complete, but the following needs work:
+- **Incident Details Page**: Connect displayed data with actual incident record fields
+- **Incident List**: Ensure all columns show correct data from database
+- **Field Mapping**: Some form fields may not map correctly to display fields
 
 ---
 
@@ -765,6 +758,6 @@ npm run preview      # Preview build
 
 ---
 
-**Last Updated**: November 28, 2025
-**Version**: 4.10.0
-**Status**: ✅ PRODUCTION READY | ✅ Voice Agent - Fully Operational | ✅ RLS + Clerk Auth - Fixed | ✅ Incident Edit - Enhanced | ✅ Progressive Case Notes
+**Last Updated**: November 29, 2025
+**Version**: 4.11.0
+**Status**: ✅ PRODUCTION READY | ✅ Incident Submission - WORKING | ✅ Voice Agent - Fully Operational | ✅ RLS + Clerk Auth - Fixed | ✅ Worker Management - Added
