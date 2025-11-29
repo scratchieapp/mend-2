@@ -42,6 +42,19 @@ const CITY_COORDINATES: Record<string, { lat: number; lng: number }> = {
   'geelong': { lat: -38.1499, lng: 144.3617 },
   'townsville': { lat: -19.2576, lng: 146.8237 },
   'cairns': { lat: -16.9186, lng: 145.7781 },
+  // Hunter Region NSW
+  'kurri kurri': { lat: -32.8198, lng: 151.4831 },
+  'maitland': { lat: -32.7330, lng: 151.5549 },
+  'cessnock': { lat: -32.8318, lng: 151.3570 },
+  'singleton': { lat: -32.5688, lng: 151.1750 },
+  // Central Coast NSW
+  'gosford': { lat: -33.4266, lng: 151.3416 },
+  'wyong': { lat: -33.2833, lng: 151.4167 },
+  // Other NSW
+  'parramatta': { lat: -33.8150, lng: 151.0012 },
+  'penrith': { lat: -33.7510, lng: 150.6920 },
+  'liverpool': { lat: -33.9200, lng: 150.9260 },
+  'blacktown': { lat: -33.7690, lng: 150.9060 },
 };
 
 // Get coordinates from city name
@@ -120,6 +133,10 @@ export function GoogleSitesMap({
       }
       const infoWindow = infoWindowRef.current;
 
+      // Create bounds to fit all markers
+      const bounds = new google.maps.LatLngBounds();
+      let hasValidMarkers = false;
+
       // Add markers for each site
       sites.forEach(site => {
         const coords = site.latitude && site.longitude 
@@ -127,6 +144,10 @@ export function GoogleSitesMap({
           : getCoordinatesFromCity(site.city);
 
         if (!coords) return;
+
+        // Extend bounds to include this marker
+        bounds.extend(coords);
+        hasValidMarkers = true;
 
         // Determine marker color based on status or mode
         let markerColor = '#22c55e'; // Green for active (working)
@@ -150,6 +171,7 @@ export function GoogleSitesMap({
           position: coords,
           title: site.site_name,
           icon: markerIcon,
+          animation: google.maps.Animation.DROP, // Add drop animation
         });
 
         // Add click listener for info window
@@ -202,6 +224,23 @@ export function GoogleSitesMap({
 
         markersRef.current.push(marker);
       });
+
+      // Auto-fit map to show all markers with padding
+      if (hasValidMarkers && markersRef.current.length > 0) {
+        map.fitBounds(bounds);
+        
+        // Add a listener to prevent zooming in too close for single markers
+        google.maps.event.addListenerOnce(map, 'bounds_changed', () => {
+          const currentZoom = map.getZoom();
+          if (currentZoom && currentZoom > 15) {
+            map.setZoom(15); // Don't zoom closer than street level
+          }
+          // Add some padding by zooming out slightly if very close
+          if (markersRef.current.length === 1 && currentZoom && currentZoom > 14) {
+            map.setZoom(14);
+          }
+        });
+      }
 
     } catch (error) {
       console.error('Error initializing map:', error);
