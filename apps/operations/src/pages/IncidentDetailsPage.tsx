@@ -131,7 +131,7 @@ const IncidentDetailsPage = () => {
     queryFn: async () => {
       if (!id) throw new Error('No incident ID provided');
       
-      // Use dedicated RPC to fetch full incident details with RBAC
+      // Use enhanced RPC that returns ALL joined data in a single call
       const { data: incidentFromRpc, error: rpcError } = await supabase.rpc('get_incident_details', {
         p_incident_id: parseInt(id),
         p_user_role_id: userData?.role_id || null,
@@ -147,71 +147,21 @@ const IncidentDetailsPage = () => {
         throw new Error('Incident not found or access denied');
       }
 
-      console.log('Raw incident data from RPC:', incidentFromRpc);
+      console.log('Full incident data from RPC:', incidentFromRpc);
 
-      // Fetch worker details
-      let workerData = null;
-      if (incidentFromRpc.worker_id) {
-        const { data } = await supabase
-          .from('workers')
-          .select('worker_id, given_name, family_name, phone_number, mobile_number, occupation, employer_id')
-          .eq('worker_id', incidentFromRpc.worker_id)
-          .maybeSingle();
-        workerData = data;
-      }
-
-      // Fetch site details (including coordinates for map)
-      let siteDetails = null;
-      if (incidentFromRpc.site_id) {
-        const { data: siteData } = await supabase
-          .from('sites')
-          .select('site_id, site_name, street_address, city, post_code, state, longitude, latitude')
-          .eq('site_id', incidentFromRpc.site_id)
-          .maybeSingle();
-        siteDetails = siteData;
-      }
-
-      // Fetch body part details if available
-      let bodyPartDetails = null;
-      if (incidentFromRpc.body_part_id) {
-        const { data: bodyPartData } = await supabase
-          .from('body_parts')
-          .select('body_part_id, body_part_name')
-          .eq('body_part_id', incidentFromRpc.body_part_id)
-          .maybeSingle();
-        bodyPartDetails = bodyPartData;
-      }
-
-      // Fetch department details if available
-      let departmentDetails = null;
-      if (incidentFromRpc.department_id) {
-        const { data: deptData } = await supabase
-          .from('departments')
-          .select('department_id, department_name')
-          .eq('department_id', incidentFromRpc.department_id)
-          .maybeSingle();
-        departmentDetails = deptData;
-      }
-
-      // Fetch employer name if we have workers_employer field or employer_id
-      let employerName = incidentFromRpc.workers_employer;
-      if (!employerName && incidentFromRpc.employer_id) {
-        const { data: employerData } = await supabase
-          .from('employers')
-          .select('employer_name')
-          .eq('employer_id', incidentFromRpc.employer_id)
-          .maybeSingle();
-        employerName = employerData?.employer_name;
-      }
+      // The RPC now returns all joined data directly
+      // Get employer name from the joined employer data or workers_employer field
+      const employerName = incidentFromRpc.workers_employer || incidentFromRpc.employer?.employer_name;
       
       return {
         ...incidentFromRpc,
-        site: siteDetails,
-        worker: workerData,
-        department: departmentDetails,
-        body_part: bodyPartDetails,
+        // Map the nested objects to the expected format
+        site: incidentFromRpc.site,
+        worker: incidentFromRpc.worker,
+        department: incidentFromRpc.department,
+        body_part: incidentFromRpc.body_part,
         workers_employer: employerName,
-        // Ensure body_regions is an array (might be stored in DB)
+        // Ensure body_regions is an array
         body_regions: Array.isArray(incidentFromRpc.body_regions) ? incidentFromRpc.body_regions : [],
       } as IncidentWithRelations;
     },

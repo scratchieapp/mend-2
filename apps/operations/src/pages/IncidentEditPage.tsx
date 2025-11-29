@@ -223,7 +223,7 @@ const IncidentEditPage = () => {
     queryFn: async () => {
       if (!id) throw new Error('No incident ID provided');
       
-      // Use the new dedicated RPC for full incident details
+      // Use enhanced RPC that returns ALL joined data in a single call
       const { data: incidentFromRpc, error: rpcError } = await supabase.rpc('get_incident_details', {
         p_incident_id: parseInt(id),
         p_user_role_id: userData?.role_id || null,
@@ -239,51 +239,20 @@ const IncidentEditPage = () => {
         throw new Error('Incident not found or access denied');
       }
 
-      console.log('Raw incident data from RPC:', incidentFromRpc);
+      console.log('Full incident data from RPC:', incidentFromRpc);
 
-      // Fetch worker details
-      let workerData = null;
-      if (incidentFromRpc.worker_id) {
-        const { data } = await supabase
-          .from('workers')
-          .select('worker_id, given_name, family_name, phone_number, mobile_number, employer_id, employment_type, employment_arrangement, basis_of_employment')
-          .eq('worker_id', incidentFromRpc.worker_id)
-          .maybeSingle();
-        workerData = data;
-      }
-
-      // Fetch employer details
-      let employerData = null;
-      if (incidentFromRpc.employer_id) {
-        const { data } = await supabase
-          .from('employers')
-          .select('employer_id, employer_name, employer_address, employer_phone, manager_name')
-          .eq('employer_id', incidentFromRpc.employer_id)
-          .maybeSingle();
-        employerData = data;
-      }
-
-      // Fetch site details
-      let siteData = null;
-      if (incidentFromRpc.site_id) {
-        const { data } = await supabase
-          .from('sites')
-          .select('site_id, site_name, street_address, city, state, post_code, supervisor_name, supervisor_telephone')
-          .eq('site_id', incidentFromRpc.site_id)
-          .maybeSingle();
-        siteData = data;
-      }
-
-      // Construct the full incident data object
+      // The RPC now returns all joined data directly
+      // Map to the expected format for the form
       const fullIncidentData = {
         ...incidentFromRpc,
         incident_id: incidentFromRpc.incident_id,
-        workers: workerData,
-        employers: employerData,
-        sites: siteData
+        // Map nested objects to match expected property names
+        workers: incidentFromRpc.worker,
+        employers: incidentFromRpc.employer,
+        sites: incidentFromRpc.site,
       };
       
-      console.log('Fetched incident data:', fullIncidentData);
+      console.log('Mapped incident data for form:', fullIncidentData);
       return fullIncidentData;
     },
     enabled: !!id && !!userData,
@@ -326,116 +295,106 @@ const IncidentEditPage = () => {
 
   // Populate form with existing data
   useEffect(() => {
-    const populateForm = async () => {
-      if (!incidentData) return;
-      
-      console.log('Raw incident data received:', incidentData);
-      
-      // Store original data for change tracking (only once)
-      if (!originalDataRef.current) {
-        originalDataRef.current = {
-          notifying_person_name: incidentData.notifying_person_name || '',
-          notifying_person_position: incidentData.notifying_person_position || '',
-          notifying_person_telephone: incidentData.notifying_person_telephone || '',
-          worker_id: incidentData.worker_id,
-          site_id: incidentData.site_id,
-          date_of_injury: incidentData.date_of_injury || '',
-          time_of_injury: incidentData.time_of_injury || '',
-          injury_type: incidentData.injury_type || '',
-          body_part_id: incidentData.body_part_id,
-          body_side_id: incidentData.body_side_id,
-          injury_description: incidentData.injury_description || '',
-          witness: incidentData.witness || '',
-          treatment_provided: incidentData.treatment_provided || '',
-          referral: incidentData.referral || '',
-          doctor_details: incidentData.doctor_details || incidentData.doctor_notes || '',
-          actions: incidentData.actions || '',
-          case_notes: incidentData.case_notes || '',
-        };
-      }
-      
-      // Fetch body part name to derive body_regions for the diagram
-      let bodyPartName = '';
-      let derivedBodyRegions: string[] = [];
-      if (incidentData.body_part_id) {
-        const { data: bodyPartData } = await supabase
-          .from('body_parts')
-          .select('body_part_name')
-          .eq('body_part_id', incidentData.body_part_id)
-          .maybeSingle();
-        
-        if (bodyPartData?.body_part_name) {
-          bodyPartName = bodyPartData.body_part_name;
-          derivedBodyRegions = getBodyRegionsFromBodyPartName(bodyPartName);
-        }
-      }
-      
-      // Map database fields to form fields properly
-      const formData = {
-        // Notification section - use employer_id for mend_client dropdown
-        mend_client: incidentData.employer_id?.toString() || "",
-        notifying_person_name: incidentData.notifying_person_name || "",
-        notifying_person_position: incidentData.notifying_person_position || "",
-        notifying_person_telephone: incidentData.notifying_person_telephone || "",
-        
-        // Worker details
-        worker_id: incidentData.worker_id?.toString() || "",
-        
-        // Employment section
-        employer_name: incidentData.workers_employer || incidentData.employers?.employer_name || "",
-        location_site: incidentData.site_id?.toString() || "",
-        supervisor_contact: incidentData.sites?.supervisor_name || "",
-        supervisor_phone: incidentData.sites?.supervisor_telephone || "",
-        employment_type: incidentData.workers?.basis_of_employment === "Full Time" ? "full_time" :
-                        incidentData.workers?.basis_of_employment === "Part Time" ? "part_time" :
-                        incidentData.workers?.basis_of_employment === "Casual" ? "casual" :
-                        incidentData.workers?.basis_of_employment === "Contract" ? "contractor" :
-                        "full_time" as const,
-        
-        // Injury details
-        date_of_injury: incidentData.date_of_injury || "",
-        time_of_injury: incidentData.time_of_injury ? 
-          incidentData.time_of_injury.substring(0, 5) : "", // Extract HH:MM from time
-        injury_type: incidentData.injury_type || "",
-        body_part: incidentData.body_part_id?.toString() || "", // Use body_part_id
-        body_side: incidentData.body_side_id?.toString() || "", // Store as ID string for dropdown
-        body_regions: derivedBodyRegions, // Derived from body_part_name
-        injury_description: incidentData.injury_description || "",
-        witness: incidentData.witness || "",
-        // Extended injury fields - store as ID strings
-        mechanism_of_injury: incidentData.moi_code_id?.toString() || "",
-        bodily_location_detail: incidentData.bl_code_id?.toString() || "",
-        
-        // Treatment details - map from available fields
-        type_of_first_aid: incidentData.treatment_provided || "", // Use treatment_provided as first aid
-        referred_to: (incidentData.referral?.toLowerCase() || "none") as "none" | "hospital" | "gp" | "specialist" | "physio",
-        doctor_details: incidentData.doctor_details || incidentData.doctor_notes || "",
-        selected_medical_professional: incidentData.doctor_id?.toString() || "",
-        
-        // Actions taken
-        actions_taken: incidentData.actions ? 
-          incidentData.actions.split(';').map((action: string) => action.trim()).filter(Boolean) : [], // Split string into array
-        
-        // Case notes - separate call transcripts from general notes
-        case_notes: extractCaseNotesWithoutTranscript(incidentData.case_notes || ""),
-        call_transcripts: extractCallTranscript(incidentData.case_notes || ""),
-        
-        // Documents will be loaded separately
-        documents: [],
+    if (!incidentData) return;
+    
+    console.log('Raw incident data received:', incidentData);
+    
+    // Store original data for change tracking (only once)
+    if (!originalDataRef.current) {
+      originalDataRef.current = {
+        notifying_person_name: incidentData.notifying_person_name || '',
+        notifying_person_position: incidentData.notifying_person_position || '',
+        notifying_person_telephone: incidentData.notifying_person_telephone || '',
+        worker_id: incidentData.worker_id,
+        site_id: incidentData.site_id,
+        date_of_injury: incidentData.date_of_injury || '',
+        time_of_injury: incidentData.time_of_injury || '',
+        injury_type: incidentData.injury_type || '',
+        body_part_id: incidentData.body_part_id,
+        body_side_id: incidentData.body_side_id,
+        injury_description: incidentData.injury_description || '',
+        witness: incidentData.witness || '',
+        treatment_provided: incidentData.treatment_provided || '',
+        referral: incidentData.referral || '',
+        doctor_details: incidentData.doctor_details || incidentData.doctor_notes || '',
+        actions: incidentData.actions || '',
+        case_notes: incidentData.case_notes || '',
       };
+    }
+    
+    // Get body part name from joined data to derive body_regions for the diagram
+    let bodyPartName = '';
+    let derivedBodyRegions: string[] = [];
+    if (incidentData.body_part?.body_part_name) {
+      bodyPartName = incidentData.body_part.body_part_name;
+      derivedBodyRegions = getBodyRegionsFromBodyPartName(bodyPartName);
+    }
+    
+    // Map database fields to form fields properly
+    const formData = {
+      // Notification section - use employer_id for mend_client dropdown
+      mend_client: incidentData.employer_id?.toString() || "",
+      notifying_person_name: incidentData.notifying_person_name || "",
+      notifying_person_position: incidentData.notifying_person_position || "",
+      notifying_person_telephone: incidentData.notifying_person_telephone || "",
       
-      console.log('Mapped form data:', formData);
-      console.log('Derived body regions from body part:', bodyPartName, derivedBodyRegions);
-      console.log('Current form values before reset:', form.getValues());
+      // Worker details - use worker_id directly
+      worker_id: incidentData.worker_id?.toString() || "",
       
-      // Use setTimeout to ensure the form is ready before resetting
-      setTimeout(() => {
-        form.reset(formData);
-        console.log('Form values after reset:', form.getValues());
-      }, 0);
+      // Employment section - use joined data
+      employer_name: incidentData.workers_employer || incidentData.employers?.employer_name || incidentData.employer?.employer_name || "",
+      location_site: incidentData.site_id?.toString() || "",
+      supervisor_contact: incidentData.sites?.supervisor_name || incidentData.site?.supervisor_name || "",
+      supervisor_phone: incidentData.sites?.supervisor_telephone || incidentData.site?.supervisor_telephone || "",
+      employment_type: (incidentData.workers?.basis_of_employment || incidentData.worker?.basis_of_employment) === "Full Time" ? "full_time" :
+                      (incidentData.workers?.basis_of_employment || incidentData.worker?.basis_of_employment) === "Part Time" ? "part_time" :
+                      (incidentData.workers?.basis_of_employment || incidentData.worker?.basis_of_employment) === "Casual" ? "casual" :
+                      (incidentData.workers?.basis_of_employment || incidentData.worker?.basis_of_employment) === "Contract" ? "contractor" :
+                      "full_time" as const,
+      
+      // Injury details
+      date_of_injury: incidentData.date_of_injury || "",
+      time_of_injury: incidentData.time_of_injury ? 
+        incidentData.time_of_injury.substring(0, 5) : "", // Extract HH:MM from time
+      injury_type: incidentData.injury_type || "",
+      body_part: incidentData.body_part_id?.toString() || "", // Use body_part_id
+      body_side: incidentData.body_side_id?.toString() || "", // Store as ID string for dropdown
+      body_regions: derivedBodyRegions, // Derived from body_part_name
+      injury_description: incidentData.injury_description || "",
+      witness: incidentData.witness || "",
+      // Extended injury fields - store as ID strings
+      mechanism_of_injury: incidentData.moi_code_id?.toString() || "",
+      bodily_location_detail: incidentData.bl_code_id?.toString() || "",
+      
+      // Treatment details - map from available fields
+      type_of_first_aid: incidentData.treatment_provided || "", // Use treatment_provided as first aid
+      referred_to: (incidentData.referral?.toLowerCase() || "none") as "none" | "hospital" | "gp" | "specialist" | "physio",
+      doctor_details: incidentData.doctor_details || incidentData.doctor_notes || "",
+      selected_medical_professional: incidentData.doctor_id?.toString() || "",
+      
+      // Actions taken
+      actions_taken: incidentData.actions ? 
+        incidentData.actions.split(';').map((action: string) => action.trim()).filter(Boolean) : [], // Split string into array
+      
+      // Case notes - separate call transcripts from general notes
+      case_notes: extractCaseNotesWithoutTranscript(incidentData.case_notes || ""),
+      call_transcripts: extractCallTranscript(incidentData.case_notes || ""),
+      
+      // Documents will be loaded separately
+      documents: [],
     };
     
-    populateForm();
+    console.log('Mapped form data:', formData);
+    console.log('Worker ID for form:', incidentData.worker_id, '-> form value:', formData.worker_id);
+    console.log('Site ID for form:', incidentData.site_id, '-> form value:', formData.location_site);
+    console.log('Derived body regions from body part:', bodyPartName, derivedBodyRegions);
+    console.log('Current form values before reset:', form.getValues());
+    
+    // Use setTimeout to ensure the form is ready before resetting
+    setTimeout(() => {
+      form.reset(formData);
+      console.log('Form values after reset:', form.getValues());
+    }, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incidentData]);
 
