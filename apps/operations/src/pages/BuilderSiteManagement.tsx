@@ -53,6 +53,7 @@ interface Site {
   state: string;
   post_code: string;
   employer_id: number;
+  supervisor_id?: number;
   supervisor_name?: string;
   supervisor_telephone?: string;
   project_type?: string;
@@ -66,12 +67,24 @@ interface Site {
   status?: 'working' | 'paused' | 'finished';
 }
 
+interface SupervisorWorker {
+  worker_id: number;
+  given_name: string;
+  family_name: string;
+  full_name: string;
+  occupation: string;
+  mobile_number: string;
+  phone_number: string;
+  email: string;
+}
+
 interface SiteFormData {
   site_name: string;
   street_address: string;
   city: string;
   state: string;
   post_code: string;
+  supervisor_id?: number;
   supervisor_name: string;
   supervisor_telephone: string;
   project_type: string;
@@ -80,12 +93,35 @@ interface SiteFormData {
   longitude?: number;
 }
 
+// Format phone to Australian format
+const formatAustralianPhone = (phone: string): string => {
+  if (!phone) return '';
+  // Remove all non-digits
+  const digits = phone.replace(/\D/g, '');
+  
+  // Mobile (04xx)
+  if (digits.startsWith('04') || digits.startsWith('614')) {
+    const mobile = digits.startsWith('614') ? '0' + digits.slice(2) : digits;
+    if (mobile.length === 10) {
+      return `${mobile.slice(0, 4)} ${mobile.slice(4, 7)} ${mobile.slice(7)}`;
+    }
+  }
+  
+  // Landline (02, 03, 07, 08)
+  if (digits.length === 10 && digits.startsWith('0')) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)} ${digits.slice(6)}`;
+  }
+  
+  return phone;
+};
+
 export default function BuilderSiteManagement() {
   const { isAuthenticated, isLoading: authLoading, userData } = useAuth();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isNewSupervisorDialogOpen, setIsNewSupervisorDialogOpen] = useState(false);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [showMap, setShowMap] = useState(true);
   const [formData, setFormData] = useState<SiteFormData>({
@@ -94,12 +130,19 @@ export default function BuilderSiteManagement() {
     city: "",
     state: "",
     post_code: "",
+    supervisor_id: undefined,
     supervisor_name: "",
     supervisor_telephone: "",
     project_type: "",
     aliases: "",
     latitude: undefined,
     longitude: undefined,
+  });
+  const [newSupervisorData, setNewSupervisorData] = useState({
+    given_name: "",
+    family_name: "",
+    mobile_number: "",
+    occupation: "Site Supervisor",
   });
 
   const { toast } = useToast();
@@ -121,6 +164,25 @@ export default function BuilderSiteManagement() {
         .single();
       if (error) throw error;
       return data;
+    },
+    enabled: !!userEmployerId && isAuthenticated && !authLoading
+  });
+
+  // Fetch supervisor workers (managers, supervisors, foremen, etc.)
+  const { data: supervisorWorkers, refetch: refetchSupervisors } = useQuery({
+    queryKey: ['supervisor-workers', userEmployerId],
+    queryFn: async () => {
+      if (!userEmployerId) return [];
+      const { data, error } = await supabase.rpc('get_supervisor_workers', {
+        p_employer_id: userEmployerId,
+        p_user_role_id: userData?.role_id ? parseInt(userData.role_id) : null,
+        p_user_employer_id: userEmployerId
+      });
+      if (error) {
+        console.error('Error fetching supervisor workers:', error);
+        return [];
+      }
+      return (data || []) as SupervisorWorker[];
     },
     enabled: !!userEmployerId && isAuthenticated && !authLoading
   });
@@ -176,6 +238,43 @@ export default function BuilderSiteManagement() {
     enabled: !!userEmployerId && isAuthenticated && !authLoading
   });
 
+  // Create new supervisor mutation
+  const createSupervisorMutation = useMutation({
+    mutationFn: async (data: typeof newSupervisorData) => {
+      const { data: result, error } = await supabase.rpc('add_worker_rbac', {
+        p_given_name: data.given_name,
+        p_family_name: data.family_name,
+        p_mobile_number: data.mobile_number,
+        p_occupation: data.occupation,
+        p_employer_id: userEmployerId,
+        p_user_role_id: userData?.role_id ? parseInt(userData.role_id) : null,
+        p_user_employer_id: userEmployerId
+      });
+      if (error) throw error;
+      if (!result?.success) throw new Error(result?.error || 'Failed to create supervisor');
+      return result;
+    },
+    onSuccess: async (result) => {
+      await refetchSupervisors();
+      // Set the new supervisor as selected
+      if (result.worker_id) {
+        const newSupervisor = supervisorWorkers?.find(s => s.worker_id === result.worker_id);
+        setFormData(prev => ({
+          ...prev,
+          supervisor_id: result.worker_id,
+          supervisor_name: `${newSupervisorData.given_name} ${newSupervisorData.family_name}`,
+          supervisor_telephone: newSupervisorData.mobile_number,
+        }));
+      }
+      toast({ title: "Success", description: "New supervisor added successfully." });
+      setIsNewSupervisorDialogOpen(false);
+      setNewSupervisorData({ given_name: "", family_name: "", mobile_number: "", occupation: "Site Supervisor" });
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: `Failed to create supervisor: ${error.message}`, variant: "destructive" });
+    }
+  });
+
   // Create site mutation
   const createSiteMutation = useMutation({
     mutationFn: async (data: SiteFormData) => {
@@ -191,6 +290,7 @@ export default function BuilderSiteManagement() {
           city: data.city,
           state: data.state,
           post_code: data.post_code,
+          supervisor_id: data.supervisor_id || null,
           supervisor_name: data.supervisor_name,
           supervisor_telephone: data.supervisor_telephone,
           project_type: data.project_type,
@@ -231,6 +331,7 @@ export default function BuilderSiteManagement() {
           city: data.city,
           state: data.state,
           post_code: data.post_code,
+          supervisor_id: data.supervisor_id || null,
           supervisor_name: data.supervisor_name,
           supervisor_telephone: data.supervisor_telephone,
           project_type: data.project_type,
@@ -330,6 +431,7 @@ export default function BuilderSiteManagement() {
       city: "",
       state: "",
       post_code: "",
+      supervisor_id: undefined,
       supervisor_name: "",
       supervisor_telephone: "",
       project_type: "",
@@ -347,6 +449,7 @@ export default function BuilderSiteManagement() {
       city: site.city || "",
       state: site.state || "",
       post_code: site.post_code || "",
+      supervisor_id: site.supervisor_id,
       supervisor_name: site.supervisor_name || "",
       supervisor_telephone: site.supervisor_telephone || "",
       project_type: site.project_type || "",
@@ -355,6 +458,26 @@ export default function BuilderSiteManagement() {
       longitude: site.longitude,
     });
     setIsEditDialogOpen(true);
+  };
+
+  // Handle supervisor selection from dropdown
+  const handleSupervisorSelect = (value: string) => {
+    if (value === 'new') {
+      setIsNewSupervisorDialogOpen(true);
+      return;
+    }
+    
+    const workerId = parseInt(value);
+    const supervisor = supervisorWorkers?.find(s => s.worker_id === workerId);
+    
+    if (supervisor) {
+      setFormData(prev => ({
+        ...prev,
+        supervisor_id: workerId,
+        supervisor_name: supervisor.full_name,
+        supervisor_telephone: formatAustralianPhone(supervisor.mobile_number || supervisor.phone_number || ''),
+      }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -507,13 +630,52 @@ export default function BuilderSiteManagement() {
                     <Label htmlFor="project_type">Project Type</Label>
                     <Input id="project_type" value={formData.project_type} onChange={(e) => setFormData({ ...formData, project_type: e.target.value })} placeholder="e.g., Commercial, Residential" />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="supervisor_name">Site Supervisor</Label>
-                    <Input id="supervisor_name" value={formData.supervisor_name} onChange={(e) => setFormData({ ...formData, supervisor_name: e.target.value })} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="supervisor_telephone">Supervisor Phone</Label>
-                    <Input id="supervisor_telephone" value={formData.supervisor_telephone} onChange={(e) => setFormData({ ...formData, supervisor_telephone: e.target.value })} />
+                  <div className="col-span-2 space-y-2">
+                    <Label htmlFor="supervisor_id">Site Supervisor</Label>
+                    <Select 
+                      value={formData.supervisor_id?.toString() || ''} 
+                      onValueChange={handleSupervisorSelect}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a supervisor..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {supervisorWorkers && supervisorWorkers.length > 0 ? (
+                          <>
+                            {supervisorWorkers.map(worker => (
+                              <SelectItem key={worker.worker_id} value={worker.worker_id.toString()}>
+                                <div className="flex items-center gap-2">
+                                  <User className="h-4 w-4 text-muted-foreground" />
+                                  <span>{worker.full_name}</span>
+                                  {worker.occupation && (
+                                    <span className="text-xs text-muted-foreground">({worker.occupation})</span>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="new" className="text-primary font-medium">
+                              <div className="flex items-center gap-2">
+                                <Plus className="h-4 w-4" />
+                                <span>Add New Supervisor...</span>
+                              </div>
+                            </SelectItem>
+                          </>
+                        ) : (
+                          <SelectItem value="new" className="text-primary font-medium">
+                            <div className="flex items-center gap-2">
+                              <Plus className="h-4 w-4" />
+                              <span>Add New Supervisor...</span>
+                            </div>
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {formData.supervisor_id && formData.supervisor_telephone && (
+                      <p className="text-sm text-muted-foreground flex items-center gap-2">
+                        <Phone className="h-3 w-3" />
+                        {formData.supervisor_telephone}
+                      </p>
+                    )}
                   </div>
                   <div className="col-span-2 space-y-2">
                     <Label htmlFor="aliases">Voice Agent Aliases</Label>
@@ -745,13 +907,52 @@ export default function BuilderSiteManagement() {
                   <Label htmlFor="edit_project_type">Project Type</Label>
                   <Input id="edit_project_type" value={formData.project_type} onChange={(e) => setFormData({ ...formData, project_type: e.target.value })} />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit_supervisor_name">Site Supervisor</Label>
-                  <Input id="edit_supervisor_name" value={formData.supervisor_name} onChange={(e) => setFormData({ ...formData, supervisor_name: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit_supervisor_telephone">Supervisor Phone</Label>
-                  <Input id="edit_supervisor_telephone" value={formData.supervisor_telephone} onChange={(e) => setFormData({ ...formData, supervisor_telephone: e.target.value })} />
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="edit_supervisor_id">Site Supervisor</Label>
+                  <Select 
+                    value={formData.supervisor_id?.toString() || ''} 
+                    onValueChange={handleSupervisorSelect}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={formData.supervisor_name || "Select a supervisor..."} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {supervisorWorkers && supervisorWorkers.length > 0 ? (
+                        <>
+                          {supervisorWorkers.map(worker => (
+                            <SelectItem key={worker.worker_id} value={worker.worker_id.toString()}>
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-muted-foreground" />
+                                <span>{worker.full_name}</span>
+                                {worker.occupation && (
+                                  <span className="text-xs text-muted-foreground">({worker.occupation})</span>
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="new" className="text-primary font-medium">
+                            <div className="flex items-center gap-2">
+                              <Plus className="h-4 w-4" />
+                              <span>Add New Supervisor...</span>
+                            </div>
+                          </SelectItem>
+                        </>
+                      ) : (
+                        <SelectItem value="new" className="text-primary font-medium">
+                          <div className="flex items-center gap-2">
+                            <Plus className="h-4 w-4" />
+                            <span>Add New Supervisor...</span>
+                          </div>
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {formData.supervisor_telephone && (
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
+                      <Phone className="h-3 w-3" />
+                      {formData.supervisor_telephone}
+                    </p>
+                  )}
                 </div>
                 <div className="col-span-2 space-y-2">
                   <Label htmlFor="edit_aliases">Voice Agent Aliases</Label>
@@ -764,6 +965,88 @@ export default function BuilderSiteManagement() {
                 <Button type="submit">Update Site</Button>
               </DialogFooter>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* New Supervisor Dialog */}
+        <Dialog open={isNewSupervisorDialogOpen} onOpenChange={setIsNewSupervisorDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add New Supervisor</DialogTitle>
+              <DialogDescription>Create a new supervisor/manager for your sites.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new_given_name">First Name *</Label>
+                  <Input 
+                    id="new_given_name" 
+                    value={newSupervisorData.given_name} 
+                    onChange={(e) => setNewSupervisorData(prev => ({ ...prev, given_name: e.target.value }))} 
+                    required 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new_family_name">Last Name *</Label>
+                  <Input 
+                    id="new_family_name" 
+                    value={newSupervisorData.family_name} 
+                    onChange={(e) => setNewSupervisorData(prev => ({ ...prev, family_name: e.target.value }))} 
+                    required 
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new_mobile">Mobile Number *</Label>
+                <Input 
+                  id="new_mobile" 
+                  type="tel"
+                  value={newSupervisorData.mobile_number} 
+                  onChange={(e) => {
+                    // Format as user types
+                    const input = e.target.value.replace(/\D/g, '');
+                    let formatted = input;
+                    if (input.length > 4) {
+                      formatted = `${input.slice(0, 4)} ${input.slice(4, 7)} ${input.slice(7, 10)}`;
+                    }
+                    setNewSupervisorData(prev => ({ ...prev, mobile_number: formatted.trim() }));
+                  }}
+                  placeholder="0412 345 678"
+                  maxLength={12}
+                  required 
+                />
+                <p className="text-xs text-muted-foreground">Australian mobile format: 04XX XXX XXX</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new_occupation">Role/Occupation</Label>
+                <Select 
+                  value={newSupervisorData.occupation} 
+                  onValueChange={(value) => setNewSupervisorData(prev => ({ ...prev, occupation: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Site Supervisor">Site Supervisor</SelectItem>
+                    <SelectItem value="Site Manager">Site Manager</SelectItem>
+                    <SelectItem value="Foreman">Foreman</SelectItem>
+                    <SelectItem value="Project Manager">Project Manager</SelectItem>
+                    <SelectItem value="Construction Manager">Construction Manager</SelectItem>
+                    <SelectItem value="Project Coordinator">Project Coordinator</SelectItem>
+                    <SelectItem value="Safety Manager">Safety Manager</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsNewSupervisorDialogOpen(false)}>Cancel</Button>
+              <Button 
+                onClick={() => createSupervisorMutation.mutate(newSupervisorData)}
+                disabled={!newSupervisorData.given_name || !newSupervisorData.family_name || !newSupervisorData.mobile_number || createSupervisorMutation.isPending}
+              >
+                {createSupervisorMutation.isPending ? 'Adding...' : 'Add Supervisor'}
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
