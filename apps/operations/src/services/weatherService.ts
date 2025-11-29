@@ -29,35 +29,37 @@ export interface WeatherData {
   is_historical?: boolean;
 }
 
-interface GoogleWeatherResponse {
-  currentConditions?: {
-    temperature?: { value: number; units: string };
-    feelsLike?: { value: number; units: string };
-    humidity?: { value: number };
-    weatherCondition?: { description: { text: string }; type: string };
-    wind?: { 
-      speed?: { value: number; units: string };
-      direction?: { cardinal: string; degrees: number };
-      gust?: { value: number; units: string };
-    };
-    precipitation?: { value: number; units: string };
-    uvIndex?: { value: number };
-    visibility?: { value: number; units: string };
-    pressure?: { value: number; units: string };
-    cloudCover?: { value: number };
-  };
-  forecastHourly?: Array<{
-    forecastStart: string;
-    temperature?: { value: number };
-    humidity?: { value: number };
-    weatherCondition?: { description: { text: string }; type: string };
-    wind?: { speed?: { value: number }; direction?: { cardinal: string } };
-    precipitation?: { value: number };
-  }>;
-}
 
 const GOOGLE_WEATHER_API_URL = 'https://weather.googleapis.com/v1/currentConditions:lookup';
-const GOOGLE_WEATHER_FORECAST_URL = 'https://weather.googleapis.com/v1/forecast:lookup';
+const GOOGLE_WEATHER_FORECAST_URL = 'https://weather.googleapis.com/v1/forecast/hourly:lookup';
+
+// Response format from Google Weather API
+interface GoogleWeatherCurrentResponse {
+  currentTime?: string;
+  timeZone?: { id: string };
+  isDaytime?: boolean;
+  weatherCondition?: {
+    iconBaseUri?: string;
+    description?: { text: string; languageCode: string };
+    type?: string;
+  };
+  temperature?: { degrees: number; unit: string };
+  feelsLikeTemperature?: { degrees: number; unit: string };
+  relativeHumidity?: number;
+  uvIndex?: number;
+  wind?: {
+    direction?: { degrees: number; cardinal: string };
+    speed?: { value: number; unit: string };
+    gust?: { value: number; unit: string };
+  };
+  visibility?: { distance: number; unit: string };
+  cloudCover?: number;
+  airPressure?: { meanSeaLevelMillibars: number };
+  precipitation?: {
+    probability?: { percent: number; type: string };
+    qpf?: { quantity: number; unit: string };
+  };
+}
 
 /**
  * Fetch current weather conditions for a location
@@ -74,53 +76,39 @@ export async function fetchCurrentWeather(
   }
 
   try {
-    const response = await fetch(
-      `${GOOGLE_WEATHER_API_URL}?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          location: {
-            latitude,
-            longitude,
-          },
-          languageCode: 'en-AU',
-          unitsSystem: 'METRIC',
-        }),
-      }
-    );
+    // Google Weather API uses GET requests with query parameters
+    const url = new URL(GOOGLE_WEATHER_API_URL);
+    url.searchParams.append('key', apiKey);
+    url.searchParams.append('location.latitude', latitude.toString());
+    url.searchParams.append('location.longitude', longitude.toString());
+    url.searchParams.append('languageCode', 'en-AU');
+    url.searchParams.append('unitsSystem', 'METRIC');
+
+    const response = await fetch(url.toString());
 
     if (!response.ok) {
-      console.error('Weather API error:', response.status, await response.text());
+      const errorText = await response.text();
+      console.error('Weather API error:', response.status, errorText);
       return null;
     }
 
-    const data: GoogleWeatherResponse = await response.json();
+    const data: GoogleWeatherCurrentResponse = await response.json();
     
-    if (!data.currentConditions) {
-      console.warn('No current conditions in weather response');
-      return null;
-    }
-
-    const current = data.currentConditions;
-
     return {
       captured_at: new Date().toISOString(),
-      temperature_c: current.temperature?.value ?? null,
-      feels_like_c: current.feelsLike?.value ?? null,
-      humidity_percent: current.humidity?.value ?? null,
-      conditions: current.weatherCondition?.description?.text ?? null,
-      conditions_code: current.weatherCondition?.type ?? null,
-      wind_speed_kmh: current.wind?.speed?.value ?? null,
-      wind_direction: current.wind?.direction?.cardinal ?? null,
-      wind_gust_kmh: current.wind?.gust?.value ?? null,
-      precipitation_mm: current.precipitation?.value ?? null,
-      uv_index: current.uvIndex?.value ?? null,
-      visibility_km: current.visibility?.value ?? null,
-      pressure_hpa: current.pressure?.value ?? null,
-      cloud_cover_percent: current.cloudCover?.value ?? null,
+      temperature_c: data.temperature?.degrees ?? null,
+      feels_like_c: data.feelsLikeTemperature?.degrees ?? null,
+      humidity_percent: data.relativeHumidity ?? null,
+      conditions: data.weatherCondition?.description?.text ?? null,
+      conditions_code: data.weatherCondition?.type ?? null,
+      wind_speed_kmh: data.wind?.speed?.value ?? null,
+      wind_direction: data.wind?.direction?.cardinal ?? null,
+      wind_gust_kmh: data.wind?.gust?.value ?? null,
+      precipitation_mm: data.precipitation?.qpf?.quantity ?? null,
+      uv_index: data.uvIndex ?? null,
+      visibility_km: data.visibility?.distance ?? null,
+      pressure_hpa: data.airPressure?.meanSeaLevelMillibars ?? null,
+      cloud_cover_percent: data.cloudCover ?? null,
       source: 'google_weather_api',
       location: {
         latitude,
