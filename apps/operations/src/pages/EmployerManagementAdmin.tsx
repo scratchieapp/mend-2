@@ -69,6 +69,7 @@ interface Employer {
   manager_phone?: string;
   manager_email?: string;
   abn?: string;
+  aliases?: string[];
   created_at: string;
   updated_at: string;
   user_count?: number;
@@ -85,6 +86,7 @@ interface EmployerFormData {
   manager_phone: string;
   manager_email: string;
   abn: string;
+  aliases: string;  // Comma-separated for easy input
 }
 
 export default function EmployerManagementAdmin() {
@@ -102,6 +104,7 @@ export default function EmployerManagementAdmin() {
     manager_phone: "",
     manager_email: "",
     abn: "",
+    aliases: "",
   });
 
   const { toast } = useToast();
@@ -146,9 +149,15 @@ export default function EmployerManagementAdmin() {
   // Create employer mutation
   const createEmployerMutation = useMutation({
     mutationFn: async (data: EmployerFormData) => {
+      // Convert comma-separated aliases string to array
+      const aliasesArray = data.aliases
+        ? data.aliases.split(',').map(a => a.trim()).filter(a => a.length > 0)
+        : [];
+      
+      const { aliases, ...restData } = data;
       const { data: newEmployer, error } = await supabase
         .from('employers')
-        .insert([data])
+        .insert([{ ...restData, aliases: aliasesArray }])
         .select()
         .single();
 
@@ -176,9 +185,15 @@ export default function EmployerManagementAdmin() {
   // Update employer mutation
   const updateEmployerMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: EmployerFormData }) => {
+      // Convert comma-separated aliases string to array
+      const aliasesArray = data.aliases
+        ? data.aliases.split(',').map(a => a.trim()).filter(a => a.length > 0)
+        : [];
+      
+      const { aliases, ...restData } = data;
       const { data: updatedEmployer, error } = await supabase
         .from('employers')
-        .update(data)
+        .update({ ...restData, aliases: aliasesArray })
         .eq('employer_id', id)
         .select()
         .single();
@@ -261,6 +276,7 @@ export default function EmployerManagementAdmin() {
       manager_phone: "",
       manager_email: "",
       abn: "",
+      aliases: "",
     });
   };
 
@@ -276,6 +292,7 @@ export default function EmployerManagementAdmin() {
       manager_phone: employer.manager_phone || "",
       manager_email: employer.manager_email || "",
       abn: employer.abn || "",
+      aliases: employer.aliases?.join(', ') || "",
     });
     setIsEditDialogOpen(true);
   };
@@ -430,6 +447,18 @@ export default function EmployerManagementAdmin() {
                           value={formData.manager_email}
                           onChange={(e) => setFormData({ ...formData, manager_email: e.target.value })}
                         />
+                      </div>
+                      <div className="col-span-2 space-y-2">
+                        <Label htmlFor="aliases">Voice Agent Aliases</Label>
+                        <Input
+                          id="aliases"
+                          value={formData.aliases}
+                          onChange={(e) => setFormData({ ...formData, aliases: e.target.value })}
+                          placeholder="RIX, Ricks, Rex (comma-separated)"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Alternative names the voice agent should recognize. Include phonetic variations (e.g., how speech-to-text might transcribe the name).
+                        </p>
                       </div>
                     </div>
                     <DialogFooter>
@@ -645,6 +674,18 @@ export default function EmployerManagementAdmin() {
                     value={formData.manager_email}
                     onChange={(e) => setFormData({ ...formData, manager_email: e.target.value })}
                   />
+                </div>
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="edit_aliases">Voice Agent Aliases</Label>
+                  <Input
+                    id="edit_aliases"
+                    value={formData.aliases}
+                    onChange={(e) => setFormData({ ...formData, aliases: e.target.value })}
+                    placeholder="RIX, Ricks, Rex (comma-separated)"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Alternative names the voice agent should recognize. Include phonetic variations (e.g., how speech-to-text might transcribe the name).
+                  </p>
                 </div>
               </div>
               <DialogFooter>

@@ -25,6 +25,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 interface LookupSiteRequest {
   site_name: string;
+  employer_id?: number; // Filter sites by employer (IMPORTANT: pass this after employer is identified)
   city?: string; // Optional city/suburb for disambiguation
 }
 
@@ -128,37 +129,42 @@ serve(async (req: Request) => {
     console.log('Raw request data:', JSON.stringify(rawData));
 
     // Retell might send data in different formats:
-    // 1. Direct: { site_name: "...", city: "..." }
-    // 2. Nested in args: { args: { site_name: "..." } }
-    // 3. Nested in arguments: { arguments: { site_name: "..." } }
+    // 1. Direct: { site_name: "...", employer_id: 123, city: "..." }
+    // 2. Nested in args: { args: { site_name: "...", employer_id: 123 } }
+    // 3. Nested in arguments: { arguments: { site_name: "...", employer_id: 123 } }
     let site_name: string | undefined;
+    let employer_id: number | undefined;
     let city: string | undefined;
 
     if (typeof rawData === 'object' && rawData !== null) {
       // Try direct access first
       site_name = rawData.site_name;
+      employer_id = rawData.employer_id ? Number(rawData.employer_id) : undefined;
       city = rawData.city;
 
       // Try nested in 'args'
       if (!site_name && rawData.args) {
         site_name = rawData.args.site_name;
+        employer_id = rawData.args.employer_id ? Number(rawData.args.employer_id) : employer_id;
         city = rawData.args.city;
       }
 
       // Try nested in 'arguments'
       if (!site_name && rawData.arguments) {
         site_name = rawData.arguments.site_name;
+        employer_id = rawData.arguments.employer_id ? Number(rawData.arguments.employer_id) : employer_id;
         city = rawData.arguments.city;
       }
 
       // Try nested in 'input'
       if (!site_name && rawData.input) {
         site_name = rawData.input.site_name;
+        employer_id = rawData.input.employer_id ? Number(rawData.input.employer_id) : employer_id;
         city = rawData.input.city;
       }
     }
 
-    console.log('Extracted site_name:', site_name, 'city:', city);
+    console.log('Extracted site_name:', site_name, 'employer_id:', employer_id, 'city:', city);
 
     if (!site_name || site_name.trim().length < 2) {
       return new Response(
@@ -175,7 +181,7 @@ serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const searchTerm = site_name.trim().toLowerCase();
-    console.log('Looking up site:', searchTerm, city ? `in ${city}` : '');
+    console.log('Looking up site:', searchTerm, employer_id ? `for employer ${employer_id}` : '', city ? `in ${city}` : '');
 
     // Build query - join with employers to get employer info
     let query = supabase
@@ -198,6 +204,12 @@ serve(async (req: Request) => {
       `
       )
       .ilike('site_name', `%${searchTerm}%`);
+
+    // IMPORTANT: Filter by employer_id if provided (should be passed after employer is identified)
+    if (employer_id) {
+      query = query.eq('employer_id', employer_id);
+      console.log('Filtering sites by employer_id:', employer_id);
+    }
 
     // Add city filter if provided
     if (city) {
@@ -276,7 +288,7 @@ serve(async (req: Request) => {
     let fuzzyMatches: SiteMatch[] = [];
 
     for (const word of words) {
-      const { data: wordMatches } = await supabase
+      let wordQuery = supabase
         .from('sites')
         .select(
           `
@@ -293,8 +305,14 @@ serve(async (req: Request) => {
           )
         `
         )
-        .ilike('site_name', `%${word}%`)
-        .limit(5);
+        .ilike('site_name', `%${word}%`);
+
+      // Filter by employer_id if provided
+      if (employer_id) {
+        wordQuery = wordQuery.eq('employer_id', employer_id);
+      }
+
+      const { data: wordMatches } = await wordQuery.limit(5);
 
       if (wordMatches) {
         fuzzyMatches = [...fuzzyMatches, ...wordMatches];
@@ -304,7 +322,7 @@ serve(async (req: Request) => {
     // Also try matching by city/suburb
     if (city || searchTerm.includes('sydney') || searchTerm.includes('melbourne')) {
       const citySearch = city || searchTerm;
-      const { data: cityMatches } = await supabase
+      let cityQuery = supabase
         .from('sites')
         .select(
           `
@@ -321,8 +339,14 @@ serve(async (req: Request) => {
           )
         `
         )
-        .ilike('city', `%${citySearch}%`)
-        .limit(5);
+        .ilike('city', `%${citySearch}%`);
+
+      // Filter by employer_id if provided
+      if (employer_id) {
+        cityQuery = cityQuery.eq('employer_id', employer_id);
+      }
+
+      const { data: cityMatches } = await cityQuery.limit(5);
 
       if (cityMatches) {
         fuzzyMatches = [...fuzzyMatches, ...cityMatches];

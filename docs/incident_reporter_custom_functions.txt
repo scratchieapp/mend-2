@@ -1,0 +1,105 @@
+================================================================================
+INCIDENT REPORTER VOICE AGENT - CUSTOM FUNCTIONS
+================================================================================
+
+These are the Retell custom function schemas for the Incident Reporter agent.
+
+--------------------------------------------------------------------------------
+1. lookup_employer (CALL FIRST)
+--------------------------------------------------------------------------------
+
+Schema:
+{
+  "type": "object",
+  "properties": {
+    "employer_name": {
+      "type": "string",
+      "description": "The company or employer name mentioned by the caller"
+    },
+    "execution_message": {
+      "type": "string",
+      "description": "Let me check our system..."
+    }
+  },
+  "required": [
+    "employer_name",
+    "execution_message"
+  ]
+}
+
+Response Variables:
+- employer_name (string) - The confirmed employer name
+- employer_id (number) - Database ID to pass to lookup_site
+- found (boolean) - Whether the employer was found
+- message (string) - Human-readable response
+- suggestions (array) - Alternative names if not found
+
+NOTES:
+- Call this FIRST when caller mentions their company
+- Searches both employer_name AND aliases (phonetic variations)
+- Will auto-match "Ricks" → "The RIX Group" via aliases
+- Pass the returned employer_id to lookup_site
+
+
+--------------------------------------------------------------------------------
+2. lookup_site (CALL AFTER employer is identified)
+--------------------------------------------------------------------------------
+
+Schema:
+{
+  "type": "object",
+  "properties": {
+    "site_name": {
+      "type": "string",
+      "description": "The work site, project, or location name mentioned by the caller"
+    },
+    "employer_id": {
+      "type": "number",
+      "description": "The employer_id returned from lookup_employer - filters to only this employer's sites"
+    },
+    "city": {
+      "type": "string",
+      "description": "Optional: The city or suburb to help narrow down the search"
+    },
+    "execution_message": {
+      "type": "string",
+      "description": "Let me look that up..."
+    }
+  },
+  "required": [
+    "site_name",
+    "execution_message"
+  ]
+}
+
+Response Variables:
+- site_name (string) - The confirmed site name
+- site_id (number) - Database ID for the site
+- employer_id (number) - Linked employer ID
+- employer_name (string) - Linked employer name
+- found (boolean) - Whether the site was found
+- message (string) - Human-readable response
+- suggestions (array) - Alternative sites if not found
+
+NOTES:
+- IMPORTANT: Pass employer_id to filter sites to only that employer
+- Without employer_id, it searches ALL sites (may cause confusion)
+
+
+--------------------------------------------------------------------------------
+MANAGING VOICE AGENT ALIASES
+--------------------------------------------------------------------------------
+
+When you add a new employer, you can add "Voice Agent Aliases" in the 
+Employer Management page (/admin/employer-management).
+
+Tips for aliases:
+1. Include common abbreviations (CCG, HBB, UD)
+2. Include phonetic variations (how speech-to-text might transcribe)
+   - "Rix" → "Ricks", "Rick's", "Rex"
+   - "See See Gee" for CCG
+3. Include common misspellings
+   - "Sidney" for Sydney
+   - "Camberra" for Canberra
+
+Enter aliases as comma-separated values in the UI.

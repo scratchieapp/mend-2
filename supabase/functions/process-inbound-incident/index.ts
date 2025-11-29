@@ -8,15 +8,22 @@
  *
  * Expected extracted_data structure from Retell:
  * {
- *   worker_name: string;
- *   worker_phone: string;
+ *   employer_id?: number;        // From lookup_employer
  *   employer_name?: string;
+ *   site_id?: number;            // From lookup_site  
  *   site_name?: string;
- *   injury_type: string;
+ *   caller_name: string;
+ *   caller_role: string;         // injured_worker, supervisor, witness, other
+ *   caller_phone: string;
+ *   worker_name: string;
+ *   injury_type: string;         // Cut/laceration, Sprain/strain, Fracture, etc.
  *   injury_description: string;
- *   body_part: string;
+ *   body_part_injured: string;   // arm, leg, back, head, hand
+ *   body_side: string;           // left, right, both, not_applicable
  *   date_of_injury: string;
- *   treatment_provided: string;
+ *   time_of_injury: string;
+ *   treatment_received: string;
+ *   severity: string;            // minor, moderate, severe
  * }
  */
 
@@ -67,12 +74,13 @@ serve(async (req: Request) => {
     console.log('Processing inbound incident from call:', call_id);
     console.log('Extracted data:', extracted_data);
 
-    // Step 1: Find employer and site (if provided) - do this FIRST so we can link worker
-    // Note: employer_id is REQUIRED because lti_rates trigger needs it
-    let employerId: number | null = null;
-    let siteId: number | null = null;
+    // Step 1: Find employer and site
+    // Check if employer_id was directly passed from lookup_employer function
+    let employerId: number | null = extracted_data.employer_id ? Number(extracted_data.employer_id) : null;
+    let siteId: number | null = extracted_data.site_id ? Number(extracted_data.site_id) : null;
 
-    if (extracted_data.employer_name) {
+    // If employer_id not directly passed, try to find by name
+    if (!employerId && extracted_data.employer_name) {
       const { data: employer } = await supabase
         .from('employers')
         .select('employer_id')
@@ -82,7 +90,7 @@ serve(async (req: Request) => {
 
       if (employer) {
         employerId = employer.employer_id;
-        console.log('Found employer:', employerId);
+        console.log('Found employer by name:', employerId);
       }
     }
 
@@ -91,9 +99,12 @@ serve(async (req: Request) => {
     if (!employerId) {
       employerId = 1; // Default to first employer
       console.log('Using default employer_id:', employerId);
+    } else {
+      console.log('Using employer_id:', employerId);
     }
 
-    if (extracted_data.site_name && employerId) {
+    // If site_id not directly passed, try to find by name (filtered by employer)
+    if (!siteId && extracted_data.site_name && employerId) {
       const { data: site } = await supabase
         .from('sites')
         .select('site_id')
@@ -104,7 +115,51 @@ serve(async (req: Request) => {
 
       if (site) {
         siteId = site.site_id;
-        console.log('Found site:', siteId);
+        console.log('Found site by name:', siteId);
+      }
+    } else if (siteId) {
+      console.log('Using site_id:', siteId);
+    }
+
+    // Step 1b: Look up body_part_id from body_parts table
+    let bodyPartId: number | null = null;
+    if (extracted_data.body_part_injured) {
+      const { data: bodyPart } = await supabase
+        .from('body_parts')
+        .select('body_part_id')
+        .ilike('body_part_name', `%${extracted_data.body_part_injured}%`)
+        .limit(1)
+        .single();
+
+      if (bodyPart) {
+        bodyPartId = bodyPart.body_part_id;
+        console.log('Found body_part_id:', bodyPartId);
+      }
+    }
+
+    // Step 1c: Look up body_side_id from body_sides table
+    let bodySideId: number | null = null;
+    if (extracted_data.body_side) {
+      const sideMapping: Record<string, string> = {
+        'left': 'Left',
+        'right': 'Right', 
+        'both': 'Both',
+        'bilateral': 'Both',
+        'not_applicable': 'Not Applicable',
+        'na': 'Not Applicable'
+      };
+      const normalizedSide = sideMapping[extracted_data.body_side.toLowerCase()] || extracted_data.body_side;
+      
+      const { data: bodySide } = await supabase
+        .from('body_sides')
+        .select('body_side_id')
+        .ilike('body_side_name', `%${normalizedSide}%`)
+        .limit(1)
+        .single();
+
+      if (bodySide) {
+        bodySideId = bodySide.body_side_id;
+        console.log('Found body_side_id:', bodySideId);
       }
     }
 
@@ -171,19 +226,35 @@ serve(async (req: Request) => {
       ? `Reported by: ${extracted_data.caller_name} (${extracted_data.caller_role || 'unknown role'})`
       : `Reported by: ${extracted_data.worker_name || 'Unknown caller'}`;
 
+    // Map severity to classification if provided
+    const severityToClassification: Record<string, string> = {
+      'minor': 'Minor',
+      'moderate': 'Moderate', 
+      'severe': 'Serious',
+      'critical': 'Critical'
+    };
+    const classification = extracted_data.severity 
+      ? severityToClassification[extracted_data.severity.toLowerCase()] || extracted_data.severity
+      : null;
+
     const incidentData = {
       incident_number: incidentNumber,
       worker_id: workerId,
       employer_id: employerId,
       site_id: siteId,
       date_of_injury: extracted_data.date_of_injury || now.toISOString().split('T')[0],
+      time_of_injury: extracted_data.time_of_injury || null,
       injury_type: extracted_data.injury_type || 'Unknown',
       injury_description: extracted_data.injury_description || transcript || 'Reported via voice agent',
-      treatment_provided: extracted_data.treatment_provided || null,
-      incident_status: 'Open', // Standard status used in existing data
+      body_part_id: bodyPartId,
+      body_side_id: bodySideId,
+      classification: classification,
+      treatment_provided: extracted_data.treatment_received || extracted_data.treatment_provided || null,
+      incident_status: 'Voice Agent', // Special status for voice agent-created incidents
       case_notes: `${callerInfo}\n\nIncident reported via AI voice agent (Call ID: ${call_id}).\n\nTranscript:\n${transcript}`,
       notifying_person_name: extracted_data.caller_name || extracted_data.worker_name || null,
-      notifying_person_telephone: extracted_data.worker_phone || null,
+      notifying_person_telephone: extracted_data.caller_phone || extracted_data.worker_phone || null,
+      notifying_person_position: extracted_data.caller_role || null,
     };
 
     const { data: incident, error: incidentError } = await supabase

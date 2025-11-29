@@ -87,6 +87,41 @@ AI-augmented incident management to achieve 5x revenue growth without proportion
 - Auto-selects when: only one match, score ≥70, or best match 20+ points better than second
 - Only asks for clarification when genuinely ambiguous
 
+### ✅ Enhanced Voice Agent Lookup (2025-11-29)
+**Major improvements to employer/site identification accuracy!**
+
+1. **Employer Aliases Column Added**
+   - New `aliases` column on `employers` table (TEXT[] array)
+   - Stores alternative names/abbreviations (e.g., "RIX", "Rix Group" for "The RIX Group")
+   - GIN index for efficient array searching
+   - Pre-seeded aliases for existing employers
+
+2. **Improved Employer Matching**
+   - Now searches BOTH `employer_name` AND `aliases` array
+   - "Rix" → auto-matches "The RIX Group" (via alias)
+   - Alias match scores 98 (just below exact match of 100)
+   - Case-insensitive alias matching
+
+3. **Site Lookup Filtered by Employer**
+   - `lookup_site` now accepts `employer_id` parameter
+   - After employer is identified, site search only shows THAT employer's sites
+   - Prevents confusion when multiple employers have similar site names
+
+4. **New "Voice Agent" Incident Status**
+   - Added "Voice Agent" to valid `incident_status` values
+   - Voice agent-created incidents are tagged for easy filtering
+   - Helps case coordinators identify phone-reported incidents
+
+5. **Enhanced Data Collection**
+   - Voice agent now collects `injury_type` (Cut, Sprain, Fracture, etc.)
+   - Voice agent now collects `body_side` (left, right, both)
+   - Maps to `body_part_id` and `body_side_id` in incidents table
+   - Severity mapped to `classification` field
+
+**Retell Function Config Updates Required:**
+- `lookup_site` function now accepts: `{ site_name: "...", employer_id: 123 }`
+- Voice agent prompt updated to pass employer_id when calling lookup_site
+
 ---
 
 ## 🗺️ SITE MAPPING & USER MANAGEMENT (2025-11-27)

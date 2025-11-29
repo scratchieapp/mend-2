@@ -5,6 +5,8 @@
  * Called during inbound calls to validate employer name against database.
  *
  * SMART MATCHING LOGIC:
+ * - Checks both employer_name AND aliases array for matches
+ * - Alias match (e.g., "Rix" → "The RIX Group") = high priority (score 98)
  * - Auto-selects if search term is contained within a company name
  *   (e.g., "Urban Development" → "Urban Development Pty Ltd")
  * - Auto-selects if only one fuzzy match found
@@ -38,21 +40,34 @@ interface LookupEmployerResponse {
 interface EmployerMatch {
   employer_id: number;
   employer_name: string;
+  aliases?: string[];
   manager_name?: string;
   manager_phone?: string;
   score?: number;
 }
 
 /**
- * Calculate match score between search term and employer name
+ * Check if search term matches any alias (case-insensitive)
+ */
+function matchesAlias(searchTerm: string, aliases: string[] | null | undefined): boolean {
+  if (!aliases || aliases.length === 0) return false;
+  const search = searchTerm.toLowerCase().trim();
+  return aliases.some(alias => alias.toLowerCase().trim() === search);
+}
+
+/**
+ * Calculate match score between search term and employer name/aliases
  * Higher score = better match
  */
-function calculateMatchScore(searchTerm: string, employerName: string): number {
+function calculateMatchScore(searchTerm: string, employerName: string, aliases?: string[]): number {
   const search = searchTerm.toLowerCase().trim();
   const employer = employerName.toLowerCase().trim();
 
-  // Exact match = 100
+  // Exact match on employer_name = 100
   if (search === employer) return 100;
+
+  // Exact match on alias = 98 (very high, almost like exact match)
+  if (matchesAlias(searchTerm, aliases)) return 98;
 
   // Search term is the start of employer name = 90
   // e.g., "Urban Development" matches "Urban Development Pty Ltd"
@@ -71,6 +86,9 @@ function calculateMatchScore(searchTerm: string, employerName: string): number {
 
   // Search term is contained within employer name = 70
   if (employer.includes(search)) return 70;
+
+  // Check if search term is contained within any alias = 65
+  if (aliases?.some(alias => alias.toLowerCase().includes(search))) return 65;
 
   // All words from search term are in employer name = 60
   const searchWords = search.split(/\s+/).filter(w => w.length > 2);
@@ -159,10 +177,10 @@ serve(async (req: Request) => {
     const searchTerm = employer_name.trim().toLowerCase();
     console.log('Looking up employer:', searchTerm);
 
-    // Step 1: Try exact match (case-insensitive)
+    // Step 1: Try exact match on employer_name OR alias (case-insensitive)
     const { data: exactMatch } = await supabase
       .from('employers')
-      .select('employer_id, employer_name, manager_name, manager_phone')
+      .select('employer_id, employer_name, aliases, manager_name, manager_phone')
       .ilike('employer_name', searchTerm)
       .limit(1)
       .single();
@@ -182,18 +200,41 @@ serve(async (req: Request) => {
       );
     }
 
-    // Step 2: Try partial match (contains search term)
+    // Step 1b: Try exact match on aliases array
+    const { data: aliasMatch } = await supabase
+      .from('employers')
+      .select('employer_id, employer_name, aliases, manager_name, manager_phone')
+      .contains('aliases', [searchTerm])
+      .limit(1)
+      .single();
+
+    if (aliasMatch) {
+      console.log('Alias match found:', aliasMatch.employer_name, 'via alias:', searchTerm);
+      return new Response(
+        JSON.stringify({
+          found: true,
+          employer_id: aliasMatch.employer_id,
+          employer_name: aliasMatch.employer_name,
+          manager_name: aliasMatch.manager_name,
+          manager_phone: aliasMatch.manager_phone,
+          message: `Found ${aliasMatch.employer_name}`,
+        } as LookupEmployerResponse),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Step 2: Try partial match (contains search term in name OR aliases)
     const { data: partialMatches } = await supabase
       .from('employers')
-      .select('employer_id, employer_name, manager_name, manager_phone')
+      .select('employer_id, employer_name, aliases, manager_name, manager_phone')
       .ilike('employer_name', `%${searchTerm}%`)
       .limit(10);
 
     if (partialMatches && partialMatches.length > 0) {
-      // Score all matches
+      // Score all matches (including aliases in scoring)
       const scoredMatches: EmployerMatch[] = partialMatches.map((m) => ({
         ...m,
-        score: calculateMatchScore(searchTerm, m.employer_name),
+        score: calculateMatchScore(searchTerm, m.employer_name, m.aliases),
       }));
 
       // Sort by score descending
@@ -240,21 +281,40 @@ serve(async (req: Request) => {
       );
     }
 
-    // Step 3: Try fuzzy match using word matching
+    // Step 3: Try fuzzy match using word matching AND alias search
     // Split search term into words and look for any word match
     const words = searchTerm.split(/\s+/).filter((w) => w.length > 2);
     let fuzzyMatches: EmployerMatch[] = [];
 
     for (const word of words) {
+      // Search in employer_name
       const { data: wordMatches } = await supabase
         .from('employers')
-        .select('employer_id, employer_name, manager_name, manager_phone')
+        .select('employer_id, employer_name, aliases, manager_name, manager_phone')
         .ilike('employer_name', `%${word}%`)
         .limit(5);
 
       if (wordMatches) {
         fuzzyMatches = [...fuzzyMatches, ...wordMatches];
       }
+    }
+
+    // Also search for case-insensitive partial alias matches
+    // This catches cases where someone says "Rix" but the alias is "RIX"
+    const { data: aliasPartialMatches } = await supabase
+      .from('employers')
+      .select('employer_id, employer_name, aliases, manager_name, manager_phone')
+      .limit(50);
+
+    // Filter for employers whose aliases contain the search term (case-insensitive)
+    if (aliasPartialMatches) {
+      const aliasMatched = aliasPartialMatches.filter((emp) => 
+        emp.aliases?.some((alias: string) => 
+          alias.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          searchTerm.toLowerCase().includes(alias.toLowerCase())
+        )
+      );
+      fuzzyMatches = [...fuzzyMatches, ...aliasMatched];
     }
 
     // Deduplicate and score
@@ -265,7 +325,7 @@ serve(async (req: Request) => {
       )
       .map((m) => ({
         ...m,
-        score: calculateMatchScore(searchTerm, m.employer_name),
+        score: calculateMatchScore(searchTerm, m.employer_name, m.aliases),
       }))
       .sort((a, b) => (b.score || 0) - (a.score || 0));
 
