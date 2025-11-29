@@ -4,20 +4,30 @@ import { logApiError } from "@/lib/monitoring/errorLogger";
 import { transformFormDataToDatabase } from "./transformation";
 
 export async function saveIncidentToDatabase(data: IncidentData): Promise<SubmissionResponse> {
+  console.log('=== DATABASE SAVE DEBUG ===');
+  console.log('DB-1. Input data:', JSON.stringify(data, null, 2));
+  
   try {
     // Transform the form data to match database schema
+    console.log('DB-2. Transforming form data...');
     const transformedData = await transformFormDataToDatabase(data);
+    console.log('DB-3. Transformed data:', JSON.stringify(transformedData, null, 2));
     
     // Use RPC function that bypasses RLS - this is necessary because:
     // 1. Company users (role >= 4) can only SELECT incidents for their employer
     // 2. But they may be creating incidents for a different employer (Mend client)
     // 3. The SECURITY DEFINER function bypasses RLS while still being safe
+    console.log('DB-4. Calling create_incident_bypassing_rls RPC...');
     const { data: result, error } = await supabase
       .rpc('create_incident_bypassing_rls', {
         p_incident_data: transformedData
       });
 
+    console.log('DB-5. RPC response - result:', JSON.stringify(result, null, 2));
+    console.log('DB-5. RPC response - error:', error ? JSON.stringify(error, null, 2) : 'none');
+
     if (error) {
+      console.error('DB-6. RPC ERROR:', error);
       logApiError('/incidents', 'POST', error.message, error.code ? parseInt(error.code) : undefined, { 
         originalData: data,
         transformedData,

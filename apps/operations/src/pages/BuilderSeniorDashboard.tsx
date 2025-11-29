@@ -7,7 +7,7 @@ import { SafetySummary } from "@/components/builder/SafetySummary";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { FileText, TrendingUp } from "lucide-react";
+import { FileText, TrendingUp, Users, PlusCircle } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { format, subMonths, startOfMonth } from "date-fns";
@@ -97,10 +97,24 @@ const BuilderSeniorDashboard = () => {
           <div className="flex items-center gap-4">
             <Button 
               variant="outline"
+              onClick={() => navigate('/builder/workers')}
+            >
+              <Users className="mr-2 h-4 w-4" />
+              Manage Workers
+            </Button>
+            <Button 
+              variant="outline"
               onClick={() => navigate('/builder/senior/lti-details')}
             >
               <TrendingUp className="mr-2 h-4 w-4" />
               View LTI Details
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => navigate('/incident-report?new=true')}
+            >
+              <PlusCircle className="mr-2 h-4 w-4" />
+              New Incident
             </Button>
             <Button 
               variant="default"
