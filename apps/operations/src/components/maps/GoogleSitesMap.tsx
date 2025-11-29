@@ -124,7 +124,7 @@ export function GoogleSitesMap({
   showLegend = false,
 }: GoogleSitesMapProps) {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-  const { isLoaded: mapLoaded } = useGoogleMaps(apiKey);
+  const { isLoaded: mapLoaded } = useGoogleMaps(); // Uses default options with places library
   
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);

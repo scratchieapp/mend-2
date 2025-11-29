@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Input } from './input';
 import { cn } from '@/lib/utils';
+import { useGoogleMaps } from '@/hooks/useGoogleMaps';
 
 // Extend Window interface to include google
 declare global {
@@ -38,11 +39,6 @@ interface AddressAutocompleteProps {
   }) => void;
 }
 
-// Global loading state tracking
-let isScriptLoading = false;
-let isScriptLoaded = false;
-const scriptLoadCallbacks: (() => void)[] = [];
-
 export function AddressAutocomplete({
   value,
   onChange,
@@ -56,21 +52,19 @@ export function AddressAutocomplete({
 }: AddressAutocompleteProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const { isLoaded: mapsLoaded } = useGoogleMaps(); // Use shared hook - includes places library
+  const [isReady, setIsReady] = useState(false);
   const initRef = useRef(false);
 
   // Initialize Google Places Autocomplete
   const initAutocomplete = useCallback(() => {
-    if (!inputRef.current || initRef.current) return;
+    if (!inputRef.current || initRef.current) {
+      return;
+    }
     
-    // Ensure google maps is fully loaded
+    // Ensure google maps places is fully loaded
     if (!window.google?.maps?.places?.Autocomplete) {
-      // If importLibrary is available, try to load places library specifically
-      if (window.google?.maps?.importLibrary) {
-        window.google.maps.importLibrary('places').then(() => {
-          initAutocomplete();
-        }).catch(err => console.error('Failed to import places library:', err));
-      }
+      console.log('Google Places Autocomplete not available yet');
       return;
     }
 
@@ -121,7 +115,7 @@ export function AddressAutocomplete({
       });
 
       initRef.current = true;
-      setIsLoaded(true);
+      setIsReady(true);
       console.log('Google Places Autocomplete initialized with type:', searchType || 'all');
     } catch (error) {
       console.error('Failed to initialize Google Places Autocomplete:', error);
@@ -175,79 +169,16 @@ export function AddressAutocomplete({
     };
   };
 
-  // Load Google Maps Places library
+  // Initialize autocomplete when Google Maps is loaded
   useEffect(() => {
-    // 1. Check if already loaded
-    if (window.google?.maps?.places?.Autocomplete) {
-      setIsLoaded(true);
-      isScriptLoaded = true;
-      initAutocomplete();
-      return;
+    if (mapsLoaded && !initRef.current) {
+      // Small delay to ensure DOM is ready
+      const timeoutId = setTimeout(() => {
+        initAutocomplete();
+      }, 100);
+      return () => clearTimeout(timeoutId);
     }
-
-    // 2. Define global callback if not exists
-    if (!window.initGooglePlacesAutocomplete) {
-      window.initGooglePlacesAutocomplete = () => {
-        isScriptLoaded = true;
-        isScriptLoading = false;
-        setIsLoaded(true);
-        scriptLoadCallbacks.forEach(cb => cb());
-        // Trigger custom event for other components
-        window.dispatchEvent(new Event('google-maps-loaded'));
-      };
-    }
-
-    // 3. Add ourselves to callback list
-    const onScriptLoad = () => {
-      setIsLoaded(true);
-      initAutocomplete();
-    };
-    scriptLoadCallbacks.push(onScriptLoad);
-
-    // Listen for custom event (in case another component loaded it)
-    window.addEventListener('google-maps-loaded', onScriptLoad);
-
-    // 4. If not loading and not loaded, start loading
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-    if (!apiKey) {
-      console.warn('Google Maps API key not found');
-      return;
-    }
-
-    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-
-    if (!existingScript && !isScriptLoading && !isScriptLoaded) {
-      isScriptLoading = true;
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async&callback=initGooglePlacesAutocomplete`;
-      script.async = true;
-      script.defer = true;
-      script.onerror = () => {
-        console.error('Failed to load Google Maps script');
-        isScriptLoading = false;
-      };
-      document.head.appendChild(script);
-    } else if (existingScript && !isScriptLoaded) {
-      // Script exists but maybe callback hasn't fired or it was loaded differently
-      // Poll for it
-      const interval = setInterval(() => {
-        if (window.google?.maps?.places?.Autocomplete) {
-          clearInterval(interval);
-          isScriptLoaded = true;
-          setIsLoaded(true);
-          initAutocomplete();
-        }
-      }, 500);
-      
-      return () => clearInterval(interval);
-    }
-
-    return () => {
-      window.removeEventListener('google-maps-loaded', onScriptLoad);
-      const idx = scriptLoadCallbacks.indexOf(onScriptLoad);
-      if (idx > -1) scriptLoadCallbacks.splice(idx, 1);
-    };
-  }, [initAutocomplete]);
+  }, [mapsLoaded, initAutocomplete]);
 
   return (
     <Input
@@ -256,9 +187,9 @@ export function AddressAutocomplete({
       type="text"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
+      placeholder={isReady ? placeholder : 'Loading address search...'}
       disabled={disabled}
-      className={cn(className, !isLoaded && 'opacity-75')}
+      className={cn(className, !isReady && 'opacity-75')}
       autoComplete="off"
     />
   );
