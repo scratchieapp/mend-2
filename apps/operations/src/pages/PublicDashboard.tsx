@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Map as MapIcon, Navigation, Phone, Cloud } from "lucide-react";
+import { Map as MapIcon, Navigation, Phone, Cloud, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +10,7 @@ import { GoogleSitesMap, SiteLocation } from "@/components/maps/GoogleSitesMap";
 import { WeatherDisplay } from "@/components/incidents/WeatherDisplay";
 import { fetchCurrentWeather, WeatherData } from "@/services/weatherService";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 // Component to lazily load weather data
 const LazyWeatherDisplay = ({ lat, lng, address }: { lat?: number; lng?: number; address?: string }) => {
@@ -63,11 +64,26 @@ const LazyWeatherDisplay = ({ lat, lng, address }: { lat?: number; lng?: number;
 export default function PublicDashboard() {
   const navigate = useNavigate();
   const [selectedSiteId, setSelectedSiteId] = useState<number | null>(null);
+  const { isAuthenticated, user } = useAuth();
 
   // Get employer_id from URL params
   const searchParams = new URLSearchParams(window.location.search);
   const employerIdParam = searchParams.get('employer_id');
-  const employerId = employerIdParam ? parseInt(employerIdParam) : null;
+  
+  // Determine the effective employer ID:
+  // 1. If user is logged in and has an employer_id (e.g. builder/client), use that.
+  // 2. Otherwise, fallback to URL parameter.
+  const [employerId, setEmployerId] = useState<number | null>(
+    employerIdParam ? parseInt(employerIdParam) : null
+  );
+
+  useEffect(() => {
+    if (isAuthenticated && user?.employer_id) {
+      setEmployerId(parseInt(user.employer_id));
+    } else if (employerIdParam) {
+      setEmployerId(parseInt(employerIdParam));
+    }
+  }, [isAuthenticated, user, employerIdParam]);
 
   // Fetch public sites using the secure RPC
   const { data: sites, isLoading, error } = useQuery({
@@ -102,7 +118,6 @@ export default function PublicDashboard() {
   };
 
   const handleRegister = () => {
-    // Assuming there's a registration page or redirect to login
     navigate('/auth/signup'); 
   };
 
@@ -140,12 +155,21 @@ export default function PublicDashboard() {
             <span>Emergency: 1800 555 000</span>
           </div>
           
-          <Button variant="outline" onClick={handleRegister} className="hidden sm:flex">
-            Register
-          </Button>
-          <Button onClick={handleLogin}>
-            Worker Login
-          </Button>
+          {!isAuthenticated && (
+            <>
+              <Button variant="outline" onClick={handleRegister} className="hidden sm:flex">
+                Register
+              </Button>
+              <Button onClick={handleLogin}>
+                Worker Login
+              </Button>
+            </>
+          )}
+          {isAuthenticated && (
+             <Button onClick={() => navigate('/dashboard')}>
+                Go to Dashboard
+             </Button>
+          )}
         </div>
       </header>
 

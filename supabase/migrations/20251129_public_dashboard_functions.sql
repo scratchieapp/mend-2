@@ -28,8 +28,8 @@ BEGIN
     s.city,
     s.state,
     s.post_code,
-    s.latitude,
-    s.longitude,
+    s.latitude::double precision,
+    s.longitude::double precision,
     COALESCE(
       (SELECT ssh.status::text FROM site_status_history ssh 
        WHERE ssh.site_id = s.site_id 
