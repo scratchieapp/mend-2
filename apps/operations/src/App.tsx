@@ -90,6 +90,7 @@ function App() {
         <Route path="/test-role-query" element={<TestRoleQuery />} />
         <Route path="/debug-auth" element={<DebugAuth />} />
         <Route path="/clerk-debug" element={<ClerkDebug />} />
+        <Route path="/public-dashboard" element={<PublicDashboard />} />
 
         {/* Protected routes wrapped in AppLayout */}
         <Route element={<ProtectedRoute />}>
@@ -100,7 +101,6 @@ function App() {
             {/* Role-specific dashboard routes */}
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="superadmin-dashboard" element={<SuperAdminDashboard />} />
-            <Route path="public-dashboard" element={<PublicDashboard />} />
             <Route path="admin" element={<AdminDashboard />} />
             <Route path="account-manager" element={<AccountManager />} />
             <Route path="user-management" element={<EnhancedUserManagementAdmin />} />

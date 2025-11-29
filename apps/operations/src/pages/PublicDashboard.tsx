@@ -75,7 +75,7 @@ export default function PublicDashboard() {
     queryFn: async () => {
       let query = supabase
         .from('sites')
-        .select('id, site_name, street_address, city, state, post_code, latitude, longitude')
+        .select('id, name, street_address, city, state, post_code, latitude, longitude')
         .eq('is_active', true);
       
       if (employerId) {
@@ -89,7 +89,7 @@ export default function PublicDashboard() {
       // Map to SiteLocation interface
       return (data || []).map(site => ({
         site_id: site.id,
-        site_name: site.site_name,
+        site_name: site.name, // Changed from site_name to name based on schema
         street_address: site.street_address,
         city: site.city,
         state: site.state,
@@ -174,15 +174,30 @@ export default function PublicDashboard() {
             )}
 
             {error && (
-              <Alert variant="destructive">
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>Failed to load sites. Please try again later.</AlertDescription>
-              </Alert>
+              <div className="text-center p-8 text-muted-foreground">
+                <p>Unable to load sites at this time.</p>
+                <p className="text-xs mt-2">Please try again later.</p>
+              </div>
             )}
 
             {!isLoading && !error && sites?.length === 0 && (
-              <div className="text-center p-8 text-muted-foreground">
-                No active sites found.
+              <div className="text-center p-8 space-y-4">
+                <div className="h-12 w-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto">
+                  <MapIcon className="h-6 w-6 text-slate-400" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900">No active sites found</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    This builder may just be getting started or has no currently active sites publicly listed.
+                  </p>
+                </div>
+                <div className="text-sm bg-blue-50 text-blue-700 p-3 rounded-md inline-block">
+                  <p className="font-medium flex items-center justify-center gap-2">
+                    <Phone className="h-4 w-4" />
+                    Need to report an incident?
+                  </p>
+                  <p className="mt-1">Call 1800 555 000 for assistance.</p>
+                </div>
               </div>
             )}
 
