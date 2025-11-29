@@ -275,35 +275,34 @@ export default function BuilderSiteManagement() {
     }
   });
 
-  // Create site mutation
+  // Create site mutation - uses RBAC function to bypass RLS securely
   const createSiteMutation = useMutation({
     mutationFn: async (data: SiteFormData) => {
       const aliasesArray = data.aliases
         ? data.aliases.split(',').map(a => a.trim()).filter(a => a.length > 0)
-        : [];
+        : null;
       
-      const { data: newSite, error } = await supabase
-        .from('sites')
-        .insert([{
-          site_name: data.site_name,
-          street_address: data.street_address,
-          city: data.city,
-          state: data.state,
-          post_code: data.post_code,
-          supervisor_id: data.supervisor_id || null,
-          supervisor_name: data.supervisor_name,
-          supervisor_telephone: data.supervisor_telephone,
-          project_type: data.project_type,
-          latitude: data.latitude,
-          longitude: data.longitude,
-          employer_id: userEmployerId,
-          aliases: aliasesArray,
-        }])
-        .select()
-        .single();
+      const { data: result, error } = await supabase.rpc('add_site_rbac', {
+        p_site_name: data.site_name,
+        p_employer_id: userEmployerId,
+        p_user_role_id: userData?.role_id ? parseInt(userData.role_id) : null,
+        p_user_employer_id: userEmployerId,
+        p_street_address: data.street_address || null,
+        p_city: data.city || null,
+        p_state: data.state || null,
+        p_post_code: data.post_code || null,
+        p_supervisor_id: data.supervisor_id || null,
+        p_supervisor_name: data.supervisor_name || null,
+        p_supervisor_telephone: data.supervisor_telephone || null,
+        p_project_type: data.project_type || null,
+        p_latitude: data.latitude || null,
+        p_longitude: data.longitude || null,
+        p_aliases: aliasesArray,
+      });
 
       if (error) throw error;
-      return newSite;
+      if (!result?.success) throw new Error(result?.error || 'Failed to create site');
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['builder-sites', userEmployerId] });
@@ -316,36 +315,34 @@ export default function BuilderSiteManagement() {
     }
   });
 
-  // Update site mutation
+  // Update site mutation - uses RBAC function to bypass RLS securely
   const updateSiteMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: SiteFormData }) => {
       const aliasesArray = data.aliases
         ? data.aliases.split(',').map(a => a.trim()).filter(a => a.length > 0)
-        : [];
+        : null;
       
-      const { data: updatedSite, error } = await supabase
-        .from('sites')
-        .update({
-          site_name: data.site_name,
-          street_address: data.street_address,
-          city: data.city,
-          state: data.state,
-          post_code: data.post_code,
-          supervisor_id: data.supervisor_id || null,
-          supervisor_name: data.supervisor_name,
-          supervisor_telephone: data.supervisor_telephone,
-          project_type: data.project_type,
-          latitude: data.latitude,
-          longitude: data.longitude,
-          aliases: aliasesArray,
-        })
-        .eq('site_id', id)
-        .eq('employer_id', userEmployerId) // Security: ensure user can only edit their own sites
-        .select()
-        .single();
+      const { data: result, error } = await supabase.rpc('update_site_rbac', {
+        p_site_id: id,
+        p_site_name: data.site_name,
+        p_user_role_id: userData?.role_id ? parseInt(userData.role_id) : null,
+        p_user_employer_id: userEmployerId,
+        p_street_address: data.street_address || null,
+        p_city: data.city || null,
+        p_state: data.state || null,
+        p_post_code: data.post_code || null,
+        p_supervisor_id: data.supervisor_id || null,
+        p_supervisor_name: data.supervisor_name || null,
+        p_supervisor_telephone: data.supervisor_telephone || null,
+        p_project_type: data.project_type || null,
+        p_latitude: data.latitude || null,
+        p_longitude: data.longitude || null,
+        p_aliases: aliasesArray,
+      });
 
       if (error) throw error;
-      return updatedSite;
+      if (!result?.success) throw new Error(result?.error || 'Failed to update site');
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['builder-sites', userEmployerId] });
@@ -359,25 +356,18 @@ export default function BuilderSiteManagement() {
     }
   });
 
-  // Delete site mutation
+  // Delete site mutation - uses RBAC function to bypass RLS securely
   const deleteSiteMutation = useMutation({
     mutationFn: async (id: number) => {
-      const { count: incidentCount } = await supabase
-        .from('incidents')
-        .select('*', { count: 'exact', head: true })
-        .eq('site_id', id);
-
-      if (incidentCount && incidentCount > 0) {
-        throw new Error(`Cannot delete site with ${incidentCount} incidents`);
-      }
-
-      const { error } = await supabase
-        .from('sites')
-        .delete()
-        .eq('site_id', id)
-        .eq('employer_id', userEmployerId); // Security
+      const { data: result, error } = await supabase.rpc('delete_site_rbac', {
+        p_site_id: id,
+        p_user_role_id: userData?.role_id ? parseInt(userData.role_id) : null,
+        p_user_employer_id: userEmployerId,
+      });
         
       if (error) throw error;
+      if (!result?.success) throw new Error(result?.error || 'Failed to delete site');
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['builder-sites', userEmployerId] });
