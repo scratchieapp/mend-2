@@ -84,15 +84,15 @@ const SiteWeather = ({ lat, lng, siteName }: { lat?: number; lng?: number; siteN
         <div className="grid grid-cols-3 gap-3 text-sm">
           <div className="flex items-center gap-2">
             <Thermometer className="h-4 w-4 text-orange-500" />
-            <span className="font-medium">{Math.round(weather.temperature)}°C</span>
+            <span className="font-medium">{Math.round(weather.temperature_c ?? 0)}°C</span>
           </div>
           <div className="flex items-center gap-2">
             <Sun className="h-4 w-4 text-yellow-500" />
-            <span>{weather.description}</span>
+            <span>{weather.conditions || 'Unknown'}</span>
           </div>
           <div className="flex items-center gap-2">
             <Wind className="h-4 w-4 text-blue-500" />
-            <span>{Math.round(weather.windSpeed)} km/h</span>
+            <span>{Math.round(weather.wind_speed_kmh ?? 0)} km/h</span>
           </div>
         </div>
       )}
@@ -146,9 +146,9 @@ const LazyWeatherDisplay = ({ lat, lng }: { lat?: number; lng?: number }) => {
         <div className="flex items-center gap-3 text-xs">
           <span className="flex items-center gap-1">
             <Thermometer className="h-3 w-3 text-orange-500" />
-            {Math.round(weather.temperature)}°C
+            {Math.round(weather.temperature_c ?? 0)}°C
           </span>
-          <span className="text-muted-foreground">{weather.description}</span>
+          <span className="text-muted-foreground">{weather.conditions || 'Unknown'}</span>
         </div>
       )}
     </div>
@@ -235,10 +235,10 @@ export default function PublicDashboard() {
     queryKey: ['recent-incidents', employerId, userData?.role_id],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_incidents_with_details_rbac', {
-        p_page_size: 5,
-        p_page_offset: 0,
-        p_user_role_id: userRoleId,
-        p_user_employer_id: employerId
+        page_size: 5,
+        page_offset: 0,
+        user_role_id: userRoleId,
+        user_employer_id: employerId
       });
       
       if (error) {
