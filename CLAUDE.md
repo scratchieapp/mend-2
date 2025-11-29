@@ -186,6 +186,91 @@ AI-augmented incident management to achieve 5x revenue growth without proportion
 - Maps JavaScript API ✅ (already enabled)
 - Places API ✅ (already enabled - provides lat/lng from addresses)
 
+### ✅ Google Address Autocomplete Fix (2025-11-29)
+**Unified script loading to prevent conflicts**
+
+**Problem:** Google Places Autocomplete wasn't working when adding new sites. The `GoogleSitesMap` component loaded the Maps API without the `places` library, causing conflicts when `AddressAutocomplete` tried to use Places.
+
+**Solution:**
+1. **Unified Hook**: `useGoogleMaps` now always includes `places` library by default
+2. **Shared Loading**: `AddressAutocomplete` uses the shared hook instead of its own script loading
+3. **Flexible Search Types**: Added `searchType` prop to `AddressAutocomplete`:
+   - `'address'` - strict street addresses only
+   - `'geocode'` - addresses + geographic locations (roads, regions)
+   - `'establishment'` - businesses and named places
+   - `'regions'` - larger areas like suburbs, cities
+   - `'all'` - no restriction (most flexible, used for sites)
+
+**Files Modified:**
+- `/apps/operations/src/hooks/useGoogleMaps.ts` - Always loads `places` library
+- `/apps/operations/src/components/ui/AddressAutocomplete.tsx` - Uses shared hook, added `searchType` prop
+- `/apps/operations/src/pages/BuilderSiteManagement.tsx` - Uses `searchType="all"` for site addresses
+
+**Result:** Site addresses now autocomplete with roads, bypasses, and locations (not just street addresses).
+
+### ✅ Supervisor-Worker Unification (2025-11-29)
+**Site supervisors are now linked to workers table**
+
+**Problem:** Site supervisors were stored as free-text fields (`supervisor_name`, `supervisor_telephone`), separate from the workers table. This meant supervisors couldn't be tracked for incidents if they got injured.
+
+**Solution:**
+1. **Database**: Added `supervisor_id` column to `sites` table (FK to `workers`)
+2. **RPC Function**: Created `get_supervisor_workers()` that filters workers by supervisor/manager occupations
+3. **UI**: Supervisor is now selected from a dropdown of existing workers
+4. **Quick Add**: "Add New Supervisor" option opens dialog to create worker with supervisor role
+
+**Supervisor Occupations Recognized:**
+- Site Supervisor, Site Manager, Foreman
+- Project Manager, Construction Manager, Project Coordinator
+- Safety Manager, Director, Superintendent, Lead
+- Workers with null occupation (can be assigned)
+
+**Phone Formatting:**
+- New supervisors use Australian mobile format: `04XX XXX XXX`
+- Phone auto-populates when selecting supervisor from dropdown
+
+**Database Functions Created:**
+```sql
+get_supervisor_workers(p_employer_id, p_user_role_id, p_user_employer_id)
+-- Returns workers filtered by supervisor/manager occupations
+```
+
+**Files Modified:**
+- `/apps/operations/src/pages/BuilderSiteManagement.tsx` - Supervisor dropdown with quick-add
+- Migration: `20251129_add_supervisor_id_to_sites.sql`
+
+### ✅ Sites RBAC Functions (2025-11-29)
+**Fixed RLS violations when creating/editing/deleting sites**
+
+**Problem:** Creating sites failed with "new row violates row-level security policy for table sites". RLS policies relied on `auth.jwt()` which doesn't work with Clerk authentication.
+
+**Solution:** Created SECURITY DEFINER functions that bypass RLS while enforcing strict RBAC:
+
+**Functions Created:**
+```sql
+add_site_rbac(p_site_name, p_employer_id, p_user_role_id, p_user_employer_id, ...)
+-- Creates a new site with RBAC validation
+
+update_site_rbac(p_site_id, p_site_name, p_user_role_id, p_user_employer_id, ...)
+-- Updates a site with ownership verification
+
+delete_site_rbac(p_site_id, p_user_role_id, p_user_employer_id)
+-- Deletes a site (blocks if incidents exist)
+```
+
+**Security Checks:**
+- ✅ User role must be provided
+- ✅ Employer ID validation
+- ✅ Mend Staff (roles 1-3) can manage any employer's sites
+- ✅ Builder Admin (role 5) can ONLY manage their own employer's sites
+- ✅ Supervisor must belong to same employer if provided
+- ✅ Cannot delete sites with linked incidents
+- ✅ All inputs sanitized with TRIM/NULLIF
+
+**Files Modified:**
+- `/apps/operations/src/pages/BuilderSiteManagement.tsx` - Uses RBAC RPCs
+- Migration: `20251129_add_sites_rbac_functions.sql`
+
 ### ✅ Enhanced User Management
 **Full "Edit User" Capabilities for Super Admins**
 - **Edit User Dialog**: Modal to update user details directly.
@@ -843,5 +928,5 @@ npm run preview      # Preview build
 ---
 
 **Last Updated**: November 29, 2025
-**Version**: 4.12.0
-**Status**: ✅ PRODUCTION READY | ✅ Incident Submission - WORKING | ✅ Voice Agent - Fully Operational (with Phonetic Matching) | ✅ RLS + Clerk Auth - Fixed | ✅ Site Management Redesign - Complete
+**Version**: 4.13.0
+**Status**: ✅ PRODUCTION READY | ✅ Incident Submission - WORKING | ✅ Voice Agent - Fully Operational (with Phonetic Matching) | ✅ RLS + Clerk Auth - Fixed | ✅ Site Management Redesign - Complete | ✅ Sites RBAC - Fixed
