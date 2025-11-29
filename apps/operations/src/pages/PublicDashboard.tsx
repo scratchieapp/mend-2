@@ -69,34 +69,29 @@ export default function PublicDashboard() {
   const employerIdParam = searchParams.get('employer_id');
   const employerId = employerIdParam ? parseInt(employerIdParam) : null;
 
-  // Fetch public sites
+  // Fetch public sites using the secure RPC
   const { data: sites, isLoading, error } = useQuery({
     queryKey: ['public-sites', employerId],
     queryFn: async () => {
-      let query = supabase
-        .from('sites')
-        .select('id, name, street_address, city, state, post_code, latitude, longitude')
-        .eq('is_active', true);
+      const { data, error } = await supabase
+        .rpc('get_public_sites', { p_employer_id: employerId });
       
-      if (employerId) {
-        query = query.eq('employer_id', employerId);
+      if (error) {
+        console.error('Error fetching sites:', error);
+        throw error;
       }
-
-      const { data, error } = await query;
-      
-      if (error) throw error;
       
       // Map to SiteLocation interface
       return (data || []).map(site => ({
         site_id: site.id,
-        site_name: site.name, // Changed from site_name to name based on schema
+        site_name: site.site_name,
         street_address: site.street_address,
         city: site.city,
         state: site.state,
         post_code: site.post_code,
         latitude: site.latitude,
         longitude: site.longitude,
-        status: 'working' // Default to working since we filter by is_active
+        status: site.status
       })) as SiteLocation[];
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
