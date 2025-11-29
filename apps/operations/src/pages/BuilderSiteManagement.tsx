@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -36,12 +36,14 @@ import {
   Phone,
   User,
   Map as MapIcon,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { GoogleSitesMap, SiteLocation, HeadOffice } from "@/components/maps/GoogleSitesMap";
 
 interface Site {
   site_id: number;
@@ -54,6 +56,7 @@ interface Site {
   supervisor_name?: string;
   supervisor_telephone?: string;
   project_type?: string;
+  aliases?: string[];
   created_at: string;
   updated_at: string;
   employer_name?: string;
@@ -72,43 +75,19 @@ interface SiteFormData {
   supervisor_name: string;
   supervisor_telephone: string;
   project_type: string;
+  aliases: string;
   latitude?: number;
   longitude?: number;
-  status?: string;
-}
-
-// Helper to get approximate coordinates from city name
-function getCoordinatesFromCity(city: string): { lat: number; lng: number } | null {
-  const cityCoords: Record<string, { lat: number; lng: number }> = {
-    'sydney': { lat: -33.8688, lng: 151.2093 },
-    'melbourne': { lat: -37.8136, lng: 144.9631 },
-    'brisbane': { lat: -27.4698, lng: 153.0251 },
-    'perth': { lat: -31.9505, lng: 115.8605 },
-    'adelaide': { lat: -34.9285, lng: 138.6007 },
-    'hobart': { lat: -42.8821, lng: 147.3272 },
-    'darwin': { lat: -12.4634, lng: 130.8456 },
-    'canberra': { lat: -35.2809, lng: 149.1300 },
-    'gold coast': { lat: -28.0167, lng: 153.4000 },
-    'newcastle': { lat: -32.9283, lng: 151.7817 },
-    'wollongong': { lat: -34.4278, lng: 150.8931 },
-    'geelong': { lat: -38.1499, lng: 144.3617 },
-    'cairns': { lat: -16.9186, lng: 145.7781 },
-    'townsville': { lat: -19.2590, lng: 146.8169 },
-  };
-  
-  const normalizedCity = city?.toLowerCase().trim();
-  return cityCoords[normalizedCity] || null;
 }
 
 export default function BuilderSiteManagement() {
-  const { isAuthenticated, isLoading: authLoading, userData, user } = useAuth();
-  const clerkUserId = user?.id; // This is the Clerk user ID
+  const { isAuthenticated, isLoading: authLoading, userData } = useAuth();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
-  const [activeTab, setActiveTab] = useState("map");
+  const [showMap, setShowMap] = useState(true);
   const [formData, setFormData] = useState<SiteFormData>({
     site_name: "",
     street_address: "",
@@ -118,117 +97,56 @@ export default function BuilderSiteManagement() {
     supervisor_name: "",
     supervisor_telephone: "",
     project_type: "",
+    aliases: "",
     latitude: undefined,
     longitude: undefined,
   });
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
-  // Map refs
-  const mapRef = useRef<HTMLDivElement>(null);
-  const googleMapRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<google.maps.Marker[]>([]);
-  const [mapLoaded, setMapLoaded] = useState(false);
 
-  // Get user's employer info
+  // Get employer info from user data
   const userEmployerId = userData?.employer_id ? parseInt(userData.employer_id) : null;
-  const userEmployerName = userData?.employer_name || 'Your Company';
+  const userEmployerName = userData?.employer_name || "Your Company";
 
-  // Load Google Maps script with Places library
-  useEffect(() => {
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-    if (!apiKey) {
-      console.warn('Google Maps API key not found');
-      return;
-    }
+  // Fetch employer for head office marker
+  const { data: employer } = useQuery({
+    queryKey: ['employer-details', userEmployerId],
+    queryFn: async () => {
+      if (!userEmployerId) return null;
+      const { data, error } = await supabase
+        .from('employers')
+        .select('employer_id, employer_name, employer_address, employer_state, employer_post_code')
+        .eq('employer_id', userEmployerId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!userEmployerId && isAuthenticated && !authLoading
+  });
 
-    // Check if already loaded with Places
-    if (window.google?.maps?.places) {
-      setMapLoaded(true);
-      return;
-    }
-
-    // Check if script is already being loaded
-    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-    if (existingScript) {
-      // If script exists but Places isn't loaded, try importLibrary when ready
-      const checkLoaded = setInterval(() => {
-        if (window.google?.maps?.places) {
-          clearInterval(checkLoaded);
-          setMapLoaded(true);
-        } else if (window.google?.maps?.importLibrary) {
-          clearInterval(checkLoaded);
-          window.google.maps.importLibrary('places').then(() => {
-            setMapLoaded(true);
-          });
-        }
-      }, 100);
-      setTimeout(() => clearInterval(checkLoaded), 10000);
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      // Wait for Places to be available
-      const checkPlaces = setInterval(() => {
-        if (window.google?.maps?.places) {
-          clearInterval(checkPlaces);
-          setMapLoaded(true);
-        }
-      }, 50);
-      setTimeout(() => {
-        clearInterval(checkPlaces);
-        setMapLoaded(true); // Proceed anyway after timeout
-      }, 3000);
-    };
-    document.head.appendChild(script);
-  }, []);
-
-  // Fetch sites filtered by employer
+  // Fetch sites for this employer
   const { data: sites, isLoading, error: sitesError } = useQuery({
     queryKey: ['builder-sites', userEmployerId],
     queryFn: async () => {
-      if (!userEmployerId) {
-        console.log('No employer ID available');
-        return [];
-      }
-
-      console.log('Fetching sites for employer:', userEmployerId);
+      if (!userEmployerId) return [];
       
       const { data: sitesData, error: sitesError } = await supabase
         .from('sites')
-        .select(`
-          *,
-          employers:employer_id(employer_name)
-        `)
+        .select('*')
         .eq('employer_id', userEmployerId)
         .order('site_name');
 
-      if (sitesError) {
-        console.error('Sites fetch error:', sitesError);
-        throw sitesError;
-      }
-
-      if (!sitesData || sitesData.length === 0) {
-        console.log('No sites found for this employer');
-        return [];
-      }
+      if (sitesError) throw sitesError;
+      if (!sitesData || sitesData.length === 0) return [];
 
       // Get latest status for each site
-      const { data: statusHistory, error: statusError } = await supabase
+      const { data: statusHistory } = await supabase
         .from('site_status_history')
         .select('site_id, status, month')
+        .in('site_id', sitesData.map(s => s.site_id))
         .order('month', { ascending: false });
-      
-      if (statusError) {
-        console.warn('Status history fetch warning:', statusError);
-      }
 
-      // Create a map of latest status per site
       const statusMap = new Map<number, string>();
       statusHistory?.forEach(item => {
         if (!statusMap.has(item.site_id)) {
@@ -236,7 +154,7 @@ export default function BuilderSiteManagement() {
         }
       });
 
-      // Fetch incident counts for each site
+      // Fetch incident counts
       const sitesWithCounts = await Promise.all(
         sitesData.map(async (site) => {
           const { count: incidentCount } = await supabase
@@ -244,244 +162,105 @@ export default function BuilderSiteManagement() {
             .select('*', { count: 'exact', head: true })
             .eq('site_id', site.site_id);
 
-          const status = statusMap.get(site.site_id) || 'working';
-          
           return {
             ...site,
-            employer_name: site.employers?.employer_name || userEmployerName,
+            employer_name: userEmployerName,
             incident_count: incidentCount || 0,
-            status: status as 'working' | 'paused' | 'finished',
+            status: (statusMap.get(site.site_id) || 'working') as 'working' | 'paused' | 'finished',
           };
         })
       );
 
       return sitesWithCounts;
     },
-    enabled: isAuthenticated && !authLoading && !!userEmployerId
+    enabled: !!userEmployerId && isAuthenticated && !authLoading
   });
 
-  // Initialize map with sites
-  const initializeMap = useCallback(() => {
-    if (!mapLoaded || !mapRef.current || !sites) {
-      return;
-    }
-
-    if (!window.google?.maps?.Map || !window.google?.maps?.Marker) {
-      console.error('Google Maps API not fully loaded');
-      return;
-    }
-
-    try {
-      // Clear existing markers
-      if (markersRef.current.length > 0) {
-        markersRef.current.forEach(marker => marker.setMap(null));
-        markersRef.current = [];
-      }
-
-      // Reuse existing map if available
-      let map = googleMapRef.current;
-      if (!map) {
-        map = new google.maps.Map(mapRef.current, {
-          center: { lat: -33.8688, lng: 151.2093 }, // Default to Sydney
-          zoom: 10,
-          disableDefaultUI: false,
-          zoomControl: true,
-          mapTypeControl: true,
-          streetViewControl: false,
-          fullscreenControl: true,
-        });
-        googleMapRef.current = map;
-      }
-
-      // Create a single info window to reuse
-      const infoWindow = new google.maps.InfoWindow();
-      const bounds = new google.maps.LatLngBounds();
-      let hasMarkers = false;
-      
-      // Add markers for each site
-      sites.forEach(site => {
-        const coords = site.latitude && site.longitude 
-          ? { lat: Number(site.latitude), lng: Number(site.longitude) }
-          : getCoordinatesFromCity(site.city);
-
-        if (!coords) return;
-
-        // Determine marker color based on status
-        let markerColor = '#22c55e';
-        let markerIcon = 'https://maps.google.com/mapfiles/ms/icons/green-dot.png';
-        if (site.status === 'paused') {
-          markerColor = '#f59e0b';
-          markerIcon = 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png';
-        } else if (site.status === 'finished') {
-          markerColor = '#6b7280';
-          markerIcon = 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png';
-        }
-
-        const marker = new google.maps.Marker({
-          map,
-          position: coords,
-          title: site.site_name,
-          icon: markerIcon,
-        });
-
-        marker.addListener('click', () => {
-          const content = `
-            <div style="padding: 8px; max-width: 250px;">
-              <h3 style="margin: 0 0 8px 0; font-weight: 600;">${site.site_name}</h3>
-              <p style="margin: 0 0 4px 0; font-size: 12px;">${site.street_address || ''}</p>
-              <p style="margin: 0 0 8px 0; font-size: 12px;">${site.city}, ${site.state} ${site.post_code}</p>
-              <div style="display: flex; gap: 8px; align-items: center;">
-                <span style="
-                  background: ${markerColor};
-                  color: white;
-                  padding: 2px 8px;
-                  border-radius: 12px;
-                  font-size: 11px;
-                ">${site.status || 'Active'}</span>
-                <span style="font-size: 11px; color: #666;">${site.incident_count} incidents</span>
-              </div>
-            </div>
-          `;
-          infoWindow.setContent(content);
-          infoWindow.open(map, marker);
-        });
-
-        markersRef.current.push(marker);
-        bounds.extend(coords);
-        hasMarkers = true;
-      });
-
-      // Fit map to show all markers
-      if (hasMarkers && markersRef.current.length > 1) {
-        map.fitBounds(bounds);
-      } else if (hasMarkers) {
-        // Single marker - center on it with reasonable zoom
-        const firstMarker = markersRef.current[0];
-        if (firstMarker) {
-          map.setCenter(firstMarker.getPosition()!);
-          map.setZoom(12);
-        }
-      }
-
-      console.log('Map initialized with', markersRef.current.length, 'markers');
-    } catch (error) {
-      console.error('Error initializing map:', error);
-    }
-  }, [mapLoaded, sites]);
-
-  useEffect(() => {
-    if (activeTab === 'map') {
-      const timer = setTimeout(() => {
-        if (mapRef.current && mapLoaded && sites) {
-          initializeMap();
-        }
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [activeTab, initializeMap, mapLoaded, sites]);
-
-  // Create site mutation - uses RPC to bypass RLS issues with Clerk JWT
+  // Create site mutation
   const createSiteMutation = useMutation({
     mutationFn: async (data: SiteFormData) => {
-      if (!userEmployerId) {
-        throw new Error('No employer ID available');
-      }
-      if (!clerkUserId) {
-        throw new Error('Not authenticated');
-      }
-
-      const { data: result, error } = await supabase.rpc('create_site_for_employer', {
-        p_clerk_user_id: clerkUserId,
-        p_site_name: data.site_name,
-        p_employer_id: userEmployerId,
-        p_street_address: data.street_address || null,
-        p_city: data.city || null,
-        p_state: data.state || null,
-        p_post_code: data.post_code || null,
-        p_supervisor_name: data.supervisor_name || null,
-        p_supervisor_telephone: data.supervisor_telephone || null,
-        p_project_type: data.project_type || null,
-        p_latitude: data.latitude || null,
-        p_longitude: data.longitude || null,
-        p_status: 'active'
-      });
+      const aliasesArray = data.aliases
+        ? data.aliases.split(',').map(a => a.trim()).filter(a => a.length > 0)
+        : [];
+      
+      const { data: newSite, error } = await supabase
+        .from('sites')
+        .insert([{
+          site_name: data.site_name,
+          street_address: data.street_address,
+          city: data.city,
+          state: data.state,
+          post_code: data.post_code,
+          supervisor_name: data.supervisor_name,
+          supervisor_telephone: data.supervisor_telephone,
+          project_type: data.project_type,
+          latitude: data.latitude,
+          longitude: data.longitude,
+          employer_id: userEmployerId,
+          aliases: aliasesArray,
+        }])
+        .select()
+        .single();
 
       if (error) throw error;
-      if (!result.success) throw new Error(result.error);
-      return result.site;
+      return newSite;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['builder-sites', userEmployerId] });
-      toast({
-        title: "Success",
-        description: "Site has been created successfully.",
-      });
+      toast({ title: "Success", description: "Site has been created successfully." });
       setIsCreateDialogOpen(false);
       resetForm();
     },
     onError: (error) => {
-      toast({
-        title: "Error",
-        description: `Failed to create site: ${error.message}`,
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: `Failed to create site: ${error.message}`, variant: "destructive" });
     }
   });
 
-  // Update site mutation - uses RPC to bypass RLS issues with Clerk JWT
+  // Update site mutation
   const updateSiteMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: SiteFormData }) => {
-      if (!clerkUserId) {
-        throw new Error('Not authenticated');
-      }
-
-      const { data: result, error } = await supabase.rpc('update_site_for_employer', {
-        p_clerk_user_id: clerkUserId,
-        p_site_id: id,
-        p_site_name: data.site_name || null,
-        p_street_address: data.street_address || null,
-        p_city: data.city || null,
-        p_state: data.state || null,
-        p_post_code: data.post_code || null,
-        p_supervisor_name: data.supervisor_name || null,
-        p_supervisor_telephone: data.supervisor_telephone || null,
-        p_project_type: data.project_type || null,
-        p_latitude: data.latitude || null,
-        p_longitude: data.longitude || null,
-        p_status: data.status || null
-      });
+      const aliasesArray = data.aliases
+        ? data.aliases.split(',').map(a => a.trim()).filter(a => a.length > 0)
+        : [];
+      
+      const { data: updatedSite, error } = await supabase
+        .from('sites')
+        .update({
+          site_name: data.site_name,
+          street_address: data.street_address,
+          city: data.city,
+          state: data.state,
+          post_code: data.post_code,
+          supervisor_name: data.supervisor_name,
+          supervisor_telephone: data.supervisor_telephone,
+          project_type: data.project_type,
+          latitude: data.latitude,
+          longitude: data.longitude,
+          aliases: aliasesArray,
+        })
+        .eq('site_id', id)
+        .eq('employer_id', userEmployerId) // Security: ensure user can only edit their own sites
+        .select()
+        .single();
 
       if (error) throw error;
-      if (!result.success) throw new Error(result.error);
-      return result.site;
+      return updatedSite;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['builder-sites', userEmployerId] });
-      toast({
-        title: "Success",
-        description: "Site has been updated successfully.",
-      });
+      toast({ title: "Success", description: "Site has been updated successfully." });
       setIsEditDialogOpen(false);
       setSelectedSite(null);
       resetForm();
     },
     onError: (error) => {
-      toast({
-        title: "Error",
-        description: `Failed to update site: ${error.message}`,
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: `Failed to update site: ${error.message}`, variant: "destructive" });
     }
   });
 
-  // Delete site mutation - uses RPC to bypass RLS issues with Clerk JWT
+  // Delete site mutation
   const deleteSiteMutation = useMutation({
     mutationFn: async (id: number) => {
-      if (!clerkUserId) {
-        throw new Error('Not authenticated');
-      }
-
-      // First check for incidents (this query should work with SELECT RLS)
       const { count: incidentCount } = await supabase
         .from('incidents')
         .select('*', { count: 'exact', head: true })
@@ -491,31 +270,24 @@ export default function BuilderSiteManagement() {
         throw new Error(`Cannot delete site with ${incidentCount} incidents`);
       }
 
-      const { data: result, error } = await supabase.rpc('delete_site_for_employer', {
-        p_clerk_user_id: clerkUserId,
-        p_site_id: id
-      });
-
+      const { error } = await supabase
+        .from('sites')
+        .delete()
+        .eq('site_id', id)
+        .eq('employer_id', userEmployerId); // Security
+        
       if (error) throw error;
-      if (!result.success) throw new Error(result.error);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['builder-sites', userEmployerId] });
-      toast({
-        title: "Success",
-        description: "Site has been deleted successfully.",
-      });
+      toast({ title: "Success", description: "Site has been deleted successfully." });
     },
     onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     }
   });
 
-  // Early returns after hooks
+  // Loading/Auth states
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -533,9 +305,7 @@ export default function BuilderSiteManagement() {
         <Alert variant="destructive" className="max-w-md">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Authentication Required</AlertTitle>
-          <AlertDescription>
-            You must be logged in to access Site Management.
-          </AlertDescription>
+          <AlertDescription>You must be logged in to access Site Management.</AlertDescription>
         </Alert>
       </div>
     );
@@ -547,9 +317,7 @@ export default function BuilderSiteManagement() {
         <Alert variant="destructive" className="max-w-md">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>No Employer Assigned</AlertTitle>
-          <AlertDescription>
-            Your account is not associated with an employer. Please contact support.
-          </AlertDescription>
+          <AlertDescription>Your account is not associated with an employer. Please contact support.</AlertDescription>
         </Alert>
       </div>
     );
@@ -565,6 +333,7 @@ export default function BuilderSiteManagement() {
       supervisor_name: "",
       supervisor_telephone: "",
       project_type: "",
+      aliases: "",
       latitude: undefined,
       longitude: undefined,
     });
@@ -581,6 +350,7 @@ export default function BuilderSiteManagement() {
       supervisor_name: site.supervisor_name || "",
       supervisor_telephone: site.supervisor_telephone || "",
       project_type: site.project_type || "",
+      aliases: site.aliases?.join(', ') || "",
       latitude: site.latitude,
       longitude: site.longitude,
     });
@@ -589,12 +359,8 @@ export default function BuilderSiteManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (selectedSite) {
-      updateSiteMutation.mutate({ 
-        id: selectedSite.site_id, 
-        data: formData 
-      });
+      updateSiteMutation.mutate({ id: selectedSite.site_id, data: formData });
     } else {
       createSiteMutation.mutate(formData);
     }
@@ -616,18 +382,37 @@ export default function BuilderSiteManagement() {
 
   const getStatusBadge = (status?: string) => {
     switch (status) {
-      case 'working':
-        return <Badge className="bg-green-500">Active</Badge>;
-      case 'paused':
-        return <Badge className="bg-amber-500">Paused</Badge>;
-      case 'finished':
-        return <Badge variant="secondary">Finished</Badge>;
-      default:
-        return <Badge className="bg-green-500">Active</Badge>;
+      case 'working': return <Badge className="bg-green-500">Active</Badge>;
+      case 'paused': return <Badge className="bg-amber-500">Paused</Badge>;
+      case 'finished': return <Badge variant="secondary">Finished</Badge>;
+      default: return <Badge className="bg-green-500">Active</Badge>;
     }
   };
 
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  // Transform sites for map component
+  const mapSites: SiteLocation[] = (sites || []).map(site => ({
+    site_id: site.site_id,
+    site_name: site.site_name,
+    employer_name: site.employer_name,
+    employer_id: site.employer_id,
+    street_address: site.street_address,
+    city: site.city,
+    state: site.state,
+    post_code: site.post_code,
+    latitude: site.latitude,
+    longitude: site.longitude,
+    status: site.status,
+    incident_count: site.incident_count,
+  }));
+
+  // Head office marker
+  const headOffices: HeadOffice[] = employer ? [{
+    employer_id: employer.employer_id,
+    employer_name: employer.employer_name,
+    employer_address: employer.employer_address,
+    employer_state: employer.employer_state,
+    employer_post_code: employer.employer_post_code,
+  }] : [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -647,363 +432,271 @@ export default function BuilderSiteManagement() {
         }
       />
 
-      <div className="container mx-auto py-8 px-4">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <div className="flex justify-between items-center mb-6">
-            <TabsList>
-              <TabsTrigger value="map" className="flex items-center gap-2">
-                <MapIcon className="h-4 w-4" />
-                Map View
-              </TabsTrigger>
-              <TabsTrigger value="list" className="flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                List View
-              </TabsTrigger>
-            </TabsList>
+      <div className="container mx-auto py-8 px-4 space-y-6">
+        {/* Header with actions */}
+        <div className="flex justify-between items-center">
+          <Button
+            variant="outline"
+            onClick={() => setShowMap(!showMap)}
+            className="flex items-center gap-2"
+          >
+            {showMap ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            {showMap ? 'Hide Map' : 'Show Map'}
+          </Button>
 
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  Add New Site
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Create New Site</DialogTitle>
-                  <DialogDescription>
-                    Add a new construction site for {userEmployerName}.
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleSubmit}>
-                  <div className="grid grid-cols-2 gap-4 py-4">
-                    <div className="col-span-2 space-y-2">
-                      <Label htmlFor="site_name">Site Name *</Label>
-                      <Input
-                        id="site_name"
-                        value={formData.site_name}
-                        onChange={(e) => setFormData({ ...formData, site_name: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="col-span-2 space-y-2">
-                      <Label htmlFor="street_address">Street Address</Label>
-                      <AddressAutocomplete
-                        id="street_address"
-                        value={formData.street_address}
-                        onChange={(value) => setFormData({ ...formData, street_address: value })}
-                        onAddressChange={(address) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            street_address: address.streetAddress,
-                            city: address.city,
-                            state: address.state,
-                            post_code: address.postCode,
-                            latitude: address.latitude,
-                            longitude: address.longitude,
-                          }));
-                        }}
-                        placeholder="Start typing an address..."
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="city">City *</Label>
-                      <Input
-                        id="city"
-                        value={formData.city}
-                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="state">State *</Label>
-                      <Select
-                        value={formData.state}
-                        onValueChange={(value) => setFormData({ ...formData, state: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select state..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="NSW">NSW</SelectItem>
-                          <SelectItem value="VIC">VIC</SelectItem>
-                          <SelectItem value="QLD">QLD</SelectItem>
-                          <SelectItem value="WA">WA</SelectItem>
-                          <SelectItem value="SA">SA</SelectItem>
-                          <SelectItem value="TAS">TAS</SelectItem>
-                          <SelectItem value="NT">NT</SelectItem>
-                          <SelectItem value="ACT">ACT</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="post_code">Post Code</Label>
-                      <Input
-                        id="post_code"
-                        value={formData.post_code}
-                        onChange={(e) => setFormData({ ...formData, post_code: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="project_type">Project Type</Label>
-                      <Input
-                        id="project_type"
-                        value={formData.project_type}
-                        onChange={(e) => setFormData({ ...formData, project_type: e.target.value })}
-                        placeholder="e.g., Commercial, Residential"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="supervisor_name">Site Supervisor</Label>
-                      <Input
-                        id="supervisor_name"
-                        value={formData.supervisor_name}
-                        onChange={(e) => setFormData({ ...formData, supervisor_name: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="supervisor_telephone">Supervisor Phone</Label>
-                      <Input
-                        id="supervisor_telephone"
-                        value={formData.supervisor_telephone}
-                        onChange={(e) => setFormData({ ...formData, supervisor_telephone: e.target.value })}
-                      />
-                    </div>
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Add New Site
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Create New Site</DialogTitle>
+                <DialogDescription>Add a new construction site for {userEmployerName}.</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmit}>
+                <div className="grid grid-cols-2 gap-4 py-4">
+                  <div className="col-span-2 space-y-2">
+                    <Label htmlFor="site_name">Site Name *</Label>
+                    <Input id="site_name" value={formData.site_name} onChange={(e) => setFormData({ ...formData, site_name: e.target.value })} required />
                   </div>
-                  <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button type="submit">Create Site</Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          <TabsContent value="map">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MapIcon className="h-5 w-5" />
-                  {userEmployerName} Sites
-                </CardTitle>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-green-500" />
-                    Active Sites ({activeSites.length})
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-amber-500" />
-                    Paused Sites
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-gray-400" />
-                    Finished Sites ({inactiveSites.length})
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {sitesError && (
-                  <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-red-700 font-medium">Error loading sites</p>
-                    <p className="text-sm text-red-600">{(sitesError as Error).message}</p>
-                  </div>
-                )}
-                
-                {isLoading && (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary" />
-                    <span className="ml-2">Loading sites...</span>
-                  </div>
-                )}
-                
-                {!isLoading && !sitesError && sites?.length === 0 && (
-                  <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                    <p className="text-amber-700 font-medium">No sites found</p>
-                    <p className="text-sm text-amber-600">
-                      You haven't added any sites yet. Click "Add New Site" to create one.
-                    </p>
-                  </div>
-                )}
-                
-                {apiKey ? (
-                  <div 
-                    ref={mapRef} 
-                    className="w-full rounded-lg border bg-slate-100"
-                    style={{ height: '500px' }}
-                  />
-                ) : (
-                  <div className="w-full h-96 flex items-center justify-center bg-gradient-to-br from-blue-50 to-green-50 rounded-lg border">
-                    <div className="text-center p-8">
-                      <MapIcon className="h-16 w-16 text-blue-400 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2">Map requires Google Maps API key</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Contact your administrator to enable the map view.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="list">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5" />
-                  All Sites
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-6">
-                  <div className="relative w-96">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      className="pl-10"
-                      placeholder="Search by site name or city..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                  <div className="col-span-2 space-y-2">
+                    <Label htmlFor="street_address">Street Address</Label>
+                    <AddressAutocomplete
+                      id="street_address"
+                      value={formData.street_address}
+                      onChange={(value) => setFormData({ ...formData, street_address: value })}
+                      onAddressChange={(address) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          street_address: address.streetAddress,
+                          city: address.city,
+                          state: address.state,
+                          post_code: address.postCode,
+                          latitude: address.latitude,
+                          longitude: address.longitude,
+                        }));
+                      }}
+                      placeholder="Start typing an address..."
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="city">City *</Label>
+                    <Input id="city" value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="state">State *</Label>
+                    <Select value={formData.state} onValueChange={(value) => setFormData({ ...formData, state: value })}>
+                      <SelectTrigger><SelectValue placeholder="Select state..." /></SelectTrigger>
+                      <SelectContent>
+                        {['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'].map(s => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="post_code">Post Code</Label>
+                    <Input id="post_code" value={formData.post_code} onChange={(e) => setFormData({ ...formData, post_code: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="project_type">Project Type</Label>
+                    <Input id="project_type" value={formData.project_type} onChange={(e) => setFormData({ ...formData, project_type: e.target.value })} placeholder="e.g., Commercial, Residential" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="supervisor_name">Site Supervisor</Label>
+                    <Input id="supervisor_name" value={formData.supervisor_name} onChange={(e) => setFormData({ ...formData, supervisor_name: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="supervisor_telephone">Supervisor Phone</Label>
+                    <Input id="supervisor_telephone" value={formData.supervisor_telephone} onChange={(e) => setFormData({ ...formData, supervisor_telephone: e.target.value })} />
+                  </div>
+                  <div className="col-span-2 space-y-2">
+                    <Label htmlFor="aliases">Voice Agent Aliases</Label>
+                    <Input id="aliases" value={formData.aliases} onChange={(e) => setFormData({ ...formData, aliases: e.target.value })} placeholder="e.g., Curry Curry, Kerry Kerry (comma-separated)" />
+                    <p className="text-xs text-muted-foreground">Alternative names/phonetic spellings for voice agent recognition</p>
+                  </div>
                 </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
+                  <Button type="submit">Create Site</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
 
-                {sitesError && (
-                  <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-red-700 font-medium">Error loading sites</p>
-                    <p className="text-sm text-red-600">{(sitesError as Error).message}</p>
-                  </div>
+        {/* Map Section */}
+        {showMap && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2">
+                <MapIcon className="h-5 w-5" />
+                {userEmployerName} Sites
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-2">
+              {sitesError ? (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-red-700 font-medium">Error loading sites</p>
+                  <p className="text-sm text-red-600">{(sitesError as Error).message}</p>
+                </div>
+              ) : isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary" />
+                  <span className="ml-2">Loading sites...</span>
+                </div>
+              ) : (
+                <GoogleSitesMap 
+                  sites={mapSites} 
+                  headOffices={headOffices}
+                  height="500px"
+                  showLegend={true}
+                  onSiteClick={(site) => {
+                    const fullSite = sites?.find(s => s.site_id === site.site_id);
+                    if (fullSite) handleEdit(fullSite);
+                  }}
+                />
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Sites List Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              All Sites
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-6">
+              <div className="relative w-96">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  className="pl-10"
+                  placeholder="Search by site name or city..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {sitesError ? (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-700 font-medium">Error loading sites</p>
+                <p className="text-sm text-red-600">{(sitesError as Error).message}</p>
+              </div>
+            ) : isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary" />
+                <span className="ml-2">Loading sites...</span>
+              </div>
+            ) : filteredSites.length === 0 ? (
+              <div className="text-center py-12">
+                <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">No sites found</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {searchQuery ? `No sites match "${searchQuery}"` : "You haven't added any sites yet."}
+                </p>
+                {!searchQuery && (
+                  <Button onClick={() => setIsCreateDialogOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add First Site
+                  </Button>
                 )}
-
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary" />
-                    <span className="ml-2">Loading sites...</span>
-                  </div>
-                ) : filteredSites.length === 0 ? (
-                  <div className="text-center py-12">
-                    <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium mb-2">No sites found</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      {searchQuery 
-                        ? `No sites match "${searchQuery}"`
-                        : "You haven't added any sites yet."}
-                    </p>
-                    {!searchQuery && (
-                      <Button onClick={() => setIsCreateDialogOpen(true)}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add First Site
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Site Name</TableHead>
-                        <TableHead>Location</TableHead>
-                        <TableHead>Supervisor</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Incidents</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredSites.map((site) => (
-                        <TableRow key={site.site_id}>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{site.site_name}</div>
-                              {site.project_type && (
-                                <div className="text-sm text-muted-foreground">{site.project_type}</div>
-                              )}
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Site Name</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>Supervisor</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Incidents</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredSites.map((site) => (
+                    <TableRow key={site.site_id}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{site.site_name}</div>
+                          {site.project_type && <div className="text-sm text-muted-foreground">{site.project_type}</div>}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3 text-muted-foreground" />
+                          <span>{site.city}, {site.state}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {site.supervisor_name ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1 text-sm">
+                              <User className="h-3 w-3 text-muted-foreground" />
+                              {site.supervisor_name}
                             </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3 text-muted-foreground" />
-                              <span>{site.city}, {site.state}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {site.supervisor_name ? (
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-1 text-sm">
-                                  <User className="h-3 w-3 text-muted-foreground" />
-                                  {site.supervisor_name}
-                                </div>
-                                {site.supervisor_telephone && (
-                                  <div className="flex items-center gap-1 text-sm">
-                                    <Phone className="h-3 w-3 text-muted-foreground" />
-                                    {site.supervisor_telephone}
-                                  </div>
-                                )}
+                            {site.supervisor_telephone && (
+                              <div className="flex items-center gap-1 text-sm">
+                                <Phone className="h-3 w-3 text-muted-foreground" />
+                                {site.supervisor_telephone}
                               </div>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
                             )}
-                          </TableCell>
-                          <TableCell>
-                            {getStatusBadge(site.status)}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">
-                              {site.incident_count}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEdit(site)}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  if (confirm(`Are you sure you want to delete ${site.site_name}?`)) {
-                                    deleteSiteMutation.mutate(site.site_id);
-                                  }
-                                }}
-                                disabled={site.incident_count > 0}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(site.status)}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{site.incident_count}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => handleEdit(site)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (confirm(`Are you sure you want to delete ${site.site_name}?`)) {
+                                deleteSiteMutation.mutate(site.site_id);
+                              }
+                            }}
+                            disabled={site.incident_count > 0}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Edit Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Site</DialogTitle>
-              <DialogDescription>
-                Update the site's information.
-              </DialogDescription>
+              <DialogDescription>Update the site's information.</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit}>
               <div className="grid grid-cols-2 gap-4 py-4">
                 <div className="col-span-2 space-y-2">
                   <Label htmlFor="edit_site_name">Site Name *</Label>
-                  <Input
-                    id="edit_site_name"
-                    value={formData.site_name}
-                    onChange={(e) => setFormData({ ...formData, site_name: e.target.value })}
-                    required
-                  />
+                  <Input id="edit_site_name" value={formData.site_name} onChange={(e) => setFormData({ ...formData, site_name: e.target.value })} required />
                 </div>
                 <div className="col-span-2 space-y-2">
                   <Label htmlFor="edit_street_address">Street Address</Label>
@@ -1027,71 +720,43 @@ export default function BuilderSiteManagement() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit_city">City *</Label>
-                  <Input
-                    id="edit_city"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    required
-                  />
+                  <Input id="edit_city" value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit_state">State *</Label>
-                  <Select
-                    value={formData.state}
-                    onValueChange={(value) => setFormData({ ...formData, state: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select state..." />
-                    </SelectTrigger>
+                  <Select value={formData.state} onValueChange={(value) => setFormData({ ...formData, state: value })}>
+                    <SelectTrigger><SelectValue placeholder="Select state..." /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="NSW">NSW</SelectItem>
-                      <SelectItem value="VIC">VIC</SelectItem>
-                      <SelectItem value="QLD">QLD</SelectItem>
-                      <SelectItem value="WA">WA</SelectItem>
-                      <SelectItem value="SA">SA</SelectItem>
-                      <SelectItem value="TAS">TAS</SelectItem>
-                      <SelectItem value="NT">NT</SelectItem>
-                      <SelectItem value="ACT">ACT</SelectItem>
+                      {['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'].map(s => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit_post_code">Post Code</Label>
-                  <Input
-                    id="edit_post_code"
-                    value={formData.post_code}
-                    onChange={(e) => setFormData({ ...formData, post_code: e.target.value })}
-                  />
+                  <Input id="edit_post_code" value={formData.post_code} onChange={(e) => setFormData({ ...formData, post_code: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit_project_type">Project Type</Label>
-                  <Input
-                    id="edit_project_type"
-                    value={formData.project_type}
-                    onChange={(e) => setFormData({ ...formData, project_type: e.target.value })}
-                  />
+                  <Input id="edit_project_type" value={formData.project_type} onChange={(e) => setFormData({ ...formData, project_type: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit_supervisor_name">Site Supervisor</Label>
-                  <Input
-                    id="edit_supervisor_name"
-                    value={formData.supervisor_name}
-                    onChange={(e) => setFormData({ ...formData, supervisor_name: e.target.value })}
-                  />
+                  <Input id="edit_supervisor_name" value={formData.supervisor_name} onChange={(e) => setFormData({ ...formData, supervisor_name: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit_supervisor_telephone">Supervisor Phone</Label>
-                  <Input
-                    id="edit_supervisor_telephone"
-                    value={formData.supervisor_telephone}
-                    onChange={(e) => setFormData({ ...formData, supervisor_telephone: e.target.value })}
-                  />
+                  <Input id="edit_supervisor_telephone" value={formData.supervisor_telephone} onChange={(e) => setFormData({ ...formData, supervisor_telephone: e.target.value })} />
+                </div>
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="edit_aliases">Voice Agent Aliases</Label>
+                  <Input id="edit_aliases" value={formData.aliases} onChange={(e) => setFormData({ ...formData, aliases: e.target.value })} placeholder="e.g., Curry Curry, Kerry Kerry (comma-separated)" />
+                  <p className="text-xs text-muted-foreground">Alternative names/phonetic spellings for voice agent recognition</p>
                 </div>
               </div>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                  Cancel
-                </Button>
+                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
                 <Button type="submit">Update Site</Button>
               </DialogFooter>
             </form>
@@ -1101,11 +766,3 @@ export default function BuilderSiteManagement() {
     </div>
   );
 }
-
-// Add type declaration for google maps
-declare global {
-  interface Window {
-    google: typeof google;
-  }
-}
-

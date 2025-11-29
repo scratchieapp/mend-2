@@ -384,15 +384,20 @@ export function GoogleSitesMap({
     );
   }
 
+  // When using height="100%", the wrapper needs to also be 100% height
+  const wrapperStyle = typeof height === 'string' && height.includes('%') 
+    ? { height } 
+    : {};
+
   return (
-    <div className="relative">
+    <div className="relative" style={wrapperStyle}>
       <div 
         ref={mapRef} 
         className={`w-full rounded-lg border bg-slate-100 ${className}`}
         style={{ height }}
       />
       {showLegend && (
-        <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-3 text-sm">
+        <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-3 text-sm z-10">
           <div className="font-medium mb-2 text-gray-700">Legend</div>
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
