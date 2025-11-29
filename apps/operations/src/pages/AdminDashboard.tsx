@@ -113,6 +113,13 @@ export default function AdminDashboard() {
 
   const adminSections = [
     {
+      title: 'Worker Management',
+      description: 'Manage your workforce and employee records',
+      icon: <Users className="h-5 w-5" />,
+      link: '/builder/workers',
+      requiredRole: 'builder' as const
+    },
+    {
       title: 'Builder/Employer Management',
       description: 'Manage construction companies and builders',
       icon: <Building className="h-5 w-5" />,
@@ -265,10 +272,15 @@ export default function AdminDashboard() {
           <Upload className="h-5 w-5" />
           Quick Actions
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link to="/incident-report?new=true">
             <Button variant="outline" className="w-full">
               New Incident Report
+            </Button>
+          </Link>
+          <Link to="/builder/workers">
+            <Button variant="outline" className="w-full">
+              Manage Workers
             </Button>
           </Link>
           <Link to="/admin/data-import">

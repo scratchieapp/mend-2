@@ -118,59 +118,57 @@ export const documentsSchema = z.object({
   })).optional(),
 });
 
-// Complete incident report schema (for creating new incidents - strict validation)
+// Complete incident report schema (for creating new incidents)
+// IMPORTANT: This schema is intentionally permissive to allow submission.
+// Required fields are minimal - just enough to create a valid incident record.
+// Phone validation is optional since users may not have complete info.
 export const incidentReportSchema = z.object({
-  // Notification
+  // Notification - only client and notifying person name required
   mend_client: z.string().min(1, 'Client is required'),
-  notifying_person_name: z.string().min(2, 'Name must be at least 2 characters'),
-  notifying_person_position: z.string().min(2, 'Position is required'),
-  notifying_person_telephone: phoneValidation,
+  notifying_person_name: z.string().min(1, 'Notifying person name is required'),
+  notifying_person_position: z.string().optional().default(''),
+  notifying_person_telephone: z.string().optional().default(''), // No strict phone validation
   
-  // Worker
-  worker_id: z.string().min(1, 'Worker selection is required'),
-  worker_name: z.string().optional(),
-  worker_address: z.string().optional(),
-  worker_phone: z.string().optional(),
-  worker_dob: z.string().optional(),
+  // Worker - optional (can create incident without assigned worker)
+  worker_id: z.string().optional().default(''),
+  worker_name: z.string().optional().default(''),
+  worker_address: z.string().optional().default(''),
+  worker_phone: z.string().optional().default(''),
+  worker_dob: z.string().optional().default(''),
   worker_gender: z.enum(['Male', 'Female', 'Other']).optional(),
   
-  // Employment
-  employer_name: z.string().min(1, 'Employer name is required'),
-  location_site: z.string().min(1, 'Site location is required'),
-  supervisor_contact: z.string().min(2, 'Supervisor name is required'),
-  supervisor_phone: phoneValidation,
-  employment_type: z.enum(['full_time', 'part_time', 'casual', 'contractor']),
+  // Employment - optional
+  employer_name: z.string().optional().default(''),
+  location_site: z.string().optional().default(''),
+  supervisor_contact: z.string().optional().default(''),
+  supervisor_phone: z.string().optional().default(''), // No strict phone validation
+  employment_type: z.enum(['full_time', 'part_time', 'casual', 'contractor']).optional().default('full_time'),
   
-  // Injury
-  date_of_injury: pastDateSchema,
-  time_of_injury: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Invalid time format'),
+  // Injury - date and injury type required
+  date_of_injury: z.string().min(1, 'Date of injury is required'),
+  time_of_injury: z.string().optional().default(''), // No strict time format
   injury_type: z.string().min(1, 'Injury type is required'),
-  body_part: z.string().min(1, 'Body part is required'),
-  body_side: z.string().optional(), // Now stored as body_side_id
+  body_part: z.string().optional().default(''),
+  body_side: z.string().optional().default('not_applicable'),
   body_regions: z.array(z.string()).optional().default([]),
-  injury_description: z.string().max(500).optional(),
-  witness: z.string().optional(),
-  mechanism_of_injury: z.string().optional(), // moi_code_id
-  bodily_location_detail: z.string().optional(), // bl_code_id
+  injury_description: z.string().optional().default(''),
+  witness: z.string().optional().default(''),
+  mechanism_of_injury: z.string().optional().default(''),
+  bodily_location_detail: z.string().optional().default(''),
   
-  // Treatment
-  type_of_first_aid: z.string().min(1, 'First aid type is required'),
-  referred_to: z.enum(['none', 'hospital', 'gp', 'specialist', 'physio']).optional(),
-  doctor_details: z.string().optional(),
+  // Treatment - optional
+  type_of_first_aid: z.string().optional().default(''),
+  referred_to: z.enum(['none', 'hospital', 'gp', 'specialist', 'physio']).optional().default('none'),
+  doctor_details: z.string().optional().default(''),
   
-  // Actions
-  actions_taken: z.array(z.string()).min(1, 'At least one action required'),
+  // Actions - optional (empty array ok)
+  actions_taken: z.array(z.string()).optional().default([]),
   
-  // Notes
-  case_notes: z.string().max(2000).optional(),
+  // Notes - optional
+  case_notes: z.string().optional().default(''),
   
-  // Documents
-  documents: z.array(z.object({
-    url: z.string().url('Invalid document URL'),
-    name: z.string(),
-    type: z.string(),
-    size: z.number(),
-  })).optional(),
+  // Documents - optional
+  documents: z.array(z.any()).optional().default([]),
 });
 
 // Relaxed schema for editing existing incidents (allows partial data)

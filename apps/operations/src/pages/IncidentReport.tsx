@@ -74,6 +74,15 @@ const IncidentReport = () => {
 
   const { formState: { errors, isValid } } = form;
 
+  // Debug: Log validation state whenever it changes
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      console.log('=== FORM VALIDATION ERRORS ===');
+      console.log('isValid:', isValid);
+      console.log('Errors:', JSON.stringify(errors, null, 2));
+    }
+  }, [errors, isValid]);
+
   // Auto-save draft functionality (only save to localStorage, not server until Save Draft clicked)
   const { 
     saveDraft, 
