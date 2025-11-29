@@ -121,6 +121,73 @@ function combineNotesAndTranscripts(caseNotes: string, callTranscripts: string):
   return parts.join('');
 }
 
+// Mapping from body_part_name to relevant SVG region IDs (for deriving body_regions from body_part_id)
+const BODY_PART_TO_REGIONS: Record<string, string[]> = {
+  'Head': ['front-head', 'back-head'],
+  'Neck': ['front-neck', 'back-neck'],
+  'Chest': ['front-chest'],
+  'Abdomen': ['front-abdomen'],
+  'Upper Back': ['back-upperback'],
+  'Lower Back': ['back-lowerback'],
+  'Pelvis': ['front-pelvis'],
+  'Groin': ['front-pelvis'],
+  'Glutes': ['back-glutes'],
+  'Shoulder': ['front-shoulder-left', 'front-shoulder-right', 'back-shoulder-left', 'back-shoulder-right'],
+  'Left Shoulder': ['front-shoulder-left', 'back-shoulder-left'],
+  'Right Shoulder': ['front-shoulder-right', 'back-shoulder-right'],
+  'Upper Arm': ['front-upperarm-left', 'front-upperarm-right', 'back-upperarm-left', 'back-upperarm-right'],
+  'Left Upper Arm': ['front-upperarm-left', 'back-upperarm-left'],
+  'Right Upper Arm': ['front-upperarm-right', 'back-upperarm-right'],
+  'Forearm': ['front-forearmhand-left', 'front-forearmhand-right', 'back-forearmhand-left', 'back-forearmhand-right'],
+  'Left Forearm': ['front-forearmhand-left', 'back-forearmhand-left'],
+  'Right Forearm': ['front-forearmhand-right', 'back-forearmhand-right'],
+  'Hand': ['front-forearmhand-left', 'front-forearmhand-right', 'back-forearmhand-left', 'back-forearmhand-right'],
+  'Left Hand': ['front-forearmhand-left', 'back-forearmhand-left'],
+  'Right Hand': ['front-forearmhand-right', 'back-forearmhand-right'],
+  'Thigh': ['front-thigh-left', 'front-thigh-right', 'back-thigh-left', 'back-thigh-right'],
+  'Left Thigh': ['front-thigh-left', 'back-thigh-left'],
+  'Right Thigh': ['front-thigh-right', 'back-thigh-right'],
+  'Knee': ['front-knee-left', 'front-knee-right'],
+  'Left Knee': ['front-knee-left'],
+  'Right Knee': ['front-knee-right'],
+  'Shin': ['front-shin-left', 'front-shin-right'],
+  'Left Shin': ['front-shin-left'],
+  'Right Shin': ['front-shin-right'],
+  'Calf': ['back-calf-left', 'back-calf-right'],
+  'Left Calf': ['back-calf-left'],
+  'Right Calf': ['back-calf-right'],
+  'Foot': ['front-foot-left', 'front-foot-right', 'back-foot-left', 'back-foot-right'],
+  'Left Foot': ['front-foot-left', 'back-foot-left'],
+  'Right Foot': ['front-foot-right', 'back-foot-right'],
+  'Ankle': ['front-foot-left', 'front-foot-right', 'back-foot-left', 'back-foot-right'],
+  'Left Ankle': ['front-foot-left', 'back-foot-left'],
+  'Right Ankle': ['front-foot-right', 'back-foot-right'],
+  'Arm': ['front-upperarm-left', 'front-upperarm-right', 'front-forearmhand-left', 'front-forearmhand-right', 'back-upperarm-left', 'back-upperarm-right', 'back-forearmhand-left', 'back-forearmhand-right'],
+  'Leg': ['front-thigh-left', 'front-thigh-right', 'front-knee-left', 'front-knee-right', 'front-shin-left', 'front-shin-right', 'front-foot-left', 'front-foot-right', 'back-thigh-left', 'back-thigh-right', 'back-calf-left', 'back-calf-right', 'back-foot-left', 'back-foot-right'],
+  'Back': ['back-upperback', 'back-lowerback'],
+  'Trunk': ['front-chest', 'front-abdomen', 'back-upperback', 'back-lowerback'],
+};
+
+// Helper function to get body regions from body part name
+const getBodyRegionsFromBodyPartName = (bodyPartName: string): string[] => {
+  if (!bodyPartName) return [];
+  
+  // Try exact match first
+  if (BODY_PART_TO_REGIONS[bodyPartName]) {
+    return BODY_PART_TO_REGIONS[bodyPartName];
+  }
+  
+  // Try partial match
+  const lowerBodyPart = bodyPartName.toLowerCase();
+  for (const [name, regions] of Object.entries(BODY_PART_TO_REGIONS)) {
+    if (lowerBodyPart.includes(name.toLowerCase()) || name.toLowerCase().includes(lowerBodyPart)) {
+      return regions;
+    }
+  }
+  
+  return [];
+};
+
 // Field labels for human-readable change descriptions
 const fieldLabels: Record<string, string> = {
   notifying_person_name: 'Notifying Person Name',
@@ -132,6 +199,7 @@ const fieldLabels: Record<string, string> = {
   time_of_injury: 'Time of Injury',
   injury_type: 'Injury Type',
   body_part_id: 'Body Part',
+  body_side_id: 'Body Side',
   injury_description: 'Injury Description',
   witness: 'Witness',
   treatment_provided: 'Treatment Provided',
@@ -258,7 +326,9 @@ const IncidentEditPage = () => {
 
   // Populate form with existing data
   useEffect(() => {
-    if (incidentData) {
+    const populateForm = async () => {
+      if (!incidentData) return;
+      
       console.log('Raw incident data received:', incidentData);
       
       // Store original data for change tracking (only once)
@@ -273,6 +343,7 @@ const IncidentEditPage = () => {
           time_of_injury: incidentData.time_of_injury || '',
           injury_type: incidentData.injury_type || '',
           body_part_id: incidentData.body_part_id,
+          body_side_id: incidentData.body_side_id,
           injury_description: incidentData.injury_description || '',
           witness: incidentData.witness || '',
           treatment_provided: incidentData.treatment_provided || '',
@@ -281,6 +352,22 @@ const IncidentEditPage = () => {
           actions: incidentData.actions || '',
           case_notes: incidentData.case_notes || '',
         };
+      }
+      
+      // Fetch body part name to derive body_regions for the diagram
+      let bodyPartName = '';
+      let derivedBodyRegions: string[] = [];
+      if (incidentData.body_part_id) {
+        const { data: bodyPartData } = await supabase
+          .from('body_parts')
+          .select('body_part_name')
+          .eq('body_part_id', incidentData.body_part_id)
+          .maybeSingle();
+        
+        if (bodyPartData?.body_part_name) {
+          bodyPartName = bodyPartData.body_part_name;
+          derivedBodyRegions = getBodyRegionsFromBodyPartName(bodyPartName);
+        }
       }
       
       // Map database fields to form fields properly
@@ -312,7 +399,7 @@ const IncidentEditPage = () => {
         injury_type: incidentData.injury_type || "",
         body_part: incidentData.body_part_id?.toString() || "", // Use body_part_id
         body_side: incidentData.body_side_id?.toString() || "", // Store as ID string for dropdown
-        body_regions: Array.isArray(incidentData.body_regions) ? incidentData.body_regions : [],
+        body_regions: derivedBodyRegions, // Derived from body_part_name
         injury_description: incidentData.injury_description || "",
         witness: incidentData.witness || "",
         // Extended injury fields - store as ID strings
@@ -338,6 +425,7 @@ const IncidentEditPage = () => {
       };
       
       console.log('Mapped form data:', formData);
+      console.log('Derived body regions from body part:', bodyPartName, derivedBodyRegions);
       console.log('Current form values before reset:', form.getValues());
       
       // Use setTimeout to ensure the form is ready before resetting
@@ -345,7 +433,9 @@ const IncidentEditPage = () => {
         form.reset(formData);
         console.log('Form values after reset:', form.getValues());
       }, 0);
-    }
+    };
+    
+    populateForm();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incidentData]);
 
@@ -421,7 +511,7 @@ const IncidentEditPage = () => {
       if (data.body_part) updateData.body_part_id = parseInt(data.body_part) || null;
       // Body side is now stored as ID directly
       if (data.body_side) updateData.body_side_id = parseInt(data.body_side) || null;
-      if (data.body_regions && data.body_regions.length > 0) updateData.body_regions = data.body_regions;
+      // Note: body_regions is UI-only state derived from body_part_id, not stored in DB
       if (data.injury_description) updateData.injury_description = data.injury_description;
       if (data.witness !== undefined) updateData.witness = data.witness || null;
       // Extended injury fields
@@ -549,7 +639,7 @@ const IncidentEditPage = () => {
       if (formData.body_part) updateData.body_part_id = parseInt(formData.body_part) || null;
       // Body side is now stored as ID directly
       if (formData.body_side) updateData.body_side_id = parseInt(formData.body_side) || null;
-      if (formData.body_regions && formData.body_regions.length > 0) updateData.body_regions = formData.body_regions;
+      // Note: body_regions is UI-only state derived from body_part_id, not stored in DB
       if (formData.injury_description) updateData.injury_description = formData.injury_description;
       if (formData.witness !== undefined) updateData.witness = formData.witness || null;
       // Extended injury fields

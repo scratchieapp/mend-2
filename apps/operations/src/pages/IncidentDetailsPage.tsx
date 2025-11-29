@@ -35,88 +35,82 @@ type IncidentWithRelations = Tables<'incidents'> & {
   worker?: Partial<Tables<'workers'>>;
   department?: Partial<Tables<'departments'>>;
   body_part?: Partial<Tables<'body_parts'>>;
+  body_regions?: string[];
 };
 
-// Helper function to map body part names to SVG regions
+// Mapping from body_part_name to relevant SVG region IDs (same as InjuryDetailsSection)
+const BODY_PART_TO_REGIONS: Record<string, string[]> = {
+  'Head': ['front-head', 'back-head'],
+  'Neck': ['front-neck', 'back-neck'],
+  'Chest': ['front-chest'],
+  'Abdomen': ['front-abdomen'],
+  'Upper Back': ['back-upperback'],
+  'Lower Back': ['back-lowerback'],
+  'Pelvis': ['front-pelvis'],
+  'Groin': ['front-pelvis'],
+  'Glutes': ['back-glutes'],
+  'Shoulder': ['front-shoulder-left', 'front-shoulder-right', 'back-shoulder-left', 'back-shoulder-right'],
+  'Left Shoulder': ['front-shoulder-left', 'back-shoulder-left'],
+  'Right Shoulder': ['front-shoulder-right', 'back-shoulder-right'],
+  'Upper Arm': ['front-upperarm-left', 'front-upperarm-right', 'back-upperarm-left', 'back-upperarm-right'],
+  'Left Upper Arm': ['front-upperarm-left', 'back-upperarm-left'],
+  'Right Upper Arm': ['front-upperarm-right', 'back-upperarm-right'],
+  'Forearm': ['front-forearmhand-left', 'front-forearmhand-right', 'back-forearmhand-left', 'back-forearmhand-right'],
+  'Left Forearm': ['front-forearmhand-left', 'back-forearmhand-left'],
+  'Right Forearm': ['front-forearmhand-right', 'back-forearmhand-right'],
+  'Hand': ['front-forearmhand-left', 'front-forearmhand-right', 'back-forearmhand-left', 'back-forearmhand-right'],
+  'Left Hand': ['front-forearmhand-left', 'back-forearmhand-left'],
+  'Right Hand': ['front-forearmhand-right', 'back-forearmhand-right'],
+  'Thigh': ['front-thigh-left', 'front-thigh-right', 'back-thigh-left', 'back-thigh-right'],
+  'Left Thigh': ['front-thigh-left', 'back-thigh-left'],
+  'Right Thigh': ['front-thigh-right', 'back-thigh-right'],
+  'Knee': ['front-knee-left', 'front-knee-right'],
+  'Left Knee': ['front-knee-left'],
+  'Right Knee': ['front-knee-right'],
+  'Shin': ['front-shin-left', 'front-shin-right'],
+  'Left Shin': ['front-shin-left'],
+  'Right Shin': ['front-shin-right'],
+  'Calf': ['back-calf-left', 'back-calf-right'],
+  'Left Calf': ['back-calf-left'],
+  'Right Calf': ['back-calf-right'],
+  'Foot': ['front-foot-left', 'front-foot-right', 'back-foot-left', 'back-foot-right'],
+  'Left Foot': ['front-foot-left', 'back-foot-left'],
+  'Right Foot': ['front-foot-right', 'back-foot-right'],
+  'Ankle': ['front-foot-left', 'front-foot-right', 'back-foot-left', 'back-foot-right'],
+  'Left Ankle': ['front-foot-left', 'back-foot-left'],
+  'Right Ankle': ['front-foot-right', 'back-foot-right'],
+  'Arm': ['front-upperarm-left', 'front-upperarm-right', 'front-forearmhand-left', 'front-forearmhand-right', 'back-upperarm-left', 'back-upperarm-right', 'back-forearmhand-left', 'back-forearmhand-right'],
+  'Leg': ['front-thigh-left', 'front-thigh-right', 'front-knee-left', 'front-knee-right', 'front-shin-left', 'front-shin-right', 'front-foot-left', 'front-foot-right', 'back-thigh-left', 'back-thigh-right', 'back-calf-left', 'back-calf-right', 'back-foot-left', 'back-foot-right'],
+  'Back': ['back-upperback', 'back-lowerback'],
+  'Trunk': ['front-chest', 'front-abdomen', 'back-upperback', 'back-lowerback'],
+};
+
+// Helper function to get body regions from incident data
 const getBodyRegionsFromIncident = (incident: IncidentWithRelations | null | undefined): string[] => {
+  // First, check if body_regions is stored directly on the incident
+  if (incident?.body_regions && Array.isArray(incident.body_regions) && incident.body_regions.length > 0) {
+    return incident.body_regions;
+  }
+  
+  // Fall back to mapping from body_part_name
   if (!incident?.body_part?.body_part_name) return [];
   
-  const bodyPart = incident.body_part.body_part_name.toLowerCase();
-  const regions: string[] = [];
+  const bodyPartName = incident.body_part.body_part_name;
   
-  // Map body part names to SVG region IDs
-  if (bodyPart.includes('chest')) {
-    regions.push('front-chest');
-  } else if (bodyPart.includes('head')) {
-    regions.push('front-head');
-  } else if (bodyPart.includes('neck')) {
-    regions.push('front-neck');
-  } else if (bodyPart.includes('shoulder')) {
-    if (bodyPart.includes('left')) {
-      regions.push('front-shoulder-left');
-    } else if (bodyPart.includes('right')) {
-      regions.push('front-shoulder-right');
-    } else {
-      regions.push('front-shoulder-left', 'front-shoulder-right');
-    }
-  } else if (bodyPart.includes('arm')) {
-    if (bodyPart.includes('left')) {
-      regions.push('front-upperarm-left', 'front-forearmhand-left');
-    } else if (bodyPart.includes('right')) {
-      regions.push('front-upperarm-right', 'front-forearmhand-right');
-    } else {
-      regions.push('front-upperarm-left', 'front-upperarm-right');
-    }
-  } else if (bodyPart.includes('back')) {
-    if (bodyPart.includes('lower')) {
-      regions.push('back-lowerback');
-    } else if (bodyPart.includes('upper')) {
-      regions.push('back-upperback');
-    } else {
-      regions.push('back-upperback', 'back-lowerback');
-    }
-  } else if (bodyPart.includes('abdomen') || bodyPart.includes('stomach')) {
-    regions.push('front-abdomen');
-  } else if (bodyPart.includes('leg') || bodyPart.includes('thigh')) {
-    if (bodyPart.includes('left')) {
-      regions.push('front-thigh-left');
-    } else if (bodyPart.includes('right')) {
-      regions.push('front-thigh-right');
-    } else {
-      regions.push('front-thigh-left', 'front-thigh-right');
-    }
-  } else if (bodyPart.includes('knee')) {
-    if (bodyPart.includes('left')) {
-      regions.push('front-knee-left');
-    } else if (bodyPart.includes('right')) {
-      regions.push('front-knee-right');
-    } else {
-      regions.push('front-knee-left', 'front-knee-right');
-    }
-  } else if (bodyPart.includes('foot') || bodyPart.includes('ankle')) {
-    if (bodyPart.includes('left')) {
-      regions.push('front-foot-left');
-    } else if (bodyPart.includes('right')) {
-      regions.push('front-foot-right');
-    } else {
-      regions.push('front-foot-left', 'front-foot-right');
-    }
-  } else if (bodyPart.includes('hand') || bodyPart.includes('wrist')) {
-    if (bodyPart.includes('left')) {
-      regions.push('front-forearmhand-left');
-    } else if (bodyPart.includes('right')) {
-      regions.push('front-forearmhand-right');
-    } else {
-      regions.push('front-forearmhand-left', 'front-forearmhand-right');
+  // Try exact match first
+  if (BODY_PART_TO_REGIONS[bodyPartName]) {
+    return BODY_PART_TO_REGIONS[bodyPartName];
+  }
+  
+  // Try partial match
+  const lowerBodyPart = bodyPartName.toLowerCase();
+  for (const [name, regions] of Object.entries(BODY_PART_TO_REGIONS)) {
+    if (lowerBodyPart.includes(name.toLowerCase()) || name.toLowerCase().includes(lowerBodyPart)) {
+      return regions;
     }
   }
   
-  // Default to chest if no specific region found
-  if (regions.length === 0) {
-    regions.push('front-chest');
-  }
-  
-  return regions;
+  return [];
 };
 
 const IncidentDetailsPage = () => {
@@ -135,16 +129,13 @@ const IncidentDetailsPage = () => {
   const { data: incident, isLoading, error } = useQuery({
     queryKey: ['incident', id, userData?.role_id],
     queryFn: async () => {
-      // Use RPC to fetch incident with RBAC context
-      const { data: rpcData, error: rpcError } = await supabase.rpc('get_dashboard_data', {
-        page_size: 1000,
-        page_offset: 0,
-        filter_employer_id: null,
-        filter_worker_id: null,
-        filter_start_date: null,
-        filter_end_date: null,
-        user_role_id: userData?.role_id || null,
-        user_employer_id: userData?.employer_id ? parseInt(userData.employer_id) : null
+      if (!id) throw new Error('No incident ID provided');
+      
+      // Use dedicated RPC to fetch full incident details with RBAC
+      const { data: incidentFromRpc, error: rpcError } = await supabase.rpc('get_incident_details', {
+        p_incident_id: parseInt(id),
+        p_user_role_id: userData?.role_id || null,
+        p_user_employer_id: userData?.employer_id ? parseInt(userData.employer_id) : null
       });
 
       if (rpcError) {
@@ -152,16 +143,24 @@ const IncidentDetailsPage = () => {
         throw rpcError;
       }
 
-      // Find the specific incident from the RBAC-filtered results
-      const incidentFromRpc = rpcData?.incidents?.find(
-        (inc: { incident_id: number }) => inc.incident_id === Number(id)
-      );
-
       if (!incidentFromRpc) {
-        throw new Error('Incident not found');
+        throw new Error('Incident not found or access denied');
       }
 
-      // Fetch additional site details (longitude/latitude) for the map
+      console.log('Raw incident data from RPC:', incidentFromRpc);
+
+      // Fetch worker details
+      let workerData = null;
+      if (incidentFromRpc.worker_id) {
+        const { data } = await supabase
+          .from('workers')
+          .select('worker_id, given_name, family_name, phone_number, mobile_number, occupation, employer_id')
+          .eq('worker_id', incidentFromRpc.worker_id)
+          .maybeSingle();
+        workerData = data;
+      }
+
+      // Fetch site details (including coordinates for map)
       let siteDetails = null;
       if (incidentFromRpc.site_id) {
         const { data: siteData } = await supabase
@@ -177,46 +176,44 @@ const IncidentDetailsPage = () => {
       if (incidentFromRpc.body_part_id) {
         const { data: bodyPartData } = await supabase
           .from('body_parts')
-          .select('body_part_name')
+          .select('body_part_id, body_part_name')
           .eq('body_part_id', incidentFromRpc.body_part_id)
           .maybeSingle();
         bodyPartDetails = bodyPartData;
       }
 
-      // Map RPC data to the expected format
-      const [givenName, ...familyNameParts] = (incidentFromRpc.worker_name || '').split(' ');
+      // Fetch department details if available
+      let departmentDetails = null;
+      if (incidentFromRpc.department_id) {
+        const { data: deptData } = await supabase
+          .from('departments')
+          .select('department_id, department_name')
+          .eq('department_id', incidentFromRpc.department_id)
+          .maybeSingle();
+        departmentDetails = deptData;
+      }
+
+      // Fetch employer name if we have workers_employer field or employer_id
+      let employerName = incidentFromRpc.workers_employer;
+      if (!employerName && incidentFromRpc.employer_id) {
+        const { data: employerData } = await supabase
+          .from('employers')
+          .select('employer_name')
+          .eq('employer_id', incidentFromRpc.employer_id)
+          .maybeSingle();
+        employerName = employerData?.employer_name;
+      }
       
       return {
         ...incidentFromRpc,
-        incident_id: incidentFromRpc.incident_id,
-        incident_number: incidentFromRpc.incident_number,
-        date_of_injury: incidentFromRpc.date_of_injury,
-        time_of_injury: incidentFromRpc.time_of_injury,
-        injury_type: incidentFromRpc.injury_type,
-        classification: incidentFromRpc.classification,
-        status: incidentFromRpc.incident_status,
-        injury_description: incidentFromRpc.injury_description,
-        fatality: incidentFromRpc.fatality,
-        returned_to_work: incidentFromRpc.returned_to_work,
-        total_days_lost: incidentFromRpc.total_days_lost,
-        created_at: incidentFromRpc.created_at,
-        updated_at: incidentFromRpc.updated_at,
-        employer_id: incidentFromRpc.employer_id,
-        site: siteDetails || {
-          site_id: incidentFromRpc.site_id,
-          site_name: incidentFromRpc.site_name
-        },
-        worker: incidentFromRpc.worker_id ? {
-          worker_id: incidentFromRpc.worker_id,
-          given_name: givenName || '',
-          family_name: familyNameParts.join(' ') || '',
-          occupation: incidentFromRpc.worker_occupation
-        } : null,
-        department: incidentFromRpc.department_id ? {
-          department_name: incidentFromRpc.department_name
-        } : null,
-        body_part: bodyPartDetails
-      };
+        site: siteDetails,
+        worker: workerData,
+        department: departmentDetails,
+        body_part: bodyPartDetails,
+        workers_employer: employerName,
+        // Ensure body_regions is an array (might be stored in DB)
+        body_regions: Array.isArray(incidentFromRpc.body_regions) ? incidentFromRpc.body_regions : [],
+      } as IncidentWithRelations;
     },
     enabled: !!id && !!userData
   });
