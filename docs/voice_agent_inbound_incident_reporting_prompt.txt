@@ -184,7 +184,7 @@ IMPORTANT DATA TO CAPTURE:
 - caller_phone
 - worker_name
 - injury_description
-- injury_type (REQUIRED: Cut/laceration, Sprain/strain, Fracture, Burn, Crush injury, Contusion/bruise, etc.)
+- injury_type (REQUIRED: Cut/laceration, Sprain/strain, Fracture, Burn, Crush injury, Contusion/bruise, etc.) 
 - body_part_injured (e.g., arm, leg, back, head, hand)
 - body_side (left, right, both, or not_applicable)
 - date_of_injury

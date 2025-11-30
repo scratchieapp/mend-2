@@ -436,18 +436,20 @@ serve(async (req: Request) => {
         ? Math.floor((call.end_timestamp - call.start_timestamp) / 1000)
         : null;
 
-      // Check if this is an inbound call from the Incident Reporter agent
+      // Check if this is a call from the Incident Reporter agent
+      // Handles both phone calls (direction: 'inbound') AND web calls (call_type: 'web')
       console.log('Agent ID check:', {
         callAgentId: call.agent_id,
         expectedAgentId: incidentReporterAgentId,
         direction: call.direction,
+        callType: call.call_type,
         match: call.agent_id === incidentReporterAgentId,
       });
 
       const isIncidentReporterCall =
         incidentReporterAgentId &&
         call.agent_id === incidentReporterAgentId &&
-        call.direction === 'inbound';
+        (call.direction === 'inbound' || call.call_type === 'web');
 
       console.log('isIncidentReporterCall:', isIncidentReporterCall);
 
@@ -522,16 +524,19 @@ serve(async (req: Request) => {
       console.log('Service key present:', !!supabaseServiceKey);
 
       // Determine phone number (required field - NOT NULL)
-      const phoneNumber = call.direction === 'inbound'
-        ? (call.from_number || 'unknown')
-        : (call.to_number || 'unknown');
+      // Web calls may not have phone numbers, use 'web_call' as placeholder
+      const phoneNumber = call.call_type === 'web'
+        ? 'web_call'
+        : call.direction === 'inbound'
+          ? (call.from_number || 'unknown')
+          : (call.to_number || 'unknown');
 
       const voiceLogData = {
         task_id: voiceTask?.id || null,
         incident_id: incidentIdForLog,
         retell_call_id: call.call_id,
         retell_agent_id: call.agent_id,
-        call_type: call.direction,
+        call_type: call.call_type || call.direction, // 'web', 'phone', or 'inbound'/'outbound'
         direction: call.direction,
         phone_number: phoneNumber, // Required NOT NULL field
         duration_seconds: durationSeconds,
@@ -551,7 +556,7 @@ serve(async (req: Request) => {
           incident_id: incidentIdForLog,
           retell_call_id: call.call_id,
           retell_agent_id: call.agent_id,
-          call_type: call.direction,
+          call_type: call.call_type || call.direction, // 'web', 'phone', or 'inbound'/'outbound'
           direction: call.direction,
           phone_number: phoneNumber, // Required NOT NULL field
           duration_seconds: durationSeconds,
