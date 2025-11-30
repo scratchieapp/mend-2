@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, UserPlus, Search, Edit, Trash2, Phone, Mail, MapPin, Calendar, ArrowLeft } from "lucide-react";
+import { Users, UserPlus, Search, Edit, Trash2, Phone, Mail, MapPin, Calendar, ArrowLeft, CheckSquare, Square, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import { useEmployerContext } from "@/hooks/useEmployerContext";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -64,6 +65,8 @@ export default function BuilderWorkerManagement() {
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
   const [formData, setFormData] = useState(emptyWorker);
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedWorkers, setSelectedWorkers] = useState<Set<number>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Determine the employer ID to use
   const effectiveEmployerId = selectedEmployerId || (userData?.employer_id ? parseInt(userData.employer_id) : null);
@@ -138,21 +141,66 @@ export default function BuilderWorkerManagement() {
   };
   
   const handleDelete = async (workerId: number) => {
-    if (!confirm('Are you sure you want to delete this worker? This cannot be undone.')) return;
+    if (!confirm('Are you sure you want to delete this worker? They will be removed from the list but their incident history will be preserved.')) return;
     
+    await handleBulkDelete([workerId]);
+  };
+
+  const handleBulkDelete = async (workerIds: number[]) => {
+    if (workerIds.length === 0) return;
+    
+    setIsDeleting(true);
     try {
-      const { error } = await supabase
-        .from('workers')
-        .delete()
-        .eq('worker_id', workerId);
+      const { data, error } = await supabase.rpc('delete_workers_rbac', {
+        p_worker_ids: workerIds,
+        p_user_role_id: userData?.role_id || null,
+        p_user_employer_id: userData?.employer_id ? parseInt(userData.employer_id) : null
+      });
       
       if (error) throw error;
       
-      setWorkers(prev => prev.filter(w => w.worker_id !== workerId));
-      toast.success('Worker deleted successfully');
+      const result = data?.[0];
+      if (result?.success) {
+        setWorkers(prev => prev.filter(w => !workerIds.includes(w.worker_id)));
+        setSelectedWorkers(new Set());
+        toast.success(result.message);
+      } else {
+        toast.error(result?.message || 'Failed to delete workers');
+      }
     } catch (error: any) {
-      console.error('Error deleting worker:', error);
-      toast.error(error.message || 'Failed to delete worker');
+      console.error('Error deleting workers:', error);
+      toast.error(error.message || 'Failed to delete workers');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleBulkDeleteSelected = async () => {
+    if (selectedWorkers.size === 0) return;
+    
+    const count = selectedWorkers.size;
+    if (!confirm(`Are you sure you want to delete ${count} worker${count === 1 ? '' : 's'}? They will be removed from the list but their incident history will be preserved.`)) return;
+    
+    await handleBulkDelete(Array.from(selectedWorkers));
+  };
+
+  const toggleSelectWorker = (workerId: number) => {
+    setSelectedWorkers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(workerId)) {
+        newSet.delete(workerId);
+      } else {
+        newSet.add(workerId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedWorkers.size === filteredWorkers.length) {
+      setSelectedWorkers(new Set());
+    } else {
+      setSelectedWorkers(new Set(filteredWorkers.map(w => w.worker_id)));
     }
   };
   
@@ -287,10 +335,26 @@ export default function BuilderWorkerManagement() {
           </p>
         </div>
         
-        <Button onClick={handleAddNew}>
-          <UserPlus className="h-4 w-4 mr-2" />
-          Add New Worker
-        </Button>
+        <div className="flex gap-2">
+          {selectedWorkers.size > 0 && (
+            <Button 
+              variant="destructive" 
+              onClick={handleBulkDeleteSelected}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Delete {selectedWorkers.size} Selected
+            </Button>
+          )}
+          <Button onClick={handleAddNew}>
+            <UserPlus className="h-4 w-4 mr-2" />
+            Add New Worker
+          </Button>
+        </div>
       </div>
       
       {/* Search and Stats */}
@@ -348,6 +412,13 @@ export default function BuilderWorkerManagement() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={filteredWorkers.length > 0 && selectedWorkers.size === filteredWorkers.length}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Select all"
+                      />
+                    </TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Phone</TableHead>
                     <TableHead>Email</TableHead>
@@ -358,7 +429,14 @@ export default function BuilderWorkerManagement() {
                 </TableHeader>
                 <TableBody>
                   {filteredWorkers.map((worker) => (
-                    <TableRow key={worker.worker_id}>
+                    <TableRow key={worker.worker_id} className={selectedWorkers.has(worker.worker_id) ? "bg-muted/50" : ""}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedWorkers.has(worker.worker_id)}
+                          onCheckedChange={() => toggleSelectWorker(worker.worker_id)}
+                          aria-label={`Select ${worker.given_name} ${worker.family_name}`}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">
                         {worker.given_name} {worker.family_name}
                         {worker.occupation && (
