@@ -31,6 +31,7 @@ import { WeatherDisplay } from "@/components/incidents/WeatherDisplay";
 import { fetchCurrentWeather, WeatherData } from "@/services/weatherService";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { format } from "date-fns";
+import { RetellVoiceCall } from "@/components/voice/RetellVoiceCall";
 
 // Emergency phone number - 24/7 incident reporting line
 const EMERGENCY_PHONE = "02 9136 2358";
@@ -332,12 +333,24 @@ export default function PublicDashboard() {
               <AlertTriangle className="h-5 w-5" />
               Report Incident
             </Button>
-            <a href={EMERGENCY_PHONE_LINK}>
-              <Button variant="outline" size="lg" className="gap-2">
-                <Phone className="h-5 w-5 text-red-500" />
-                Call Mend - {EMERGENCY_PHONE}
-              </Button>
-            </a>
+            
+            {/* Voice Call Button - Shows voice chat option for logged-in users */}
+            {isAuthenticated ? (
+              <RetellVoiceCall 
+                buttonText={`Call Mend - ${EMERGENCY_PHONE}`}
+                buttonVariant="outline"
+                phoneNumber={EMERGENCY_PHONE}
+                showPhoneOption={true}
+                className="h-11 text-base"
+              />
+            ) : (
+              <a href={EMERGENCY_PHONE_LINK}>
+                <Button variant="outline" size="lg" className="gap-2">
+                  <Phone className="h-5 w-5 text-red-500" />
+                  Call Mend - {EMERGENCY_PHONE}
+                </Button>
+              </a>
+            )}
           </div>
 
           {/* 1. RECENT INCIDENTS SECTION (only for authorized users) */}

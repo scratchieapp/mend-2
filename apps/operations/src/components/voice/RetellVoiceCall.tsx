@@ -76,15 +76,25 @@ export function RetellVoiceCall({
     setTranscript([]);
 
     try {
-      // Get access token from our backend
-      const response = await fetch('/api/retell/create-web-call', {
+      // Get Supabase URL from environment
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      
+      if (!supabaseUrl) {
+        throw new Error('Supabase not configured');
+      }
+
+      // Get access token from Supabase Edge Function
+      const response = await fetch(`${supabaseUrl}/functions/v1/create-web-call`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ agent_id: agentId })
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create web call');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to create web call');
       }
 
       const { access_token } = await response.json();
