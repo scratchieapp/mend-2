@@ -342,6 +342,13 @@ export default function PublicDashboard() {
                 phoneNumber={EMERGENCY_PHONE}
                 showPhoneOption={true}
                 className="h-11 text-base"
+                userContext={{
+                  employer_id: userData?.employer_id || undefined,
+                  employer_name: userData?.employer_name || undefined,
+                  caller_name: userData?.full_name || undefined,
+                  caller_role: userData?.role_name || undefined,
+                  is_authenticated: true,
+                }}
               />
             ) : (
               <a href={EMERGENCY_PHONE_LINK}>

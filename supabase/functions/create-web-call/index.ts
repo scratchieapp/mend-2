@@ -13,6 +13,17 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 interface CreateWebCallRequest {
   agent_id?: string;
   metadata?: Record<string, any>;
+  // User context for authenticated users - passed as dynamic variables
+  user_context?: {
+    employer_id?: string;
+    employer_name?: string;
+    site_id?: string;
+    site_name?: string;
+    caller_name?: string;
+    caller_role?: string;
+    caller_phone?: string;
+    is_authenticated?: boolean;
+  };
 }
 
 serve(async (req: Request) => {
@@ -69,6 +80,22 @@ serve(async (req: Request) => {
 
     console.log('Creating web call for agent:', agentId);
 
+    // Build dynamic variables from user context if provided
+    const dynamicVariables: Record<string, string> = {};
+    if (requestData.user_context) {
+      const ctx = requestData.user_context;
+      if (ctx.employer_name) dynamicVariables.employer_name = ctx.employer_name;
+      if (ctx.employer_id) dynamicVariables.employer_id = ctx.employer_id;
+      if (ctx.site_name) dynamicVariables.site_name = ctx.site_name;
+      if (ctx.site_id) dynamicVariables.site_id = ctx.site_id;
+      if (ctx.caller_name) dynamicVariables.caller_name = ctx.caller_name;
+      if (ctx.caller_role) dynamicVariables.caller_role = ctx.caller_role;
+      if (ctx.caller_phone) dynamicVariables.caller_phone = ctx.caller_phone;
+      if (ctx.is_authenticated) dynamicVariables.is_authenticated = 'true';
+    }
+
+    console.log('Dynamic variables for call:', dynamicVariables);
+
     // Create web call via Retell API
     const response = await fetch('https://api.retellai.com/v2/create-web-call', {
       method: 'POST',
@@ -83,6 +110,10 @@ serve(async (req: Request) => {
           source: 'web_portal',
           created_at: new Date().toISOString(),
         },
+        // Pass user context as dynamic variables - agent can use these to skip questions
+        retell_llm_dynamic_variables: Object.keys(dynamicVariables).length > 0 
+          ? dynamicVariables 
+          : undefined,
       }),
     });
 

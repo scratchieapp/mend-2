@@ -12,6 +12,17 @@ interface RetellWebClient {
   off(event: string, callback: (...args: any[]) => void): void;
 }
 
+interface UserContext {
+  employer_id?: string;
+  employer_name?: string;
+  site_id?: string;
+  site_name?: string;
+  caller_name?: string;
+  caller_role?: string;
+  caller_phone?: string;
+  is_authenticated?: boolean;
+}
+
 interface RetellVoiceCallProps {
   agentId?: string;
   onCallStarted?: () => void;
@@ -21,6 +32,8 @@ interface RetellVoiceCallProps {
   buttonVariant?: 'default' | 'outline' | 'secondary' | 'destructive' | 'ghost' | 'link';
   showPhoneOption?: boolean;
   phoneNumber?: string;
+  /** User context for authenticated users - passed as dynamic variables to skip questions */
+  userContext?: UserContext;
 }
 
 type CallStatus = 'idle' | 'connecting' | 'active' | 'ending';
@@ -33,7 +46,8 @@ export function RetellVoiceCall({
   buttonText = 'Speak with Mend',
   buttonVariant = 'default',
   showPhoneOption = true,
-  phoneNumber = '02 9136 2358'
+  phoneNumber = '02 9136 2358',
+  userContext
 }: RetellVoiceCallProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [callStatus, setCallStatus] = useState<CallStatus>('idle');
@@ -89,7 +103,10 @@ export function RetellVoiceCall({
         headers: { 
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ agent_id: agentId })
+        body: JSON.stringify({ 
+          agent_id: agentId,
+          user_context: userContext 
+        })
       });
 
       if (!response.ok) {
