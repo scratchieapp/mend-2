@@ -371,6 +371,7 @@ export default function PublicDashboard() {
                   employer_name: employerName || undefined,
                   caller_name: userData?.display_name || userData?.custom_display_name || undefined,
                   caller_role: userData?.role?.role_name || undefined,
+                  caller_phone: userData?.mobile_number || undefined,
                   is_authenticated: true,
                 }}
               />

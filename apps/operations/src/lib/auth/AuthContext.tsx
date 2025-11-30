@@ -30,6 +30,7 @@ type UserData = {
   employer_id?: string | null;
   employer_name?: string | null;
   site_id?: string | null;
+  mobile_number?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
   last_seen_at?: string | null;
@@ -188,6 +189,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             employer_id: data.employer_id ? String(data.employer_id) : null,
             employer_name: data.employer_name || null,
             site_id: data.site_id ? String(data.site_id) : null,
+            mobile_number: data.mobile_number || null,
             created_at: data.created_at,
             updated_at: data.updated_at,
             last_seen_at: data.last_seen_at,
