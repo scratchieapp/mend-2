@@ -84,18 +84,45 @@ function calculateSimilarity(str1: string, str2: string): number {
 }
 
 // Generate phonetic code for fuzzy matching
+// More aggressive normalization to catch variations like Emilene/Emeline, Capone/Capony
 function getPhoneticCode(name: string): string {
   return name
     .toLowerCase()
     .replace(/[^a-z]/g, '')
+    // Common phonetic substitutions
     .replace(/ph/g, 'f')
     .replace(/ck/g, 'k')
     .replace(/gh/g, 'g')
     .replace(/wr/g, 'r')
     .replace(/kn/g, 'n')
     .replace(/wh/g, 'w')
+    // Handle -ine/-ene/-ane endings (all sound similar)
+    .replace(/[iea]ne\b/g, 'ine')
+    // Handle -one/-ony/-oni endings (all sound similar)
+    .replace(/on[eyi]\b/g, 'one')
+    // Remove vowels for consonant skeleton
     .replace(/[aeiou]/g, '')
-    .substring(0, 6);
+    .substring(0, 8);
+}
+
+// Additional: Simple phonetic similarity check
+function phoneticallySimilar(name1: string, name2: string): boolean {
+  const n1 = name1.toLowerCase().trim();
+  const n2 = name2.toLowerCase().trim();
+  
+  // Check if names sound similar (same consonant structure + similar endings)
+  const code1 = getPhoneticCode(n1);
+  const code2 = getPhoneticCode(n2);
+  
+  if (code1 === code2) return true;
+  
+  // Check for common name variations (e.g., -y/-ie/-i endings)
+  const normalize = (s: string) => s
+    .replace(/[iey]$/, '')  // Remove trailing i/e/y
+    .replace(/ie$/, '')      // Remove -ie ending
+    .replace(/ey$/, '');     // Remove -ey ending
+  
+  return normalize(n1) === normalize(n2);
 }
 
 // Parse full name into given and family names
@@ -239,10 +266,15 @@ serve(async (req: Request) => {
           // Family name similarity  
           const familySim = searchFamily ? calculateSimilarity(workerFamily, searchFamily.toLowerCase()) : 0;
 
-          // Phonetic matching
+          // Phonetic matching - more aggressive for voice input
           const workerPhonetic = getPhoneticCode(workerFullName);
           const searchPhonetic = getPhoneticCode(searchFullName);
-          const phoneticMatch = workerPhonetic === searchPhonetic ? 0.3 : 0;
+          const phoneticExact = workerPhonetic === searchPhonetic ? 0.4 : 0;
+          
+          // Check individual name parts phonetically
+          const givenPhonetic = phoneticallySimilar(workerGiven, searchGiven.toLowerCase()) ? 0.3 : 0;
+          const familyPhonetic = phoneticallySimilar(workerFamily, searchFamily.toLowerCase()) ? 0.3 : 0;
+          const phoneticMatch = Math.max(phoneticExact, givenPhonetic + familyPhonetic);
 
           // Combine scores - weight full name match highest
           score = Math.max(
@@ -267,7 +299,7 @@ serve(async (req: Request) => {
           confidence: score
         };
       })
-      .filter(w => w.confidence > 0.5) // Only consider matches above 50%
+      .filter(w => w.confidence > 0.4) // Lower threshold to catch phonetic variations (e.g., Emilene/Emeline, Capone/Capony)
       .sort((a, b) => b.confidence - a.confidence);
 
     console.log('Scored workers:', scoredWorkers.slice(0, 5));
