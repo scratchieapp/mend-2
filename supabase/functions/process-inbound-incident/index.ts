@@ -121,6 +121,69 @@ serve(async (req: Request) => {
       console.log('Using site_id:', siteId);
     }
 
+    // Fetch weather data for the incident location
+    let weatherData: Record<string, any> | null = null;
+    if (siteId) {
+      try {
+        // Get site coordinates
+        const { data: siteCoords } = await supabase
+          .from('sites')
+          .select('latitude, longitude')
+          .eq('site_id', siteId)
+          .single();
+
+        if (siteCoords?.latitude && siteCoords?.longitude) {
+          const googleApiKey = Deno.env.get('GOOGLE_MAPS_API_KEY');
+          if (googleApiKey) {
+            const weatherUrl = new URL('https://weather.googleapis.com/v1/currentConditions:lookup');
+            weatherUrl.searchParams.append('key', googleApiKey);
+            weatherUrl.searchParams.append('location.latitude', siteCoords.latitude.toString());
+            weatherUrl.searchParams.append('location.longitude', siteCoords.longitude.toString());
+            weatherUrl.searchParams.append('languageCode', 'en-AU');
+            weatherUrl.searchParams.append('unitsSystem', 'METRIC');
+
+            const weatherResponse = await fetch(weatherUrl.toString());
+            if (weatherResponse.ok) {
+              const weatherApiData = await weatherResponse.json();
+              weatherData = {
+                captured_at: new Date().toISOString(),
+                temperature_c: weatherApiData.temperature?.degrees ?? null,
+                feels_like_c: weatherApiData.feelsLikeTemperature?.degrees ?? null,
+                humidity_percent: weatherApiData.relativeHumidity ?? null,
+                conditions: weatherApiData.weatherCondition?.description?.text ?? null,
+                conditions_code: weatherApiData.weatherCondition?.type ?? null,
+                wind_speed_kmh: weatherApiData.wind?.speed?.value ?? null,
+                wind_direction: weatherApiData.wind?.direction?.cardinal ?? null,
+                wind_gust_kmh: weatherApiData.wind?.gust?.value ?? null,
+                precipitation_mm: weatherApiData.precipitation?.qpf?.quantity ?? null,
+                uv_index: weatherApiData.uvIndex ?? null,
+                visibility_km: weatherApiData.visibility?.distance ?? null,
+                pressure_hpa: weatherApiData.airPressure?.meanSeaLevelMillibars ?? null,
+                cloud_cover_percent: weatherApiData.cloudCover ?? null,
+                source: 'google_weather_api',
+                location: {
+                  latitude: siteCoords.latitude,
+                  longitude: siteCoords.longitude,
+                },
+                incident_date: extracted_data.date_of_injury || new Date().toISOString().split('T')[0],
+                incident_time: extracted_data.time_of_injury || null,
+              };
+              console.log('Weather data captured:', weatherData.conditions, weatherData.temperature_c + '°C');
+            } else {
+              console.warn('Weather API request failed:', weatherResponse.status);
+            }
+          } else {
+            console.log('GOOGLE_MAPS_API_KEY not configured, skipping weather capture');
+          }
+        } else {
+          console.log('Site coordinates not available for weather lookup');
+        }
+      } catch (weatherError) {
+        console.warn('Failed to fetch weather data:', weatherError);
+        // Don't fail incident creation if weather fetch fails
+      }
+    }
+
     // Step 1b: Look up body_part_id from body_parts table
     let bodyPartId: number | null = null;
     if (extracted_data.body_part_injured) {
@@ -335,6 +398,8 @@ serve(async (req: Request) => {
       notifying_person_telephone: extracted_data.caller_phone || extracted_data.worker_phone || null,
       // Use caller_position (from user profile) if available, otherwise caller_role (from call)
       notifying_person_position: extracted_data.caller_position || extracted_data.caller_role || null,
+      // Weather conditions at incident location/time
+      weather_data: weatherData,
     };
 
     const { data: incident, error: incidentError } = await supabase
