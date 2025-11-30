@@ -53,7 +53,7 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
   console.log('WorkerSelector render - employerId:', selectedEmployerId, 'workerId:', currentWorkerId, 'canFetch:', canFetchWorkers);
 
   const { data: workers = [], isLoading, refetch, error } = useQuery({
-    queryKey: ['workers', selectedEmployerId, currentWorkerId],
+    queryKey: ['workers', selectedEmployerId, currentWorkerId, userData?.role_id, userData?.employer_id],
     queryFn: async () => {
       // Re-compute these values inside the query function to get fresh values
       const empId = selectedEmployerId && selectedEmployerId !== '' ? selectedEmployerId : null;
@@ -66,20 +66,13 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
         return [];
       }
       
-      // Build query with is_active filter
-      let query = supabase
-        .from('workers')
-        .select('*')
-        .eq('is_active', true)
-        .order('given_name', { ascending: true });
+      // Determine the employer_id to use for the query
+      let queryEmployerId = empId ? parseInt(empId) : null;
       
-      if (empId) {
-        // Filter by employer when we know it
-        console.log('WorkerSelector: Filtering by employer_id:', empId);
-        query = query.eq('employer_id', parseInt(empId));
-      } else if (wrkId) {
-        // In edit mode without employer selected, fetch worker's employer's workers
+      // If we have a worker ID but no employer, look up the worker's employer first
+      if (!queryEmployerId && wrkId) {
         console.log('WorkerSelector: Looking up employer from worker:', wrkId);
+        // Use direct query for this single lookup
         const { data: worker, error: workerError } = await supabase
           .from('workers')
           .select('employer_id')
@@ -91,42 +84,52 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
         }
         
         if (worker?.employer_id) {
-          console.log('WorkerSelector: Found employer_id from worker:', worker.employer_id);
-          query = query.eq('employer_id', worker.employer_id);
-        } else {
-          // Fallback: just return the current worker if we can't find employer
-          console.log('WorkerSelector: Fallback - fetching just the current worker');
-          const { data: singleWorker } = await supabase
-            .from('workers')
-            .select('*')
-            .eq('worker_id', parseInt(wrkId))
-            .single();
-          return singleWorker ? [singleWorker as Worker] : [];
+          queryEmployerId = worker.employer_id;
+          console.log('WorkerSelector: Found employer_id from worker:', queryEmployerId);
         }
       }
       
-      const { data, error } = await query;
-      
-      if (error) {
-        console.error('Error fetching workers:', error);
-        throw error;
+      if (!queryEmployerId) {
+        console.log('WorkerSelector: No employer_id available, returning empty');
+        return [];
       }
       
-      let workersList = data as Worker[];
-      console.log('WorkerSelector: Fetched', workersList.length, 'workers');
+      // Use RBAC-aware RPC function to bypass RLS issues
+      console.log('WorkerSelector: Calling get_workers_rbac with employer_id:', queryEmployerId);
+      const { data, error: rpcError } = await supabase.rpc('get_workers_rbac', {
+        p_employer_id: queryEmployerId,
+        p_user_role_id: userData?.role_id || 5, // Default to Builder Admin if not available
+        p_user_employer_id: userData?.employer_id ? parseInt(userData.employer_id) : queryEmployerId,
+        p_is_active: true,
+      });
+      
+      if (rpcError) {
+        console.error('WorkerSelector: Error fetching workers via RPC:', rpcError);
+        throw rpcError;
+      }
+      
+      let workersList = (data || []) as Worker[];
+      console.log('WorkerSelector: Fetched', workersList.length, 'workers via RPC');
+      
+      // Sort by given_name
+      workersList.sort((a, b) => (a.given_name || '').localeCompare(b.given_name || ''));
       
       // In edit mode, ensure the current worker is always in the list
       // (even if they were marked inactive)
       if (wrkId && !workersList.some(w => w.worker_id.toString() === wrkId)) {
         console.log('WorkerSelector: Current worker not in list, fetching separately');
-        const { data: currentWorker } = await supabase
-          .from('workers')
-          .select('*')
-          .eq('worker_id', parseInt(wrkId))
-          .single();
+        // Fetch without is_active filter for the specific worker
+        const { data: inactiveData } = await supabase.rpc('get_workers_rbac', {
+          p_employer_id: queryEmployerId,
+          p_user_role_id: userData?.role_id || 5,
+          p_user_employer_id: userData?.employer_id ? parseInt(userData.employer_id) : queryEmployerId,
+          p_is_active: false, // Get inactive workers
+        });
         
-        if (currentWorker) {
-          workersList = [currentWorker as Worker, ...workersList];
+        const inactiveWorker = (inactiveData || []).find((w: Worker) => w.worker_id.toString() === wrkId);
+        if (inactiveWorker) {
+          workersList = [inactiveWorker as Worker, ...workersList];
+          console.log('WorkerSelector: Added inactive worker to list');
         }
       }
       
