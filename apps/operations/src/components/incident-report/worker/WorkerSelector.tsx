@@ -49,6 +49,9 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
   const hasValidWorkerId = currentWorkerId && currentWorkerId !== '';
   const canFetchWorkers = hasValidEmployerId || hasValidWorkerId;
 
+  // Debug: Log on every render to track state changes
+  console.log('WorkerSelector render - employerId:', selectedEmployerId, 'workerId:', currentWorkerId, 'canFetch:', canFetchWorkers);
+
   const { data: workers = [], isLoading, refetch, error } = useQuery({
     queryKey: ['workers', selectedEmployerId, currentWorkerId],
     queryFn: async () => {
