@@ -719,6 +719,114 @@ Claude can:
 
 ---
 
+## 💰 INCIDENT COST ESTIMATOR (2025-11-30)
+
+### Overview
+Real-time cost estimation comparing **unmanaged (LTI)** vs **managed (MTI)** injury scenarios. Shows potential savings from suitable duties programs to encourage early return-to-work intervention.
+
+### ✅ Completed Features
+
+1. **LTI vs MTI Comparison Card**
+   - Shows estimated cost range for unmanaged scenario (Lost Time Injury)
+   - Shows estimated cost for managed scenario (Medical Treatment Injury)
+   - Displays potential savings and percentage reduction
+   - Duration estimates (weeks off work vs weeks on light duties)
+
+2. **Detailed Breakdown Modal**
+   - Full-screen modal with calculation workings
+   - Side-by-side LTI/MTI breakdown with formulas shown
+   - Visual comparison bar chart
+   - Calculation inputs summary (injury type, body region, severity, role, state)
+
+3. **3-Year Premium Impact Toggle**
+   - Adds estimated workers' comp premium increases to LTI cost
+   - Relevant for mid-to-large employers where claims impact premiums
+   - Configurable via toggle (always enabled, not read-only)
+
+4. **Scenario Messaging**
+   - "Suitable duties not available" → Warning with suggestions
+   - "Unsure about suitable duties" → Info message encouraging discussion
+   - "Suitable duties available" → Shows full savings potential
+
+### Database Tables Created
+
+```sql
+-- Injury benchmarks by type and body region
+injury_benchmarks (
+  injury_type TEXT,           -- 'Fracture', 'Laceration', 'Sprain', etc.
+  body_region TEXT,           -- 'Back/Spine', 'Upper Limb', 'Hand', etc.
+  median_weeks_lti DECIMAL,   -- Median weeks off work (unmanaged)
+  median_weeks_mti DECIMAL,   -- Median weeks light duties (managed)
+  medical_cost_lti DECIMAL,   -- Medical costs for LTI
+  medical_cost_mti DECIMAL,   -- Medical costs for MTI (less intensive)
+  severity_modifier_* DECIMAL -- Modifiers for Minor/Moderate/Severe
+)
+
+-- Role-based costs by state
+role_costs (
+  role_category TEXT,         -- 'Labourer', 'Tradesperson', 'Supervisor', 'Operator'
+  state TEXT,                 -- 'NSW', 'VIC', 'QLD', etc.
+  weekly_piawe DECIMAL,       -- Pre-Injury Average Weekly Earnings
+  weekly_replacement DECIMAL  -- Labour hire replacement cost
+)
+
+-- State workers' comp scheme parameters
+scheme_parameters (
+  state TEXT PRIMARY KEY,
+  weekly_comp_rate_first_13 DECIMAL,  -- 95% of PIAWE
+  weekly_comp_rate_after_13 DECIMAL,  -- 80% of PIAWE
+  max_weekly_compensation DECIMAL,
+  indirect_multiplier_lti DECIMAL,    -- 2.0x for LTI
+  indirect_multiplier_mti DECIMAL,    -- 1.5x for MTI
+  premium_impact_multiplier DECIMAL   -- 3-year premium impact factor
+)
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `/apps/operations/src/lib/cost-estimation.ts` | Core calculation logic |
+| `/apps/operations/src/components/incident-report/cost/IncidentCostEstimate.tsx` | UI component with modal |
+| `/supabase/migrations/20251130_add_cost_estimation_benchmarks.sql` | Database tables + seed data |
+
+### Calculation Logic
+
+**LTI (Unmanaged) Cost:**
+```
+Direct Costs = Compensation + Replacement Labour + Medical
+Indirect Costs = Direct Costs × (indirect_multiplier - 1)
+Premium Impact = Direct Costs × premium_multiplier (optional)
+Total = Direct + Indirect + Premium Impact
+```
+
+**MTI (Managed) Cost:**
+```
+Productivity Loss = Weekly PIAWE × 30% × duration
+Direct Costs = Productivity Loss + Medical + Admin ($1,500)
+Indirect Costs = Direct Costs × (indirect_multiplier - 1)
+Total = Direct + Indirect (no premium impact)
+```
+
+**Savings:**
+```
+Potential Savings = LTI Total - MTI Total
+Savings Percentage = (Savings / LTI Total) × 100
+```
+
+### Data Sources
+- Safe Work Australia Key WHS Statistics 2024
+- State workers' compensation scheme data
+- Construction industry benchmarks
+- Return-to-work research (Australian studies)
+
+### Integration Points
+- **IncidentDetailsPage**: Shows cost estimate in read-only mode
+- **IncidentEditPage**: Shows cost estimate with toggle controls
+- **Props required**: `injuryType`, `bodyPartName`, `severity`, `state`, `workerRole`, `suitableDutiesAvailable`
+
+---
+
 ## ✅ CRITICAL ISSUES RESOLVED (2025-10-04)
 
 ### 🎯 ALL PRODUCTION BLOCKERS FIXED
@@ -927,6 +1035,6 @@ npm run preview      # Preview build
 
 ---
 
-**Last Updated**: November 29, 2025
-**Version**: 4.13.0
-**Status**: ✅ PRODUCTION READY | ✅ Incident Submission - WORKING | ✅ Voice Agent - Fully Operational (with Phonetic Matching) | ✅ RLS + Clerk Auth - Fixed | ✅ Site Management Redesign - Complete | ✅ Sites RBAC - Fixed
+**Last Updated**: November 30, 2025
+**Version**: 4.14.0
+**Status**: ✅ PRODUCTION READY | ✅ Incident Submission - WORKING | ✅ Voice Agent - Fully Operational (with Phonetic Matching) | ✅ RLS + Clerk Auth - Fixed | ✅ Site Management Redesign - Complete | ✅ Sites RBAC - Fixed | ✅ Cost Estimator - Complete
