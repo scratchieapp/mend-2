@@ -73,20 +73,33 @@ async function processInboundIncident(
 
     // Build extracted data from custom analysis (set by submit_incident function)
     // or fall back to basic extraction from transcript
+    // IMPORTANT: Include IDs from lookup functions (worker_id, employer_id, site_id)
     const extractedData: Record<string, any> = {
+      // IDs from lookup functions - these are critical for linking records
+      worker_id: customData.worker_id || null,
+      employer_id: customData.employer_id || null,
+      site_id: customData.site_id || null,
+      // Names for fallback lookup
       worker_name: customData.worker_name || extractFromTranscript(transcript, 'worker_name'),
-      worker_phone: customData.caller_phone || call.from_number,
+      worker_phone: customData.worker_phone || customData.caller_phone || call.from_number,
       employer_name: customData.employer_name || extractFromTranscript(transcript, 'employer_name'),
       site_name: customData.site_name || extractFromTranscript(transcript, 'site_name'),
-      injury_type: customData.injury_description ? 'Workplace Injury' : 'Unknown',
+      // Injury details
+      injury_type: customData.injury_type || (customData.injury_description ? 'Workplace Injury' : 'Unknown'),
       injury_description: customData.injury_description || extractFromTranscript(transcript, 'injury_description'),
-      body_part: customData.body_part_injured || extractFromTranscript(transcript, 'body_part'),
+      body_part_injured: customData.body_part_injured || customData.body_part || extractFromTranscript(transcript, 'body_part'),
+      body_side: customData.body_side || null,
       date_of_injury: customData.date_of_injury || new Date().toISOString().split('T')[0],
-      treatment_provided: customData.treatment_received || null,
+      time_of_injury: customData.time_of_injury || null,
+      treatment_received: customData.treatment_received || customData.treatment_provided || null,
       severity: customData.severity || 'unknown',
+      // Caller/reporter info
       caller_name: customData.caller_name,
       caller_role: customData.caller_role,
+      caller_phone: customData.caller_phone,
     };
+    
+    console.log('Extracted data from call:', JSON.stringify(extractedData, null, 2));
 
     // Call the process-inbound-incident edge function
     const response = await fetch(

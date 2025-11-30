@@ -164,26 +164,84 @@ serve(async (req: Request) => {
     }
 
     // Step 2: Find or create worker
+    // Priority: 1) worker_id from lookup_worker, 2) lookup by name, 3) lookup by phone, 4) create new
     let workerId: number | null = null;
 
-    if (extracted_data.worker_phone) {
-      // Search for existing worker by phone
+    // First: Check if worker_id was directly passed from lookup_worker function
+    if (extracted_data.worker_id) {
+      workerId = Number(extracted_data.worker_id);
+      console.log('Using worker_id from lookup_worker:', workerId);
+      
+      // Verify the worker exists
+      const { data: verifyWorker } = await supabase
+        .from('workers')
+        .select('worker_id')
+        .eq('worker_id', workerId)
+        .single();
+      
+      if (!verifyWorker) {
+        console.warn('worker_id provided but not found in database, will try other methods');
+        workerId = null;
+      }
+    }
+
+    // Second: Try to find worker by name within the employer
+    if (!workerId && extracted_data.worker_name && employerId) {
+      const nameParts = extracted_data.worker_name.trim().split(/\s+/);
+      const givenName = nameParts[0];
+      const familyName = nameParts.slice(1).join(' ');
+      
+      // Try exact match first
+      const { data: exactMatch } = await supabase
+        .from('workers')
+        .select('worker_id')
+        .eq('employer_id', employerId)
+        .eq('is_active', true)
+        .ilike('given_name', givenName)
+        .ilike('family_name', familyName || '%')
+        .limit(1)
+        .single();
+      
+      if (exactMatch) {
+        workerId = exactMatch.worker_id;
+        console.log('Found worker by name match:', workerId);
+      } else {
+        // Try fuzzy match - just given name
+        const { data: fuzzyMatch } = await supabase
+          .from('workers')
+          .select('worker_id, given_name, family_name')
+          .eq('employer_id', employerId)
+          .eq('is_active', true)
+          .ilike('given_name', `%${givenName}%`)
+          .limit(5);
+        
+        if (fuzzyMatch && fuzzyMatch.length === 1) {
+          workerId = fuzzyMatch[0].worker_id;
+          console.log('Found worker by fuzzy name match:', workerId, fuzzyMatch[0]);
+        } else if (fuzzyMatch && fuzzyMatch.length > 1) {
+          console.log('Multiple workers match name, cannot auto-select:', fuzzyMatch);
+        }
+      }
+    }
+
+    // Third: Try to find by phone number
+    if (!workerId && extracted_data.worker_phone) {
       const { data: existingWorker } = await supabase
         .from('workers')
         .select('worker_id')
+        .eq('is_active', true)
         .or(`mobile_number.eq.${extracted_data.worker_phone},phone_number.eq.${extracted_data.worker_phone}`)
         .limit(1)
         .single();
 
       if (existingWorker) {
         workerId = existingWorker.worker_id;
-        console.log('Found existing worker:', workerId);
+        console.log('Found existing worker by phone:', workerId);
       }
     }
 
-    // If worker not found and we have enough info, create new worker
+    // Fourth: If worker still not found and we have a name, create new worker
     if (!workerId && extracted_data.worker_name) {
-      // Note: In production, you may want to require manual verification before creating workers
       // Parse worker name into given_name and family_name
       const nameParts = extracted_data.worker_name.trim().split(/\s+/);
       const givenName = nameParts[0] || 'Unknown';
@@ -197,7 +255,8 @@ serve(async (req: Request) => {
           mobile_number: extracted_data.worker_phone || null,
           phone_number: extracted_data.worker_phone || null,
           email: extracted_data.worker_email || null,
-          employer_id: employerId, // Link to employer if found
+          employer_id: employerId,
+          is_active: true,
         })
         .select('worker_id')
         .single();
