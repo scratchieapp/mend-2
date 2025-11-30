@@ -67,22 +67,35 @@ export function WorkerDetails({ control }: WorkerDetailsProps) {
     if (!workerId) return;
     
     setIsSaving(true);
+    
+    // Diagnostic logging
+    const rpcParams = {
+      p_worker_id: parseInt(workerId),
+      p_user_role_id: userData?.role_id || null,
+      p_user_employer_id: userData?.employer_id ? parseInt(userData.employer_id) : null,
+      p_phone_number: workerPhone || null,
+      p_residential_address: workerAddress || null,
+      p_date_of_birth: workerDob || null,
+      p_gender: workerGender || null,
+    };
+    console.log('WorkerDetails: Saving worker with params:', rpcParams);
+    
     try {
       // Use RBAC-aware RPC to bypass RLS issues
-      const { data, error } = await supabase.rpc('update_worker_rbac', {
-        p_worker_id: parseInt(workerId),
-        p_user_role_id: userData?.role_id || null,
-        p_user_employer_id: userData?.employer_id ? parseInt(userData.employer_id) : null,
-        p_phone_number: workerPhone || null,
-        p_residential_address: workerAddress || null,
-        p_date_of_birth: workerDob || null,
-        p_gender: workerGender || null,
-      });
+      const { data, error } = await supabase.rpc('update_worker_rbac', rpcParams);
       
-      if (error) throw error;
+      console.log('WorkerDetails: RPC response - data:', data, 'error:', error);
+      
+      if (error) {
+        console.error('WorkerDetails: RPC error:', error);
+        throw error;
+      }
       if (data && !data.success) {
+        console.error('WorkerDetails: RPC returned failure:', data);
         throw new Error(data.error || 'Failed to update worker');
       }
+      
+      console.log('WorkerDetails: Save successful, data:', data);
       
       // Update initial values after successful save
       initialValuesRef.current = {
@@ -94,7 +107,7 @@ export function WorkerDetails({ control }: WorkerDetailsProps) {
       setHasUnsavedChanges(false);
       toast.success('Worker details saved');
     } catch (error: any) {
-      console.error('Failed to save worker details:', error);
+      console.error('WorkerDetails: Failed to save worker details:', error);
       toast.error(error.message || 'Failed to save worker details');
     } finally {
       setIsSaving(false);
