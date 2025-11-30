@@ -25,8 +25,8 @@ interface RetellWebhookEvent {
   call: {
     call_id: string;
     agent_id: string;
-    call_type: 'web' | 'phone';
-    direction: 'inbound' | 'outbound';
+    call_type: 'web' | 'phone' | 'web_call' | 'phone_call';
+    direction: 'inbound' | 'outbound' | null;
     from_number?: string;
     to_number?: string;
     start_timestamp: number;
@@ -471,10 +471,13 @@ serve(async (req: Request) => {
         match: call.agent_id === incidentReporterAgentId,
       });
 
+      // Check for web calls - Retell sends either 'web' or 'web_call'
+      const isWebCall = call.call_type === 'web' || call.call_type === 'web_call';
+      
       const isIncidentReporterCall =
         incidentReporterAgentId &&
         call.agent_id === incidentReporterAgentId &&
-        (call.direction === 'inbound' || call.call_type === 'web');
+        (call.direction === 'inbound' || isWebCall);
 
       console.log('isIncidentReporterCall:', isIncidentReporterCall);
 
@@ -550,11 +553,17 @@ serve(async (req: Request) => {
 
       // Determine phone number (required field - NOT NULL)
       // Web calls may not have phone numbers, use 'web_call' as placeholder
-      const phoneNumber = call.call_type === 'web'
+      const phoneNumber = isWebCall
         ? 'web_call'
         : call.direction === 'inbound'
           ? (call.from_number || 'unknown')
           : (call.to_number || 'unknown');
+      
+      // Determine if call was successful - agent_hangup is a NORMAL ending (not a failure)
+      // Only user_hangup (early disconnect), error, or other disconnection reasons indicate failure
+      const normalDisconnectionReasons = ['agent_hangup', 'voicemail_reached', 'call_transfer'];
+      const isNormalDisconnection = normalDisconnectionReasons.includes(call.disconnection_reason || '');
+      const callWasSuccessful = call.call_analysis?.call_successful ?? isNormalDisconnection;
 
       const voiceLogData = {
         task_id: voiceTask?.id || null,
@@ -565,7 +574,7 @@ serve(async (req: Request) => {
         direction: call.direction,
         phone_number: phoneNumber, // Required NOT NULL field
         duration_seconds: durationSeconds,
-        call_status: call.disconnection_reason ? 'failed' : 'completed',
+        call_status: callWasSuccessful ? 'completed' : 'failed',
         disconnect_reason: call.disconnection_reason || null,
         transcript: call.transcript || null,
         transcript_object: call.transcript_object || null,
@@ -585,7 +594,7 @@ serve(async (req: Request) => {
           direction: call.direction,
           phone_number: phoneNumber, // Required NOT NULL field
           duration_seconds: durationSeconds,
-          call_status: call.disconnection_reason ? 'failed' : 'completed',
+          call_status: callWasSuccessful ? 'completed' : 'failed',
           disconnect_reason: call.disconnection_reason || null,
           transcript: call.transcript || null,
           transcript_object: call.transcript_object || null,
@@ -594,7 +603,7 @@ serve(async (req: Request) => {
           extracted_data: extractedData,
           intent_detected: voiceTask?.task_type || null,
           user_sentiment: call.call_analysis?.user_sentiment || null,
-          call_successful: call.call_analysis?.call_successful || false,
+          call_successful: callWasSuccessful,
           recording_consent_obtained: true, // Assumes agent discloses recording
         })
         .select()
