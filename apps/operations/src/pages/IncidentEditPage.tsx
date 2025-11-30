@@ -168,24 +168,40 @@ const BODY_PART_TO_REGIONS: Record<string, string[]> = {
   'Trunk': ['front-chest', 'front-abdomen', 'back-upperback', 'back-lowerback'],
 };
 
-// Helper function to get body regions from body part name
-const getBodyRegionsFromBodyPartName = (bodyPartName: string): string[] => {
+// Helper function to get body regions from body part name and body side
+// body_side_id: 1=Left, 2=Right, 5=Both, others=show all
+const getBodyRegionsFromBodyPartName = (bodyPartName: string, bodySideId?: number | string): string[] => {
   if (!bodyPartName) return [];
+  
+  let regions: string[] = [];
   
   // Try exact match first
   if (BODY_PART_TO_REGIONS[bodyPartName]) {
-    return BODY_PART_TO_REGIONS[bodyPartName];
-  }
-  
-  // Try partial match
-  const lowerBodyPart = bodyPartName.toLowerCase();
-  for (const [name, regions] of Object.entries(BODY_PART_TO_REGIONS)) {
-    if (lowerBodyPart.includes(name.toLowerCase()) || name.toLowerCase().includes(lowerBodyPart)) {
-      return regions;
+    regions = BODY_PART_TO_REGIONS[bodyPartName];
+  } else {
+    // Try partial match
+    const lowerBodyPart = bodyPartName.toLowerCase();
+    for (const [name, partRegions] of Object.entries(BODY_PART_TO_REGIONS)) {
+      if (lowerBodyPart.includes(name.toLowerCase()) || name.toLowerCase().includes(lowerBodyPart)) {
+        regions = partRegions;
+        break;
+      }
     }
   }
   
-  return [];
+  // Filter regions based on body side
+  const sideId = typeof bodySideId === 'string' ? parseInt(bodySideId) : bodySideId;
+  
+  if (sideId === 1) {
+    // Left side only - filter to regions ending with '-left'
+    regions = regions.filter(r => r.endsWith('-left') || (!r.endsWith('-right') && !r.endsWith('-left')));
+  } else if (sideId === 2) {
+    // Right side only - filter to regions ending with '-right'
+    regions = regions.filter(r => r.endsWith('-right') || (!r.endsWith('-right') && !r.endsWith('-left')));
+  }
+  // For body_side_id 5 (Both) or others, return all regions
+  
+  return regions;
 };
 
 // Field labels for human-readable change descriptions
@@ -323,11 +339,12 @@ const IncidentEditPage = () => {
     }
     
     // Get body part name from joined data to derive body_regions for the diagram
+    // Also use body_side_id to filter to only left or right side as appropriate
     let bodyPartName = '';
     let derivedBodyRegions: string[] = [];
     if (incidentData.body_part?.body_part_name) {
       bodyPartName = incidentData.body_part.body_part_name;
-      derivedBodyRegions = getBodyRegionsFromBodyPartName(bodyPartName);
+      derivedBodyRegions = getBodyRegionsFromBodyPartName(bodyPartName, incidentData.body_side_id);
     }
     
     // Map database fields to form fields properly

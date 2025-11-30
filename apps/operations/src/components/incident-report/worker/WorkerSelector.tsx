@@ -49,12 +49,16 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
   const hasValidWorkerId = currentWorkerId && currentWorkerId !== '';
   const canFetchWorkers = hasValidEmployerId || hasValidWorkerId;
 
-  const { data: workers = [], isLoading, refetch } = useQuery({
+  const { data: workers = [], isLoading, refetch, error } = useQuery({
     queryKey: ['workers', selectedEmployerId, currentWorkerId],
     queryFn: async () => {
-      console.log('WorkerSelector query - employerId:', selectedEmployerId, 'workerId:', currentWorkerId);
+      // Re-compute these values inside the query function to get fresh values
+      const empId = selectedEmployerId && selectedEmployerId !== '' ? selectedEmployerId : null;
+      const wrkId = currentWorkerId && currentWorkerId !== '' ? currentWorkerId : null;
       
-      if (!canFetchWorkers) {
+      console.log('WorkerSelector query executing - employerId:', empId, 'workerId:', wrkId);
+      
+      if (!empId && !wrkId) {
         console.log('WorkerSelector: No employer or worker ID, returning empty');
         return [];
       }
@@ -66,17 +70,17 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
         .eq('is_active', true)
         .order('given_name', { ascending: true });
       
-      if (hasValidEmployerId) {
+      if (empId) {
         // Filter by employer when we know it
-        console.log('WorkerSelector: Filtering by employer_id:', selectedEmployerId);
-        query = query.eq('employer_id', parseInt(selectedEmployerId));
-      } else if (hasValidWorkerId) {
+        console.log('WorkerSelector: Filtering by employer_id:', empId);
+        query = query.eq('employer_id', parseInt(empId));
+      } else if (wrkId) {
         // In edit mode without employer selected, fetch worker's employer's workers
-        console.log('WorkerSelector: Looking up employer from worker:', currentWorkerId);
+        console.log('WorkerSelector: Looking up employer from worker:', wrkId);
         const { data: worker, error: workerError } = await supabase
           .from('workers')
           .select('employer_id')
-          .eq('worker_id', parseInt(currentWorkerId))
+          .eq('worker_id', parseInt(wrkId))
           .single();
         
         if (workerError) {
@@ -92,7 +96,7 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
           const { data: singleWorker } = await supabase
             .from('workers')
             .select('*')
-            .eq('worker_id', parseInt(currentWorkerId))
+            .eq('worker_id', parseInt(wrkId))
             .single();
           return singleWorker ? [singleWorker as Worker] : [];
         }
@@ -110,12 +114,12 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
       
       // In edit mode, ensure the current worker is always in the list
       // (even if they were marked inactive)
-      if (hasValidWorkerId && !workersList.some(w => w.worker_id.toString() === currentWorkerId)) {
+      if (wrkId && !workersList.some(w => w.worker_id.toString() === wrkId)) {
         console.log('WorkerSelector: Current worker not in list, fetching separately');
         const { data: currentWorker } = await supabase
           .from('workers')
           .select('*')
-          .eq('worker_id', parseInt(currentWorkerId))
+          .eq('worker_id', parseInt(wrkId))
           .single();
         
         if (currentWorker) {
@@ -126,12 +130,30 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
       return workersList;
     },
     enabled: canFetchWorkers,
+    staleTime: 0, // Always fetch fresh data
   });
+  
+  // Log any query errors
+  useEffect(() => {
+    if (error) {
+      console.error('WorkerSelector: Query error:', error);
+    }
+  }, [error]);
+  
+  // Force refetch when the employer/worker IDs become valid
+  // This handles the case where the form is populated asynchronously
+  useEffect(() => {
+    if (canFetchWorkers && workers.length === 0 && !isLoading && !error) {
+      console.log('WorkerSelector: Triggering refetch due to valid IDs and empty workers');
+      refetch();
+    }
+  }, [canFetchWorkers, workers.length, isLoading, refetch, error]);
   
   // Auto-populate worker details when workers are loaded and we have a worker_id
   useEffect(() => {
     if (currentWorkerId && workers.length > 0) {
       const selectedWorker = workers.find(w => w.worker_id.toString() === currentWorkerId);
+      console.log('WorkerSelector: Looking for worker', currentWorkerId, 'in', workers.length, 'workers. Found:', selectedWorker?.given_name);
       if (selectedWorker && !getValues('worker_name')) {
         setValue('worker_name', `${selectedWorker.given_name} ${selectedWorker.family_name}`);
         setValue('worker_address', selectedWorker.residential_address || '');
