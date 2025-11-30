@@ -255,6 +255,17 @@ export default function PublicDashboard() {
   // Get employer name from query or from first site as fallback
   const employerName = employer?.employer_name || sites?.[0]?.employer_name;
 
+  // Debug logging for voice call context
+  console.log('Voice call context debug:', {
+    isAuthenticated,
+    employerId,
+    employerName,
+    'userData?.display_name': userData?.display_name,
+    'userData?.custom_display_name': userData?.custom_display_name,
+    'userData?.role?.role_name': userData?.role?.role_name,
+    'employer data': employer,
+  });
+
   // Fetch recent incidents (only for authorized users)
   const { data: recentIncidents, isLoading: incidentsLoading } = useQuery({
     queryKey: ['recent-incidents', employerId, userData?.role_id],

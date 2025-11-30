@@ -65,6 +65,9 @@ serve(async (req: Request) => {
     const requestData: CreateWebCallRequest = await req.json().catch(() => ({}));
     const agentId = requestData.agent_id || defaultAgentId;
 
+    // Log the full request for debugging
+    console.log('Full request data received:', JSON.stringify(requestData, null, 2));
+
     if (!agentId) {
       return new Response(
         JSON.stringify({ error: 'No agent configured for web calls' }),
