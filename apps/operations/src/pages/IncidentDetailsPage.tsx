@@ -35,6 +35,8 @@ type IncidentWithRelations = Tables<'incidents'> & {
   worker?: Partial<Tables<'workers'>>;
   department?: Partial<Tables<'departments'>>;
   body_part?: Partial<Tables<'body_parts'>>;
+  body_side?: { body_side_id: number; body_side_name: string };
+  body_side_id?: number;
   body_regions?: string[];
 };
 
@@ -86,31 +88,53 @@ const BODY_PART_TO_REGIONS: Record<string, string[]> = {
 };
 
 // Helper function to get body regions from incident data
+// Filters by body_side_id: 1=Left, 2=Right, 5=Both
 const getBodyRegionsFromIncident = (incident: IncidentWithRelations | null | undefined): string[] => {
   // First, check if body_regions is stored directly on the incident
   if (incident?.body_regions && Array.isArray(incident.body_regions) && incident.body_regions.length > 0) {
-    return incident.body_regions;
+    // Still apply body side filtering to stored regions
+    let regions = incident.body_regions;
+    const bodySideId = incident?.body_side_id || incident?.body_side?.body_side_id;
+    if (bodySideId === 1) {
+      regions = regions.filter(r => r.endsWith('-left') || (!r.endsWith('-right') && !r.endsWith('-left')));
+    } else if (bodySideId === 2) {
+      regions = regions.filter(r => r.endsWith('-right') || (!r.endsWith('-right') && !r.endsWith('-left')));
+    }
+    return regions;
   }
   
   // Fall back to mapping from body_part_name
   if (!incident?.body_part?.body_part_name) return [];
   
   const bodyPartName = incident.body_part.body_part_name;
+  let regions: string[] = [];
   
   // Try exact match first
   if (BODY_PART_TO_REGIONS[bodyPartName]) {
-    return BODY_PART_TO_REGIONS[bodyPartName];
-  }
-  
-  // Try partial match
-  const lowerBodyPart = bodyPartName.toLowerCase();
-  for (const [name, regions] of Object.entries(BODY_PART_TO_REGIONS)) {
-    if (lowerBodyPart.includes(name.toLowerCase()) || name.toLowerCase().includes(lowerBodyPart)) {
-      return regions;
+    regions = [...BODY_PART_TO_REGIONS[bodyPartName]];
+  } else {
+    // Try partial match
+    const lowerBodyPart = bodyPartName.toLowerCase();
+    for (const [name, partRegions] of Object.entries(BODY_PART_TO_REGIONS)) {
+      if (lowerBodyPart.includes(name.toLowerCase()) || name.toLowerCase().includes(lowerBodyPart)) {
+        regions = [...partRegions];
+        break;
+      }
     }
   }
   
-  return [];
+  // Filter by body side
+  const bodySideId = incident?.body_side_id || incident?.body_side?.body_side_id;
+  if (bodySideId === 1) {
+    // Left side only
+    regions = regions.filter(r => r.endsWith('-left') || (!r.endsWith('-right') && !r.endsWith('-left')));
+  } else if (bodySideId === 2) {
+    // Right side only
+    regions = regions.filter(r => r.endsWith('-right') || (!r.endsWith('-right') && !r.endsWith('-left')));
+  }
+  // For body_side_id 5 (Both) or others, return all regions
+  
+  return regions;
 };
 
 const IncidentDetailsPage = () => {
@@ -160,6 +184,8 @@ const IncidentDetailsPage = () => {
         worker: incidentFromRpc.worker,
         department: incidentFromRpc.department,
         body_part: incidentFromRpc.body_part,
+        body_side: incidentFromRpc.body_side,
+        body_side_id: incidentFromRpc.body_side_id,
         workers_employer: employerName,
         // Ensure body_regions is an array
         body_regions: Array.isArray(incidentFromRpc.body_regions) ? incidentFromRpc.body_regions : [],
