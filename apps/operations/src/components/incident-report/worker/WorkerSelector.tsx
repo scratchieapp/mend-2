@@ -95,12 +95,12 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
       }
       
       // Use RBAC-aware RPC function to bypass RLS issues
+      // Note: get_workers_rbac params are (p_employer_id, p_user_role_id, p_user_employer_id)
       console.log('WorkerSelector: Calling get_workers_rbac with employer_id:', queryEmployerId);
       const { data, error: rpcError } = await supabase.rpc('get_workers_rbac', {
         p_employer_id: queryEmployerId,
         p_user_role_id: userData?.role_id || 5, // Default to Builder Admin if not available
         p_user_employer_id: userData?.employer_id ? parseInt(userData.employer_id) : queryEmployerId,
-        p_is_active: true,
       });
       
       if (rpcError) {
@@ -108,8 +108,9 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
         throw rpcError;
       }
       
-      let workersList = (data || []) as Worker[];
-      console.log('WorkerSelector: Fetched', workersList.length, 'workers via RPC');
+      // Filter to only active workers on the client side
+      let workersList = ((data || []) as Worker[]).filter(w => w.is_active !== false);
+      console.log('WorkerSelector: Fetched', workersList.length, 'active workers via RPC');
       
       // Sort by given_name
       workersList.sort((a, b) => (a.given_name || '').localeCompare(b.given_name || ''));
@@ -117,19 +118,13 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
       // In edit mode, ensure the current worker is always in the list
       // (even if they were marked inactive)
       if (wrkId && !workersList.some(w => w.worker_id.toString() === wrkId)) {
-        console.log('WorkerSelector: Current worker not in list, fetching separately');
-        // Fetch without is_active filter for the specific worker
-        const { data: inactiveData } = await supabase.rpc('get_workers_rbac', {
-          p_employer_id: queryEmployerId,
-          p_user_role_id: userData?.role_id || 5,
-          p_user_employer_id: userData?.employer_id ? parseInt(userData.employer_id) : queryEmployerId,
-          p_is_active: false, // Get inactive workers
-        });
-        
-        const inactiveWorker = (inactiveData || []).find((w: Worker) => w.worker_id.toString() === wrkId);
-        if (inactiveWorker) {
-          workersList = [inactiveWorker as Worker, ...workersList];
-          console.log('WorkerSelector: Added inactive worker to list');
+        console.log('WorkerSelector: Current worker not in list, fetching from all workers');
+        // Look for the worker in the unfiltered list (including inactive)
+        const allWorkers = (data || []) as Worker[];
+        const currentWorker = allWorkers.find((w: Worker) => w.worker_id.toString() === wrkId);
+        if (currentWorker) {
+          workersList = [currentWorker, ...workersList];
+          console.log('WorkerSelector: Added current worker to list');
         }
       }
       
