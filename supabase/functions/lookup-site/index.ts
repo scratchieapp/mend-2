@@ -178,9 +178,20 @@ serve(async (req: Request) => {
 
       // Try nested in 'arguments'
       if (!site_name && rawData.arguments) {
-        site_name = rawData.arguments.site_name;
-        employer_id = rawData.arguments.employer_id ? Number(rawData.arguments.employer_id) : employer_id;
-        city = rawData.arguments.city;
+        // Arguments might be a string that needs parsing (Retell sometimes sends this way)
+        let args = rawData.arguments;
+        if (typeof args === 'string') {
+          try {
+            args = JSON.parse(args);
+          } catch (e) {
+            console.log('Failed to parse arguments string:', e);
+          }
+        }
+        if (typeof args === 'object' && args !== null) {
+          site_name = args.site_name;
+          employer_id = args.employer_id ? Number(args.employer_id) : employer_id;
+          city = args.city;
+        }
       }
 
       // Try nested in 'input'

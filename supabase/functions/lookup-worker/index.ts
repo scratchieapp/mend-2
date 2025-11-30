@@ -121,10 +121,52 @@ serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const body: WorkerLookupRequest = await req.json();
-    const { worker_name, employer_id, execution_message } = body;
+    const rawData = await req.json();
+    console.log('Raw request data:', JSON.stringify(rawData));
 
-    console.log('Worker lookup request:', { worker_name, employer_id });
+    // Retell might send data in different formats:
+    // 1. Direct: { worker_name: "...", employer_id: 123 }
+    // 2. Nested in args: { args: { worker_name: "...", employer_id: 123 } }
+    // 3. Nested in arguments: { arguments: { worker_name: "...", employer_id: 123 } }
+    let worker_name: string | undefined;
+    let employer_id: number | undefined;
+
+    if (typeof rawData === 'object' && rawData !== null) {
+      // Try direct access first
+      worker_name = rawData.worker_name;
+      employer_id = rawData.employer_id ? Number(rawData.employer_id) : undefined;
+
+      // Try nested in 'args'
+      if (!worker_name && rawData.args) {
+        worker_name = rawData.args.worker_name;
+        employer_id = rawData.args.employer_id ? Number(rawData.args.employer_id) : employer_id;
+      }
+
+      // Try nested in 'arguments'
+      if (!worker_name && rawData.arguments) {
+        // Arguments might be a string that needs parsing
+        let args = rawData.arguments;
+        if (typeof args === 'string') {
+          try {
+            args = JSON.parse(args);
+          } catch (e) {
+            console.log('Failed to parse arguments string:', e);
+          }
+        }
+        if (typeof args === 'object' && args !== null) {
+          worker_name = args.worker_name;
+          employer_id = args.employer_id ? Number(args.employer_id) : employer_id;
+        }
+      }
+
+      // Try nested in 'input'
+      if (!worker_name && rawData.input) {
+        worker_name = rawData.input.worker_name;
+        employer_id = rawData.input.employer_id ? Number(rawData.input.employer_id) : employer_id;
+      }
+    }
+
+    console.log('Extracted worker_name:', worker_name, 'employer_id:', employer_id);
 
     if (!worker_name || worker_name.trim().length === 0) {
       return new Response(
@@ -140,10 +182,11 @@ serve(async (req: Request) => {
     const { given: searchGiven, family: searchFamily } = parseWorkerName(worker_name);
     const searchFullName = worker_name.toLowerCase().trim();
 
-    // Build query - filter by employer if provided
+    // Build query - filter by employer if provided, only active workers
     let query = supabase
       .from('workers')
-      .select('worker_id, given_name, family_name, mobile_number, occupation, employer_id');
+      .select('worker_id, given_name, family_name, mobile_number, occupation, employer_id, is_active')
+      .eq('is_active', true);
     
     if (employer_id) {
       query = query.eq('employer_id', employer_id);
