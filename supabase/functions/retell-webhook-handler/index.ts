@@ -338,6 +338,10 @@ function extractAppointmentData(transcript: string, taskType: string): Record<st
 
 // Main handler
 serve(async (req: Request) => {
+  const startTime = Date.now();
+  let diagnosticId: string | null = null;
+  let supabase: ReturnType<typeof createClient> | null = null;
+
   try {
     // CORS preflight
     if (req.method === 'OPTIONS') {
@@ -360,14 +364,6 @@ serve(async (req: Request) => {
     const retellWebhookSecret = Deno.env.get('RETELL_WEBHOOK_SECRET');
     const incidentReporterAgentId = Deno.env.get('RETELL_INCIDENT_REPORTER_AGENT_ID');
 
-    // Debug: Log which env vars are present
-    console.log('Environment check:', {
-      supabaseUrl: supabaseUrl ? 'present' : 'MISSING',
-      supabaseServiceKey: supabaseServiceKey ? `present (${supabaseServiceKey.substring(0, 20)}...)` : 'MISSING',
-      retellWebhookSecret: retellWebhookSecret ? 'present' : 'MISSING',
-      incidentReporterAgentId: incidentReporterAgentId ? 'present' : 'MISSING',
-    });
-
     if (!supabaseUrl || !supabaseServiceKey) {
       console.error('Missing required environment variables!');
       return new Response(JSON.stringify({ error: 'Server configuration error' }), {
@@ -376,42 +372,71 @@ serve(async (req: Request) => {
       });
     }
 
+    // Initialize Supabase early for diagnostics logging
+    supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Read body
+    const rawBody = await req.text();
+    let parsedPayload: any = null;
+
+    try {
+      parsedPayload = JSON.parse(rawBody);
+    } catch {
+      // Log unparseable payload
+      await supabase.from('webhook_diagnostics').insert({
+        source: 'retell',
+        event_type: 'parse_error',
+        raw_payload: { raw: rawBody.substring(0, 1000) },
+        processing_status: 'failed',
+        error_message: 'Failed to parse JSON payload',
+      });
+      return new Response('Invalid JSON', { status: 400 });
+    }
+
+    // Log ALL incoming webhooks for diagnostics
+    const { data: diagData } = await supabase
+      .from('webhook_diagnostics')
+      .insert({
+        source: 'retell',
+        event_type: parsedPayload.event,
+        call_id: parsedPayload.call?.call_id,
+        agent_id: parsedPayload.call?.agent_id,
+        raw_payload: parsedPayload,
+        processing_status: 'received',
+      })
+      .select('id')
+      .single();
+
+    diagnosticId = diagData?.id;
+
     // Verify signature
     const signature = req.headers.get('x-retell-signature');
     const timestamp = req.headers.get('x-retell-timestamp');
-    const rawBody = await req.text();
-
-    // Debug logging
-    console.log('Webhook received - Headers:', {
-      signature: signature ? 'present' : 'missing',
-      timestamp: timestamp ? 'present' : 'missing',
-      contentType: req.headers.get('content-type'),
-    });
-    console.log('Raw body length:', rawBody.length);
-    console.log('Webhook secret configured:', retellWebhookSecret ? 'yes' : 'no');
 
     // Temporarily bypass signature verification for debugging
-    // TODO: Re-enable once webhook is working
     const bypassSignature = true;
 
     if (!bypassSignature) {
-      const isValid = await verifyRetellSignature(rawBody, signature, timestamp, retellWebhookSecret);
+      const isValid = await verifyRetellSignature(rawBody, signature, timestamp, retellWebhookSecret || '');
       if (!isValid) {
         console.error('Invalid signature');
+        if (diagnosticId && supabase) {
+          await supabase
+            .from('webhook_diagnostics')
+            .update({ processing_status: 'failed', error_message: 'Invalid signature' })
+            .eq('id', diagnosticId);
+        }
         return new Response('Unauthorized', { status: 401 });
       }
-    } else {
-      console.log('WARNING: Signature verification bypassed for debugging');
     }
 
     // Parse webhook payload
-    const webhookData: RetellWebhookEvent = JSON.parse(rawBody);
+    const webhookData: RetellWebhookEvent = parsedPayload;
     const { event, call } = webhookData;
 
     console.log(`Received Retell webhook: ${event} for call ${call.call_id}`);
 
-    // Initialize Supabase client
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Supabase client already initialized above for diagnostics
 
     // Handle different event types
     if (event === 'call_started') {
@@ -680,12 +705,36 @@ serve(async (req: Request) => {
       }
     }
 
+    // Update diagnostics with success
+    if (diagnosticId && supabase) {
+      await supabase
+        .from('webhook_diagnostics')
+        .update({
+          processing_status: 'processed',
+          processing_time_ms: Date.now() - startTime,
+        })
+        .eq('id', diagnosticId);
+    }
+
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error('Webhook handler error:', error);
+
+    // Update diagnostics with failure
+    if (diagnosticId && supabase) {
+      await supabase
+        .from('webhook_diagnostics')
+        .update({
+          processing_status: 'failed',
+          error_message: error instanceof Error ? error.message : 'Unknown error',
+          processing_time_ms: Date.now() - startTime,
+        })
+        .eq('id', diagnosticId);
+    }
+
     return new Response(
       JSON.stringify({
         success: false,

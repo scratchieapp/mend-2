@@ -87,6 +87,92 @@ NOTES:
 
 
 --------------------------------------------------------------------------------
+3. lookup_worker (CALL AFTER site is identified)
+--------------------------------------------------------------------------------
+
+Schema:
+{
+  "type": "object",
+  "properties": {
+    "worker_name": {
+      "type": "string",
+      "description": "The full name of the injured worker mentioned by the caller"
+    },
+    "employer_id": {
+      "type": "number",
+      "description": "The employer_id returned from lookup_employer - filters to only this employer's workers"
+    },
+    "execution_message": {
+      "type": "string",
+      "description": "Let me check if they're in our system..."
+    }
+  },
+  "required": [
+    "worker_name",
+    "execution_message"
+  ]
+}
+
+Response Variables:
+- found (boolean) - Whether the worker was found with high confidence
+- worker_id (number) - Database ID if found
+- given_name (string) - First name
+- family_name (string) - Last name
+- full_name (string) - Full display name
+- mobile_number (string) - Contact number if on file
+- occupation (string) - Job role if on file
+- needs_confirmation (boolean) - True if there are possible matches to confirm
+- possible_matches (array) - List of potential matches if needs_confirmation
+- message (string) - Human-readable response
+
+BEHAVIOR:
+1. HIGH CONFIDENCE (>=90%): Returns found: true with worker details
+   → Agent says: "I found [name] in our system"
+
+2. POSSIBLE MATCHES (60-89%): Returns needs_confirmation: true
+   → Agent asks: "I found [name1] and [name2]. Which one is the injured worker?"
+   → If caller confirms, use that worker_id
+
+3. NO MATCH: Returns found: false
+   → Agent says: "I'll note down their name and our team will add their details"
+   → Just record given_name and family_name in the incident
+
+NOTES:
+- ALWAYS pass employer_id to filter to workers for that company only
+- Uses fuzzy/phonetic matching to handle speech-to-text variations
+- If no match, don't worry - just record the name and continue
+
+
+--------------------------------------------------------------------------------
+4. submit_incident (CALL LAST - after all details collected)
+--------------------------------------------------------------------------------
+
+Schema:
+{
+  "type": "object",
+  "properties": {
+    "employer_name": { "type": "string" },
+    "site_name": { "type": "string" },
+    "worker_name": { "type": "string" },
+    "worker_id": { 
+      "type": "number",
+      "description": "Worker ID if found via lookup_worker, otherwise omit"
+    },
+    "caller_name": { "type": "string" },
+    "caller_role": { "type": "string" },
+    "caller_phone": { "type": "string" },
+    "injury_description": { "type": "string" },
+    "body_part_injured": { "type": "string" },
+    "severity": { "type": "string" },
+    "date_of_injury": { "type": "string" },
+    "time_of_injury": { "type": "string" },
+    "treatment_received": { "type": "string" }
+  },
+  "required": ["employer_name", "site_name", "injury_description"]
+}
+
+
+--------------------------------------------------------------------------------
 MANAGING VOICE AGENT ALIASES
 --------------------------------------------------------------------------------
 
