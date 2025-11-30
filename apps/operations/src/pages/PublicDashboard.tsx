@@ -231,6 +231,30 @@ export default function PublicDashboard() {
     enabled: !!(userData?.role_id)
   });
 
+  // Fetch employer name for authenticated users
+  const { data: employer } = useQuery({
+    queryKey: ['employer-name', employerId],
+    queryFn: async () => {
+      if (!employerId) return null;
+      const { data, error } = await supabase
+        .from('employers')
+        .select('employer_name')
+        .eq('employer_id', employerId)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching employer:', error);
+        return null;
+      }
+      return data;
+    },
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    enabled: isAuthenticated && !!employerId
+  });
+
+  // Get employer name from query or from first site as fallback
+  const employerName = employer?.employer_name || sites?.[0]?.employer_name;
+
   // Fetch recent incidents (only for authorized users)
   const { data: recentIncidents, isLoading: incidentsLoading } = useQuery({
     queryKey: ['recent-incidents', employerId, userData?.role_id],
@@ -344,9 +368,9 @@ export default function PublicDashboard() {
                 className="h-11 text-base"
                 userContext={{
                   employer_id: userData?.employer_id || undefined,
-                  employer_name: userData?.employer_name || undefined,
-                  caller_name: userData?.full_name || undefined,
-                  caller_role: userData?.role_name || undefined,
+                  employer_name: employerName || undefined,
+                  caller_name: userData?.display_name || userData?.custom_display_name || undefined,
+                  caller_role: userData?.role?.role_name || undefined,
                   is_authenticated: true,
                 }}
               />
