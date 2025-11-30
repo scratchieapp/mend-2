@@ -44,12 +44,21 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
     name: "worker_id",
   });
 
-  // For edit mode, fetch all workers if we have a worker_id but no employer selected
-  const shouldFetchAllWorkers = !selectedEmployerId && !!currentWorkerId;
+  // Check if we have valid IDs for querying
+  const hasValidEmployerId = selectedEmployerId && selectedEmployerId !== '';
+  const hasValidWorkerId = currentWorkerId && currentWorkerId !== '';
+  const canFetchWorkers = hasValidEmployerId || hasValidWorkerId;
 
   const { data: workers = [], isLoading, refetch } = useQuery({
-    queryKey: ['workers', selectedEmployerId, shouldFetchAllWorkers, currentWorkerId],
+    queryKey: ['workers', selectedEmployerId, currentWorkerId],
     queryFn: async () => {
+      console.log('WorkerSelector query - employerId:', selectedEmployerId, 'workerId:', currentWorkerId);
+      
+      if (!canFetchWorkers) {
+        console.log('WorkerSelector: No employer or worker ID, returning empty');
+        return [];
+      }
+      
       // Build query with is_active filter
       let query = supabase
         .from('workers')
@@ -57,31 +66,36 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
         .eq('is_active', true)
         .order('given_name', { ascending: true });
       
-      if (selectedEmployerId) {
+      if (hasValidEmployerId) {
         // Filter by employer when we know it
-        query = query.eq('employer_id', selectedEmployerId);
-      } else if (currentWorkerId) {
+        console.log('WorkerSelector: Filtering by employer_id:', selectedEmployerId);
+        query = query.eq('employer_id', parseInt(selectedEmployerId));
+      } else if (hasValidWorkerId) {
         // In edit mode without employer selected, fetch worker's employer's workers
-        // First get the worker to find their employer
-        const { data: worker } = await supabase
+        console.log('WorkerSelector: Looking up employer from worker:', currentWorkerId);
+        const { data: worker, error: workerError } = await supabase
           .from('workers')
           .select('employer_id')
-          .eq('worker_id', currentWorkerId)
+          .eq('worker_id', parseInt(currentWorkerId))
           .single();
         
+        if (workerError) {
+          console.error('WorkerSelector: Error looking up worker:', workerError);
+        }
+        
         if (worker?.employer_id) {
+          console.log('WorkerSelector: Found employer_id from worker:', worker.employer_id);
           query = query.eq('employer_id', worker.employer_id);
         } else {
           // Fallback: just return the current worker if we can't find employer
+          console.log('WorkerSelector: Fallback - fetching just the current worker');
           const { data: singleWorker } = await supabase
             .from('workers')
             .select('*')
-            .eq('worker_id', currentWorkerId)
+            .eq('worker_id', parseInt(currentWorkerId))
             .single();
           return singleWorker ? [singleWorker as Worker] : [];
         }
-      } else {
-        return [];
       }
       
       const { data, error } = await query;
@@ -92,14 +106,16 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
       }
       
       let workersList = data as Worker[];
+      console.log('WorkerSelector: Fetched', workersList.length, 'workers');
       
       // In edit mode, ensure the current worker is always in the list
       // (even if they were marked inactive)
-      if (currentWorkerId && !workersList.some(w => w.worker_id.toString() === currentWorkerId)) {
+      if (hasValidWorkerId && !workersList.some(w => w.worker_id.toString() === currentWorkerId)) {
+        console.log('WorkerSelector: Current worker not in list, fetching separately');
         const { data: currentWorker } = await supabase
           .from('workers')
           .select('*')
-          .eq('worker_id', currentWorkerId)
+          .eq('worker_id', parseInt(currentWorkerId))
           .single();
         
         if (currentWorker) {
@@ -109,7 +125,7 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
       
       return workersList;
     },
-    enabled: !!selectedEmployerId || !!currentWorkerId,
+    enabled: canFetchWorkers,
   });
   
   // Auto-populate worker details when workers are loaded and we have a worker_id
@@ -273,7 +289,7 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
           <FormItem>
             <Label>Select Worker</Label>
             <Select
-              disabled={isLoading || (!selectedEmployerId && !shouldFetchAllWorkers)}
+              disabled={isLoading || !canFetchWorkers}
               onValueChange={(value) => {
                 if (value === "add_new") {
                   setIsAddingNew(true);
@@ -297,12 +313,12 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
               <SelectTrigger>
                 <SelectValue placeholder={
                   isLoading ? "Loading workers..." : 
-                  (selectedEmployerId || shouldFetchAllWorkers) ? "Select worker..." : 
+                  canFetchWorkers ? "Select worker..." : 
                   "Select an employer first"
                 } />
               </SelectTrigger>
               <SelectContent>
-                {(selectedEmployerId || shouldFetchAllWorkers) && (
+                {canFetchWorkers && (
                   <SelectItem value="add_new" className="text-green-600 font-medium">
                     <span className="flex items-center gap-2">
                       <UserPlus className="h-4 w-4" />
