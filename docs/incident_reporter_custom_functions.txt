@@ -151,25 +151,47 @@ Schema:
 {
   "type": "object",
   "properties": {
+    "employer_id": { 
+      "type": "number",
+      "description": "Employer ID from lookup_employer - CRITICAL for linking"
+    },
     "employer_name": { "type": "string" },
+    "site_id": { 
+      "type": "number",
+      "description": "Site ID from lookup_site - use if found"
+    },
     "site_name": { "type": "string" },
-    "worker_name": { "type": "string" },
     "worker_id": { 
       "type": "number",
       "description": "Worker ID if found via lookup_worker, otherwise omit"
     },
-    "caller_name": { "type": "string" },
-    "caller_role": { "type": "string" },
+    "worker_name": { "type": "string" },
+    "caller_name": { "type": "string", "description": "Full name of person reporting" },
+    "caller_role": { "type": "string", "description": "Role: injured_worker, supervisor, witness, other" },
+    "caller_position": { "type": "string", "description": "Job title if known (e.g., Builder Admin)" },
     "caller_phone": { "type": "string" },
+    "injury_type": { 
+      "type": "string", 
+      "description": "Type of injury: Fracture, Sprain/strain, Cut/laceration, Burn, Crush injury, Contusion/bruise, etc."
+    },
     "injury_description": { "type": "string" },
     "body_part_injured": { "type": "string" },
-    "severity": { "type": "string" },
+    "body_side": { "type": "string", "description": "left, right, both, or not_applicable" },
+    "severity": { "type": "string", "description": "minor, moderate, or severe" },
     "date_of_injury": { "type": "string" },
     "time_of_injury": { "type": "string" },
     "treatment_received": { "type": "string" }
   },
-  "required": ["employer_name", "site_name", "injury_description"]
+  "required": ["employer_id", "employer_name", "injury_description", "injury_type"]
 }
+
+IMPORTANT FIELDS TO INCLUDE:
+- employer_id: ALWAYS pass this from lookup_employer
+- site_id: Pass if you found it via lookup_site
+- worker_id: Pass if you found it via lookup_worker
+- injury_type: ALWAYS specify (Fracture, Sprain/strain, etc.)
+- body_side: Specify left, right, both, or not_applicable
+- caller_position: Include if known from dynamic variables
 
 
 --------------------------------------------------------------------------------

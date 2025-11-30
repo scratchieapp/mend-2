@@ -19,8 +19,9 @@ interface CreateWebCallRequest {
     employer_name?: string;
     site_id?: string;
     site_name?: string;
-    caller_name?: string;
-    caller_role?: string;
+    caller_name?: string;       // Full name for greeting
+    caller_role?: string;       // Role label (e.g., "Builder Admin")
+    caller_position?: string;   // Position/title from user profile
     caller_phone?: string;
     is_authenticated?: boolean;
   };
@@ -90,6 +91,8 @@ serve(async (req: Request) => {
       if (ctx.site_id) dynamicVariables.site_id = ctx.site_id;
       if (ctx.caller_name) dynamicVariables.caller_name = ctx.caller_name;
       if (ctx.caller_role) dynamicVariables.caller_role = ctx.caller_role;
+      // Pass position/title for reporting info
+      if (ctx.caller_position) dynamicVariables.caller_position = ctx.caller_position;
       if (ctx.caller_phone) dynamicVariables.caller_phone = ctx.caller_phone;
       if (ctx.is_authenticated) dynamicVariables.is_authenticated = 'true';
     }

@@ -285,16 +285,36 @@ serve(async (req: Request) => {
       ? `Reported by: ${extracted_data.caller_name} (${extracted_data.caller_role || 'unknown role'})`
       : `Reported by: ${extracted_data.worker_name || 'Unknown caller'}`;
 
-    // Map severity to classification if provided
-    const severityToClassification: Record<string, string> = {
-      'minor': 'Minor',
-      'moderate': 'Moderate', 
-      'severe': 'Serious',
-      'critical': 'Critical'
+    // Map injury type or severity to classification
+    // Fractures, serious injuries typically require medical treatment
+    const injuryTypeToClassification: Record<string, string> = {
+      'fracture': 'Medical Treatment Injury',
+      'broken': 'Medical Treatment Injury',
+      'dislocation': 'Medical Treatment Injury',
+      'burn': 'Medical Treatment Injury',
+      'crush injury': 'Medical Treatment Injury',
+      'amputation': 'Lost Time Injury',
+      'cut/laceration': 'First Aid Injury',
+      'sprain/strain': 'First Aid Injury',
+      'contusion/bruise': 'First Aid Injury',
     };
-    const classification = extracted_data.severity 
-      ? severityToClassification[extracted_data.severity.toLowerCase()] || extracted_data.severity
-      : null;
+    
+    const severityToClassification: Record<string, string> = {
+      'minor': 'First Aid Injury',
+      'moderate': 'Medical Treatment Injury', 
+      'severe': 'Lost Time Injury',
+      'critical': 'Lost Time Injury'
+    };
+    
+    // Try injury type first, then severity
+    let classification: string | null = null;
+    if (extracted_data.injury_type) {
+      const normalizedType = extracted_data.injury_type.toLowerCase();
+      classification = injuryTypeToClassification[normalizedType] || null;
+    }
+    if (!classification && extracted_data.severity) {
+      classification = severityToClassification[extracted_data.severity.toLowerCase()] || null;
+    }
 
     const incidentData = {
       incident_number: incidentNumber,
@@ -313,7 +333,8 @@ serve(async (req: Request) => {
       case_notes: `${callerInfo}\n\nIncident reported via AI voice agent (Call ID: ${call_id}).\n\nTranscript:\n${transcript}`,
       notifying_person_name: extracted_data.caller_name || extracted_data.worker_name || null,
       notifying_person_telephone: extracted_data.caller_phone || extracted_data.worker_phone || null,
-      notifying_person_position: extracted_data.caller_role || null,
+      // Use caller_position (from user profile) if available, otherwise caller_role (from call)
+      notifying_person_position: extracted_data.caller_position || extracted_data.caller_role || null,
     };
 
     const { data: incident, error: incidentError } = await supabase

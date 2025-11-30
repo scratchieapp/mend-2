@@ -19,6 +19,7 @@ interface UserContext {
   site_name?: string;
   caller_name?: string;
   caller_role?: string;
+  caller_position?: string;  // Position/title for reporting info
   caller_phone?: string;
   is_authenticated?: boolean;
 }

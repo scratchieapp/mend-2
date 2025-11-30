@@ -369,8 +369,12 @@ export default function PublicDashboard() {
                 userContext={{
                   employer_id: userData?.employer_id || undefined,
                   employer_name: employerName || undefined,
+                  // Use display_name (should be full name) or custom_display_name
                   caller_name: userData?.display_name || userData?.custom_display_name || undefined,
+                  // Role name for agent greeting (e.g., "Builder Admin")
                   caller_role: userData?.role?.role_name || undefined,
+                  // Position for reporting info - use role_label which is the display name of the role
+                  caller_position: userData?.role?.role_label || userData?.role?.role_name || undefined,
                   caller_phone: userData?.mobile_number || undefined,
                   is_authenticated: true,
                 }}

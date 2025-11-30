@@ -74,6 +74,28 @@ async function processInboundIncident(
     // Build extracted data from custom analysis (set by submit_incident function)
     // or fall back to basic extraction from transcript
     // IMPORTANT: Include IDs from lookup functions (worker_id, employer_id, site_id)
+    
+    // Try to extract injury type from description if not explicitly set
+    let injuryType = customData.injury_type;
+    if (!injuryType && customData.injury_description) {
+      const desc = customData.injury_description.toLowerCase();
+      if (desc.includes('fracture') || desc.includes('broke') || desc.includes('broken')) {
+        injuryType = 'Fracture';
+      } else if (desc.includes('sprain') || desc.includes('strain')) {
+        injuryType = 'Sprain/strain';
+      } else if (desc.includes('cut') || desc.includes('laceration')) {
+        injuryType = 'Cut/laceration';
+      } else if (desc.includes('burn')) {
+        injuryType = 'Burn';
+      } else if (desc.includes('crush')) {
+        injuryType = 'Crush injury';
+      } else if (desc.includes('bruise') || desc.includes('contusion')) {
+        injuryType = 'Contusion/bruise';
+      } else {
+        injuryType = 'Workplace Injury';
+      }
+    }
+    
     const extractedData: Record<string, any> = {
       // IDs from lookup functions - these are critical for linking records
       worker_id: customData.worker_id || null,
@@ -84,8 +106,8 @@ async function processInboundIncident(
       worker_phone: customData.worker_phone || customData.caller_phone || call.from_number,
       employer_name: customData.employer_name || extractFromTranscript(transcript, 'employer_name'),
       site_name: customData.site_name || extractFromTranscript(transcript, 'site_name'),
-      // Injury details
-      injury_type: customData.injury_type || (customData.injury_description ? 'Workplace Injury' : 'Unknown'),
+      // Injury details - extract type from description if needed
+      injury_type: injuryType || 'Unknown',
       injury_description: customData.injury_description || extractFromTranscript(transcript, 'injury_description'),
       body_part_injured: customData.body_part_injured || customData.body_part || extractFromTranscript(transcript, 'body_part'),
       body_side: customData.body_side || null,
@@ -93,10 +115,13 @@ async function processInboundIncident(
       time_of_injury: customData.time_of_injury || null,
       treatment_received: customData.treatment_received || customData.treatment_provided || null,
       severity: customData.severity || 'unknown',
-      // Caller/reporter info
+      // Caller/reporter info - use full name if available
       caller_name: customData.caller_name,
       caller_role: customData.caller_role,
       caller_phone: customData.caller_phone,
+      // User profile info for authenticated web callers
+      caller_position: customData.caller_position || null,
+      is_authenticated: customData.is_authenticated || call.metadata?.is_authenticated || false,
     };
     
     console.log('Extracted data from call:', JSON.stringify(extractedData, null, 2));
