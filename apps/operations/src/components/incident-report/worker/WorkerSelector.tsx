@@ -48,16 +48,38 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
   const shouldFetchAllWorkers = !selectedEmployerId && !!currentWorkerId;
 
   const { data: workers = [], isLoading, refetch } = useQuery({
-    queryKey: ['workers', selectedEmployerId, shouldFetchAllWorkers],
+    queryKey: ['workers', selectedEmployerId, shouldFetchAllWorkers, currentWorkerId],
     queryFn: async () => {
-      let query = supabase.from('workers').select('*');
+      // Build query with is_active filter
+      let query = supabase
+        .from('workers')
+        .select('*')
+        .eq('is_active', true)
+        .order('given_name', { ascending: true });
       
-      if (shouldFetchAllWorkers) {
-        // In edit mode, fetch all workers to ensure we can display the current one
-        query = query.order('given_name', { ascending: true });
-      } else if (selectedEmployerId) {
-        // In create mode or when employer is selected
+      if (selectedEmployerId) {
+        // Filter by employer when we know it
         query = query.eq('employer_id', selectedEmployerId);
+      } else if (currentWorkerId) {
+        // In edit mode without employer selected, fetch worker's employer's workers
+        // First get the worker to find their employer
+        const { data: worker } = await supabase
+          .from('workers')
+          .select('employer_id')
+          .eq('worker_id', currentWorkerId)
+          .single();
+        
+        if (worker?.employer_id) {
+          query = query.eq('employer_id', worker.employer_id);
+        } else {
+          // Fallback: just return the current worker if we can't find employer
+          const { data: singleWorker } = await supabase
+            .from('workers')
+            .select('*')
+            .eq('worker_id', currentWorkerId)
+            .single();
+          return singleWorker ? [singleWorker as Worker] : [];
+        }
       } else {
         return [];
       }
@@ -65,12 +87,29 @@ export function WorkerSelector({ control }: WorkerSelectorProps) {
       const { data, error } = await query;
       
       if (error) {
+        console.error('Error fetching workers:', error);
         throw error;
       }
       
-      return data as Worker[];
+      let workersList = data as Worker[];
+      
+      // In edit mode, ensure the current worker is always in the list
+      // (even if they were marked inactive)
+      if (currentWorkerId && !workersList.some(w => w.worker_id.toString() === currentWorkerId)) {
+        const { data: currentWorker } = await supabase
+          .from('workers')
+          .select('*')
+          .eq('worker_id', currentWorkerId)
+          .single();
+        
+        if (currentWorker) {
+          workersList = [currentWorker as Worker, ...workersList];
+        }
+      }
+      
+      return workersList;
     },
-    enabled: !!selectedEmployerId || shouldFetchAllWorkers,
+    enabled: !!selectedEmployerId || !!currentWorkerId,
   });
   
   // Auto-populate worker details when workers are loaded and we have a worker_id

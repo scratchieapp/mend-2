@@ -63,12 +63,14 @@ export async function fetchSites(employerId?: string): Promise<LookupOption[]> {
 
 /**
  * Fetch workers for a specific employer
+ * Only returns active workers (is_active = true)
  */
 export async function fetchWorkers(employerId?: string): Promise<LookupOption[]> {
   try {
     let query = supabase
       .from('workers')
       .select('worker_id, given_name, family_name')
+      .eq('is_active', true)
       .order('family_name');
 
     if (employerId) {
