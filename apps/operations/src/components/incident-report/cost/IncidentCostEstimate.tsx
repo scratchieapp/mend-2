@@ -8,12 +8,24 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { 
   Calculator, 
   TrendingDown,
   Clock,
   Info,
-  ChevronDown,
-  ChevronUp,
   AlertTriangle,
   CheckCircle2,
   HelpCircle,
@@ -21,7 +33,11 @@ import {
   UserMinus,
   Stethoscope,
   Building2,
-  ClipboardList
+  ClipboardList,
+  ExternalLink,
+  ArrowRight,
+  TrendingUp,
+  Shield
 } from 'lucide-react';
 import { 
   estimateIncidentCost, 
@@ -31,8 +47,6 @@ import {
   type CostEstimate,
   type CostEstimationInput,
   type Severity,
-  mapBodyPartToRegion,
-  mapInjuryType
 } from '@/lib/cost-estimation';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -88,29 +102,315 @@ function CostBar({
   );
 }
 
-// Breakdown row component
+// Breakdown row component for modal
 function BreakdownRow({ 
   icon: Icon, 
   label, 
   value, 
-  subtext 
+  subtext,
+  calculation 
 }: { 
   icon: React.ElementType;
   label: string; 
   value: number;
   subtext?: string;
+  calculation?: string;
 }) {
   return (
-    <div className="flex items-start gap-3 py-2">
-      <Icon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+    <div className="flex items-start gap-3 py-3 border-b border-border/50 last:border-0">
+      <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+        <Icon className="h-4 w-4 text-muted-foreground" />
+      </div>
       <div className="flex-1 min-w-0">
         <div className="flex justify-between gap-2">
-          <span className="text-sm text-muted-foreground truncate">{label}</span>
-          <span className="text-sm font-medium tabular-nums">{formatCurrency(value)}</span>
+          <span className="text-sm font-medium">{label}</span>
+          <span className="text-sm font-bold tabular-nums">{formatCurrency(value)}</span>
         </div>
-        {subtext && <span className="text-xs text-muted-foreground">{subtext}</span>}
+        {subtext && <p className="text-xs text-muted-foreground mt-0.5">{subtext}</p>}
+        {calculation && (
+          <p className="text-xs text-blue-600 mt-1 font-mono bg-blue-50 px-2 py-1 rounded">
+            {calculation}
+          </p>
+        )}
       </div>
     </div>
+  );
+}
+
+// Detailed breakdown modal component
+function CostBreakdownModal({ 
+  estimate, 
+  includePremiumImpact,
+  onTogglePremiumImpact
+}: { 
+  estimate: CostEstimate;
+  includePremiumImpact: boolean;
+  onTogglePremiumImpact: (value: boolean) => void;
+}) {
+  const ltiRange = toRange(estimate.ltiCost.total);
+  const savingsRange = toRange(estimate.potentialSavings);
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="w-full">
+          <ExternalLink className="h-4 w-4 mr-2" />
+          View Detailed Breakdown
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <Calculator className="h-6 w-6" />
+            Cost Estimation Breakdown
+          </DialogTitle>
+          <DialogDescription>
+            Detailed comparison of unmanaged (LTI) vs managed (MTI) injury scenarios
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-3 gap-4 mt-4">
+          {/* LTI Summary */}
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-3 w-3 rounded-full bg-red-500" />
+              <span className="text-sm font-semibold text-red-800">If Unmanaged (LTI)</span>
+            </div>
+            <div className="text-3xl font-bold text-red-700">
+              {formatCostRange(ltiRange)}
+            </div>
+            <div className="flex items-center gap-1 text-sm text-red-600 mt-2">
+              <Clock className="h-4 w-4" />
+              <span>{estimate.ltiCost.durationWeeks} weeks off work</span>
+            </div>
+          </div>
+
+          {/* MTI Summary */}
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-3 w-3 rounded-full bg-emerald-500" />
+              <span className="text-sm font-semibold text-emerald-800">If Managed (MTI)</span>
+            </div>
+            <div className="text-3xl font-bold text-emerald-700">
+              {formatCurrency(estimate.mtiCost.total)}
+            </div>
+            <div className="flex items-center gap-1 text-sm text-emerald-600 mt-2">
+              <Clock className="h-4 w-4" />
+              <span>{estimate.mtiCost.durationWeeks} weeks light duties</span>
+            </div>
+          </div>
+
+          {/* Savings Summary */}
+          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <span className="text-sm font-semibold text-emerald-800">Potential Savings</span>
+            </div>
+            <div className="text-3xl font-bold text-emerald-700">
+              {formatCostRange(savingsRange)}
+            </div>
+            <div className="flex items-center gap-1 text-sm text-emerald-600 mt-2">
+              <TrendingDown className="h-4 w-4" />
+              <span>{estimate.savingsPercentage}% cost reduction</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Premium Impact Toggle */}
+        <div className="flex items-center justify-between p-4 bg-amber-50 border border-amber-200 rounded-xl mt-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center">
+              <TrendingUp className="h-5 w-5 text-amber-600" />
+            </div>
+            <div>
+              <Label htmlFor="premium-impact-modal" className="text-sm font-semibold text-amber-800">
+                Include 3-Year Premium Impact
+              </Label>
+              <p className="text-xs text-amber-600 mt-0.5">
+                Add estimated workers' comp premium increases over 3 years to LTI cost
+              </p>
+            </div>
+          </div>
+          <Switch
+            id="premium-impact-modal"
+            checked={includePremiumImpact}
+            onCheckedChange={onTogglePremiumImpact}
+          />
+        </div>
+
+        {/* Visual Comparison */}
+        <div className="mt-6 p-4 bg-muted/30 rounded-xl">
+          <h3 className="font-semibold mb-4 flex items-center gap-2">
+            <ArrowRight className="h-4 w-4" />
+            Visual Comparison
+          </h3>
+          <div className="space-y-3">
+            <CostBar 
+              value={estimate.ltiCost.total} 
+              maxValue={estimate.ltiCost.total * 1.1} 
+              label="Unmanaged Cost (LTI)"
+              color="bg-red-500"
+            />
+            <CostBar 
+              value={estimate.mtiCost.total} 
+              maxValue={estimate.ltiCost.total * 1.1} 
+              label="Managed Cost (MTI)"
+              color="bg-emerald-500"
+            />
+          </div>
+        </div>
+
+        {/* Detailed Breakdowns Side by Side */}
+        <div className="grid grid-cols-2 gap-6 mt-6">
+          {/* LTI Breakdown */}
+          <div className="border border-red-200 rounded-xl overflow-hidden">
+            <div className="bg-red-50 px-4 py-3 border-b border-red-200">
+              <h3 className="font-semibold text-red-800 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                LTI Cost Breakdown (Unmanaged)
+              </h3>
+              <p className="text-xs text-red-600 mt-1">Worker stays home, no suitable duties arranged</p>
+            </div>
+            <div className="p-4">
+              <BreakdownRow 
+                icon={Banknote} 
+                label="Worker Compensation" 
+                value={estimate.ltiCost.breakdown.compensation}
+                subtext="Weekly payments to injured worker"
+                calculation={`${estimate.ltiCost.durationWeeks} weeks × 95% of PIAWE (capped)`}
+              />
+              <BreakdownRow 
+                icon={UserMinus} 
+                label="Replacement Labour" 
+                value={estimate.ltiCost.breakdown.replacementLabour}
+                subtext="Labour hire to cover absent worker"
+                calculation={`${estimate.ltiCost.durationWeeks} weeks × weekly replacement rate`}
+              />
+              <BreakdownRow 
+                icon={Stethoscope} 
+                label="Medical & Rehabilitation" 
+                value={estimate.ltiCost.breakdown.medical}
+                subtext="Treatment, physio, specialist visits"
+              />
+              <BreakdownRow 
+                icon={Building2} 
+                label="Indirect Costs" 
+                value={estimate.ltiCost.indirectCosts}
+                subtext="Admin, investigation, productivity loss, training"
+                calculation="2× multiplier on direct costs (iceberg effect)"
+              />
+              {estimate.ltiCost.premiumImpact > 0 && (
+                <BreakdownRow 
+                  icon={TrendingUp} 
+                  label="Premium Impact (3 Years)" 
+                  value={estimate.ltiCost.premiumImpact}
+                  subtext="Increased workers' comp premiums"
+                  calculation={`Direct costs × ${estimate.inputFactors.state} premium multiplier`}
+                />
+              )}
+              <Separator className="my-3" />
+              <div className="flex justify-between items-center py-2">
+                <span className="font-bold text-red-800">Total LTI Cost</span>
+                <span className="text-xl font-bold text-red-700">{formatCurrency(estimate.ltiCost.total)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* MTI Breakdown */}
+          <div className="border border-emerald-200 rounded-xl overflow-hidden">
+            <div className="bg-emerald-50 px-4 py-3 border-b border-emerald-200">
+              <h3 className="font-semibold text-emerald-800 flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                MTI Cost Breakdown (Managed)
+              </h3>
+              <p className="text-xs text-emerald-600 mt-1">Worker on light duties, actively managed return-to-work</p>
+            </div>
+            <div className="p-4">
+              <BreakdownRow 
+                icon={TrendingDown} 
+                label="Productivity Loss" 
+                value={estimate.mtiCost.breakdown.productivityLoss || 0}
+                subtext="Reduced output during light duties period"
+                calculation={`${estimate.mtiCost.durationWeeks} weeks × 30% productivity loss × weekly wage`}
+              />
+              <BreakdownRow 
+                icon={Stethoscope} 
+                label="Medical Costs" 
+                value={estimate.mtiCost.breakdown.medical}
+                subtext="Less intensive treatment required"
+              />
+              <BreakdownRow 
+                icon={ClipboardList} 
+                label="Administration" 
+                value={estimate.mtiCost.breakdown.administration || 0}
+                subtext="RTW coordination, paperwork, case management"
+              />
+              <BreakdownRow 
+                icon={Building2} 
+                label="Indirect Costs" 
+                value={estimate.mtiCost.indirectCosts}
+                subtext="Lower multiplier due to maintained productivity"
+                calculation="1.5× multiplier (vs 2× for LTI)"
+              />
+              <div className="py-3 px-3 bg-emerald-50 rounded-lg mt-2 mb-3">
+                <div className="flex items-center gap-2 text-emerald-700">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span className="text-sm font-medium">No premium impact - stays off claims record</span>
+                </div>
+              </div>
+              <Separator className="my-3" />
+              <div className="flex justify-between items-center py-2">
+                <span className="font-bold text-emerald-800">Total MTI Cost</span>
+                <span className="text-xl font-bold text-emerald-700">{formatCurrency(estimate.mtiCost.total)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Calculation Inputs */}
+        <div className="mt-6 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+          <h3 className="font-semibold mb-3 flex items-center gap-2 text-slate-700">
+            <Info className="h-4 w-4" />
+            Calculation Inputs
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            <div>
+              <span className="text-muted-foreground">Injury Type:</span>
+              <p className="font-medium">{estimate.inputFactors.injuryType}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Body Region:</span>
+              <p className="font-medium">{estimate.inputFactors.bodyRegion}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Severity:</span>
+              <p className="font-medium">{estimate.inputFactors.severity}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Worker Role:</span>
+              <p className="font-medium">{estimate.inputFactors.roleCategory}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">State/Scheme:</span>
+              <p className="font-medium">{estimate.inputFactors.state}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Data Source:</span>
+              <p className="font-medium">{estimate.dataSource}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="text-xs text-muted-foreground mt-4 pt-4 border-t">
+          <p>
+            Estimates based on Safe Work Australia Key WHS Statistics 2024, state workers' compensation scheme data,
+            and construction industry benchmarks. Actual costs may vary based on individual circumstances.
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -133,7 +433,6 @@ export default function IncidentCostEstimate({
   const [estimate, setEstimate] = useState<CostEstimate | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showBreakdown, setShowBreakdown] = useState(false);
   const [includePremiumImpact, setIncludePremiumImpact] = useState(false);
   const [resolvedBodyPartName, setResolvedBodyPartName] = useState<string | null>(bodyPartName || null);
   const [resolvedState, setResolvedState] = useState<string>(state || 'NSW');
@@ -240,7 +539,6 @@ export default function IncidentCostEstimate({
 
   // Calculate ranges for display
   const ltiRange = useMemo(() => estimate ? toRange(estimate.ltiCost.total) : null, [estimate]);
-  const mtiRange = useMemo(() => estimate ? toRange(estimate.mtiCost.total) : null, [estimate]);
   const savingsRange = useMemo(() => estimate ? toRange(estimate.potentialSavings) : null, [estimate]);
 
   // Determine which scenario message to show
@@ -437,124 +735,44 @@ export default function IncidentCostEstimate({
           </Alert>
         )}
 
-        {/* Toggle for premium impact */}
+        {/* Toggle for premium impact - ALWAYS enabled */}
         {!compact && (
-          <div className="flex items-center justify-between py-2">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="premium-impact" className="text-sm text-muted-foreground">
-                Include 3-year premium impact
-              </Label>
-              <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+          <TooltipProvider>
+            <div className="flex items-center justify-between py-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="premium-impact" className="text-sm text-muted-foreground cursor-pointer">
+                  Include 3-year premium impact
+                </Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p>
+                      Adds estimated workers' compensation premium increases over 3 years to the LTI cost.
+                      Relevant for mid-to-large employers where claims directly impact premiums.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Switch
+                id="premium-impact"
+                checked={includePremiumImpact}
+                onCheckedChange={setIncludePremiumImpact}
+              />
             </div>
-            <Switch
-              id="premium-impact"
-              checked={includePremiumImpact}
-              onCheckedChange={setIncludePremiumImpact}
-              disabled={readOnly}
-            />
-          </div>
+          </TooltipProvider>
         )}
 
-        {/* Detailed breakdown toggle */}
+        {/* Detailed breakdown modal button */}
         {!compact && (
           <>
             <Separator />
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full"
-              onClick={() => setShowBreakdown(!showBreakdown)}
-            >
-              {showBreakdown ? (
-                <>
-                  <ChevronUp className="h-4 w-4 mr-2" />
-                  Hide Breakdown
-                </>
-              ) : (
-                <>
-                  <ChevronDown className="h-4 w-4 mr-2" />
-                  Show Detailed Breakdown
-                </>
-              )}
-            </Button>
-
-            {showBreakdown && (
-              <div className="grid grid-cols-2 gap-4 pt-2">
-                {/* LTI Breakdown */}
-                <div className="space-y-1">
-                  <h4 className="text-sm font-semibold text-red-700 mb-2">LTI Breakdown</h4>
-                  <BreakdownRow 
-                    icon={Banknote} 
-                    label="Worker Compensation" 
-                    value={estimate.ltiCost.breakdown.compensation}
-                    subtext={`${estimate.ltiCost.durationWeeks} weeks @ 95% of PIAWE`}
-                  />
-                  <BreakdownRow 
-                    icon={UserMinus} 
-                    label="Replacement Labour" 
-                    value={estimate.ltiCost.breakdown.replacementLabour}
-                    subtext="Labour hire costs"
-                  />
-                  <BreakdownRow 
-                    icon={Stethoscope} 
-                    label="Medical Costs" 
-                    value={estimate.ltiCost.breakdown.medical}
-                  />
-                  <BreakdownRow 
-                    icon={Building2} 
-                    label="Indirect Costs" 
-                    value={estimate.ltiCost.indirectCosts}
-                    subtext="Admin, investigation, productivity"
-                  />
-                  {estimate.ltiCost.premiumImpact > 0 && (
-                    <BreakdownRow 
-                      icon={ClipboardList} 
-                      label="Premium Impact (3yr)" 
-                      value={estimate.ltiCost.premiumImpact}
-                    />
-                  )}
-                  <Separator className="my-2" />
-                  <div className="flex justify-between font-semibold text-sm">
-                    <span>Total LTI Cost</span>
-                    <span className="text-red-700">{formatCurrency(estimate.ltiCost.total)}</span>
-                  </div>
-                </div>
-
-                {/* MTI Breakdown */}
-                <div className="space-y-1">
-                  <h4 className="text-sm font-semibold text-emerald-700 mb-2">MTI Breakdown</h4>
-                  <BreakdownRow 
-                    icon={TrendingDown} 
-                    label="Productivity Loss" 
-                    value={estimate.mtiCost.breakdown.productivityLoss || 0}
-                    subtext="30% productivity on light duties"
-                  />
-                  <BreakdownRow 
-                    icon={Stethoscope} 
-                    label="Medical Costs" 
-                    value={estimate.mtiCost.breakdown.medical}
-                    subtext="Less intensive treatment"
-                  />
-                  <BreakdownRow 
-                    icon={ClipboardList} 
-                    label="Administration" 
-                    value={estimate.mtiCost.breakdown.administration || 0}
-                    subtext="Coordination & paperwork"
-                  />
-                  <BreakdownRow 
-                    icon={Building2} 
-                    label="Indirect Costs" 
-                    value={estimate.mtiCost.indirectCosts}
-                  />
-                  <Separator className="my-2" />
-                  <div className="flex justify-between font-semibold text-sm">
-                    <span>Total MTI Cost</span>
-                    <span className="text-emerald-700">{formatCurrency(estimate.mtiCost.total)}</span>
-                  </div>
-                </div>
-              </div>
-            )}
+            <CostBreakdownModal 
+              estimate={estimate}
+              includePremiumImpact={includePremiumImpact}
+              onTogglePremiumImpact={setIncludePremiumImpact}
+            />
           </>
         )}
 
