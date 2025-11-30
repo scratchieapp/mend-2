@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useState, useEffect, useRef } from "react";
 import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete";
 import { useFormContext } from "react-hook-form";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 interface WorkerDetailsProps {
   control: Control<IncidentReportFormData>;
@@ -19,6 +20,7 @@ interface WorkerDetailsProps {
 
 export function WorkerDetails({ control }: WorkerDetailsProps) {
   const { getValues, watch } = useFormContext<IncidentReportFormData>();
+  const { userData } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const initialValuesRef = useRef<{phone: string, address: string, dob: string, gender: string} | null>(null);
@@ -66,17 +68,21 @@ export function WorkerDetails({ control }: WorkerDetailsProps) {
     
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('workers')
-        .update({
-          phone_number: workerPhone || null,
-          residential_address: workerAddress || null,
-          date_of_birth: workerDob || null,
-          gender: workerGender || null,
-        })
-        .eq('worker_id', parseInt(workerId));
+      // Use RBAC-aware RPC to bypass RLS issues
+      const { data, error } = await supabase.rpc('update_worker_rbac', {
+        p_worker_id: parseInt(workerId),
+        p_user_role_id: userData?.role_id || null,
+        p_user_employer_id: userData?.employer_id ? parseInt(userData.employer_id) : null,
+        p_phone_number: workerPhone || null,
+        p_residential_address: workerAddress || null,
+        p_date_of_birth: workerDob || null,
+        p_gender: workerGender || null,
+      });
       
       if (error) throw error;
+      if (data && !data.success) {
+        throw new Error(data.error || 'Failed to update worker');
+      }
       
       // Update initial values after successful save
       initialValuesRef.current = {
@@ -89,7 +95,7 @@ export function WorkerDetails({ control }: WorkerDetailsProps) {
       toast.success('Worker details saved');
     } catch (error: any) {
       console.error('Failed to save worker details:', error);
-      toast.error('Failed to save worker details');
+      toast.error(error.message || 'Failed to save worker details');
     } finally {
       setIsSaving(false);
     }
