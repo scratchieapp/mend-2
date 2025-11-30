@@ -779,7 +779,9 @@ const IncidentEditPage = () => {
                       classification={incidentData?.classification}
                       daysLost={incidentData?.total_days_lost || 0}
                       bodyPartId={incidentData?.body_part_id}
-                      isFatality={incidentData?.fatality}
+                      injuryType={incidentData?.injury_type || form.watch('injury_type') || undefined}
+                      state={incidentData?.sites?.state || undefined}
+                      isFatality={incidentData?.fatality || false}
                       readOnly={false}
                     />
                   </TabsContent>

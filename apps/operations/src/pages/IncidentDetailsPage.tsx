@@ -589,13 +589,16 @@ const IncidentDetailsPage = () => {
 
           {/* Right Column - Cost & Activity Log */}
           <div className="space-y-6">
-            {/* Cost Estimate - Compact */}
+            {/* Cost Estimate - LTI vs MTI Comparison */}
             <IncidentCostEstimate
               incidentId={incident?.incident_id}
               classification={incident?.classification}
               daysLost={incident?.total_days_lost || 0}
               bodyPartId={incident?.body_part_id}
-              isFatality={incident?.fatality}
+              bodyPartName={incident?.body_part?.body_part_name || undefined}
+              injuryType={incident?.injury_type || undefined}
+              state={incident?.site?.state || undefined}
+              isFatality={incident?.fatality || false}
               readOnly={true}
             />
 

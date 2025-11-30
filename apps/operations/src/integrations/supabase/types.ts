@@ -1516,6 +1516,147 @@ export type Database = {
           },
         ]
       }
+      injury_benchmarks: {
+        Row: {
+          id: string
+          injury_type: string
+          body_region: string
+          median_weeks_lti: number
+          median_weeks_mti: number
+          medical_cost_lti: number
+          medical_cost_mti: number
+          severity_modifier_minor: number
+          severity_modifier_moderate: number
+          severity_modifier_severe: number
+          source: string | null
+          data_version: string | null
+          last_updated: string
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          injury_type: string
+          body_region: string
+          median_weeks_lti: number
+          median_weeks_mti: number
+          medical_cost_lti: number
+          medical_cost_mti: number
+          severity_modifier_minor?: number
+          severity_modifier_moderate?: number
+          severity_modifier_severe?: number
+          source?: string | null
+          data_version?: string | null
+          last_updated?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          injury_type?: string
+          body_region?: string
+          median_weeks_lti?: number
+          median_weeks_mti?: number
+          medical_cost_lti?: number
+          medical_cost_mti?: number
+          severity_modifier_minor?: number
+          severity_modifier_moderate?: number
+          severity_modifier_severe?: number
+          source?: string | null
+          data_version?: string | null
+          last_updated?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      role_costs: {
+        Row: {
+          id: string
+          role_category: string
+          state: string
+          weekly_piawe: number
+          weekly_replacement: number
+          source: string | null
+          data_version: string | null
+          last_updated: string
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          role_category: string
+          state: string
+          weekly_piawe: number
+          weekly_replacement: number
+          source?: string | null
+          data_version?: string | null
+          last_updated?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          role_category?: string
+          state?: string
+          weekly_piawe?: number
+          weekly_replacement?: number
+          source?: string | null
+          data_version?: string | null
+          last_updated?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      scheme_parameters: {
+        Row: {
+          id: string
+          state: string
+          weekly_comp_rate_first_13: number
+          weekly_comp_rate_after_13: number
+          max_weekly_compensation: number
+          indirect_multiplier_lti: number
+          indirect_multiplier_mti: number
+          premium_impact_multiplier: number
+          source: string | null
+          data_version: string | null
+          last_updated: string
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          state: string
+          weekly_comp_rate_first_13?: number
+          weekly_comp_rate_after_13?: number
+          max_weekly_compensation: number
+          indirect_multiplier_lti?: number
+          indirect_multiplier_mti?: number
+          premium_impact_multiplier?: number
+          source?: string | null
+          data_version?: string | null
+          last_updated?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          state?: string
+          weekly_comp_rate_first_13?: number
+          weekly_comp_rate_after_13?: number
+          max_weekly_compensation?: number
+          indirect_multiplier_lti?: number
+          indirect_multiplier_mti?: number
+          premium_impact_multiplier?: number
+          source?: string | null
+          data_version?: string | null
+          last_updated?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       workers: {
         Row: {
           basis_of_employment: string | null
@@ -1697,6 +1838,15 @@ export type Database = {
           row_employer_id: number
         }
         Returns: boolean
+      }
+      get_cost_estimation_params: {
+        Args: {
+          p_injury_type: string
+          p_body_region: string
+          p_state?: string
+          p_role_category?: string
+        }
+        Returns: Json
       }
       set_employer_context: {
         Args: {
