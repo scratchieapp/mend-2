@@ -355,8 +355,15 @@ const IncidentEditPage = () => {
       notifying_person_position: incidentData.notifying_person_position || "",
       notifying_person_telephone: incidentData.notifying_person_telephone || "",
       
-      // Worker details - use worker_id directly
+      // Worker details - use worker_id and populate from joined worker data
       worker_id: incidentData.worker_id?.toString() || "",
+      worker_name: incidentData.worker 
+        ? `${incidentData.worker.given_name || ''} ${incidentData.worker.family_name || ''}`.trim() 
+        : "",
+      worker_phone: incidentData.worker?.phone_number || incidentData.worker?.mobile_number || "",
+      worker_address: incidentData.worker?.residential_address || "",
+      worker_dob: incidentData.worker?.date_of_birth || "",
+      worker_gender: (incidentData.worker?.gender as 'Male' | 'Female' | 'Other' | undefined) || undefined,
       
       // Employment section - use joined data
       employer_name: incidentData.workers_employer || incidentData.employers?.employer_name || incidentData.employer?.employer_name || "",
