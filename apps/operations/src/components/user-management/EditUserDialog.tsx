@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { User } from "@/types/user";
-import { Trash2 } from "lucide-react";
+import { Trash2, Phone } from "lucide-react";
 
 interface EditUserDialogProps {
   user: User | null;
@@ -49,6 +49,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
     display_name: "",
     role_id: "",
     employer_id: "null", // "null" string for 'None' option
+    mobile_number: "",
   });
 
   // Reset form when user changes
@@ -58,6 +59,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         display_name: user.display_name || user.user_name || "",
         role_id: user.role_id?.toString() || "",
         employer_id: user.employer_id?.toString() || "null",
+        mobile_number: user.mobile_number || "",
       });
     }
   }, [user]);
@@ -112,6 +114,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         p_display_name: data.display_name || null,
         p_role_id: data.role_id ? parseInt(data.role_id) : null,
         p_employer_id: data.employer_id === "null" ? null : data.employer_id || null,
+        p_mobile_number: data.mobile_number || null,
       });
 
       if (rpcError) throw rpcError;
@@ -235,6 +238,21 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
               value={formData.display_name} 
               onChange={(e) => setFormData({...formData, display_name: e.target.value})}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="mobile_number">Mobile Number</Label>
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                id="mobile_number" 
+                type="tel"
+                placeholder="0412 345 678"
+                className="pl-10"
+                value={formData.mobile_number} 
+                onChange={(e) => setFormData({...formData, mobile_number: e.target.value})}
+              />
+            </div>
           </div>
 
           <div className="space-y-2">

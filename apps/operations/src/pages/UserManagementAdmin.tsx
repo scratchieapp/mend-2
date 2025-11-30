@@ -45,6 +45,7 @@ export default function UserManagementAdmin() {
         created_at: user.created_at,
         role_id: user.role_id,
         employer_id: user.employer_id,
+        mobile_number: user.mobile_number,
         role: user.role_name ? {
           role_id: user.role_id,
           role_name: user.role_name,

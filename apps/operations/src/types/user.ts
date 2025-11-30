@@ -5,6 +5,7 @@ export interface User {
   display_name?: string | null;
   user_name?: string | null;
   custom_display_name?: string | null;
+  mobile_number?: string | null;
   role_id: number;
   employer_id?: number | null;
   site_id?: string | null;
