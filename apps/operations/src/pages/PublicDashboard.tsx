@@ -26,7 +26,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { GoogleSitesMap, SiteLocation } from "@/components/maps/GoogleSitesMap";
+import { GoogleSitesMap, SiteLocation, HeadOffice } from "@/components/maps/GoogleSitesMap";
 import { WeatherDisplay } from "@/components/incidents/WeatherDisplay";
 import { fetchCurrentWeather, WeatherData } from "@/services/weatherService";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -231,14 +231,14 @@ export default function PublicDashboard() {
     enabled: !!(userData?.role_id)
   });
 
-  // Fetch employer name for authenticated users
+  // Fetch employer details for authenticated users (including head office location)
   const { data: employer } = useQuery({
-    queryKey: ['employer-name', employerId],
+    queryKey: ['employer-details', employerId],
     queryFn: async () => {
       if (!employerId) return null;
       const { data, error } = await supabase
         .from('employers')
-        .select('employer_name')
+        .select('employer_id, employer_name, employer_address, employer_state, employer_post_code')
         .eq('employer_id', employerId)
         .single();
       
@@ -251,6 +251,15 @@ export default function PublicDashboard() {
     staleTime: 10 * 60 * 1000, // 10 minutes
     enabled: isAuthenticated && !!employerId
   });
+
+  // Create head office data for the map
+  const headOffices: HeadOffice[] = employer ? [{
+    employer_id: employer.employer_id,
+    employer_name: employer.employer_name,
+    employer_address: employer.employer_address || undefined,
+    employer_state: employer.employer_state || undefined,
+    employer_post_code: employer.employer_post_code || undefined,
+  }] : [];
 
   // Get employer name from query or from first site as fallback
   const employerName = employer?.employer_name || sites?.[0]?.employer_name;
@@ -474,10 +483,12 @@ export default function PublicDashboard() {
               <div className="relative" style={{ height: '400px' }}>
                 <GoogleSitesMap 
                   sites={error ? [] : (sites || [])} 
+                  headOffices={headOffices}
                   mode="public" 
                   height="100%" 
                   className="rounded-b-lg border-0"
                   onSiteClick={handleSiteClick}
+                  showLegend={headOffices.length > 0}
                 />
 
                 {/* Selected Site Detail Overlay */}
