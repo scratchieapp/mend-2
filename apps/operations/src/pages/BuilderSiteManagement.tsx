@@ -1656,15 +1656,26 @@ export default function BuilderSiteManagement() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="mc_address">Street Address</Label>
-                <Input 
-                  id="mc_address" 
-                  value={newMedicalCenterData.address} 
-                  onChange={(e) => setNewMedicalCenterData(prev => ({ ...prev, address: e.target.value }))} 
-                  placeholder="123 Main Street"
+                <Label htmlFor="mc_address">Address *</Label>
+                <AddressAutocomplete
+                  id="mc_address"
+                  value={newMedicalCenterData.address}
+                  onChange={(value) => setNewMedicalCenterData(prev => ({ ...prev, address: value }))}
+                  onAddressChange={(address) => {
+                    setNewMedicalCenterData(prev => ({
+                      ...prev,
+                      address: address.streetAddress || address.formattedAddress,
+                      suburb: address.city || prev.suburb,
+                      postcode: address.postCode || prev.postcode,
+                      state: address.state || prev.state,
+                    }));
+                  }}
+                  searchType="all"
+                  placeholder="Start typing address..."
                 />
+                <p className="text-xs text-muted-foreground">Search for the medical center's address</p>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="mc_suburb">Suburb *</Label>
                   <Input 
@@ -1675,6 +1686,22 @@ export default function BuilderSiteManagement() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="mc_state">State *</Label>
+                  <Select 
+                    value={newMedicalCenterData.state} 
+                    onValueChange={(value) => setNewMedicalCenterData(prev => ({ ...prev, state: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="State" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'].map(s => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="mc_postcode">Postcode</Label>
                   <Input 
                     id="mc_postcode" 
@@ -1683,22 +1710,6 @@ export default function BuilderSiteManagement() {
                     maxLength={4}
                   />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="mc_state">State *</Label>
-                <Select 
-                  value={newMedicalCenterData.state} 
-                  onValueChange={(value) => setNewMedicalCenterData(prev => ({ ...prev, state: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select state..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'].map(s => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
               <p className="text-xs text-muted-foreground">
                 After adding, you'll need to brief this medical center on Mend's approach before AI calls can be made.
