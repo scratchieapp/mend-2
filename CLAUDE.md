@@ -1073,6 +1073,132 @@ npm run preview      # Preview build
 - **Memory Usage**: ✅ Stable with aggressive cleanup
 - **Database Performance**: ✅ 8-18ms query times
 
+## 📊 SAFETY REPORTING SYSTEM (2025-12-01)
+
+### Overview
+AI-powered safety reporting system generating comprehensive reports for Builder Admins, Site Admins, and Mend staff. Features LTIFR/TRIFR/MTIFR calculations, AI-generated executive summaries, jurisdictional comparison, and professional PDF export.
+
+### ✅ Completed Features
+
+1. **Report Dashboard** (`/reports`)
+   - Month selector (last 12 months)
+   - Site report generator with site dropdown
+   - Company report generator (employer pre-selected for roles 5,6,7)
+   - Quick Overview with real-time stats (incidents, LTIFR, hours)
+   - Hours Entry quick access link
+   - Educational "Learning from Safety Data" section
+
+2. **Site-Level Reports** (`/reports/site/:siteId`)
+   - Executive summary (AI-generated via Claude 3.5 Sonnet)
+   - LTIFR, TRIFR, MTIFR frequency rate cards
+   - Incident breakdown by type (pie chart)
+   - AI-generated recommendations
+   - Data quality warnings (when hours are estimated)
+   - PDF download button
+
+3. **Employer-Level Reports** (`/reports/employer/:employerId`)
+   - Aggregated metrics across all sites
+   - Cross-jurisdictional benchmarking table
+   - State-by-state LTIFR comparison
+   - Site-specific metric cards
+   - AI-generated strategic recommendations
+   - PDF download button
+
+4. **Hours Entry Enhancement**
+   - `is_estimated` checkbox for data quality tracking
+   - `data_source` field for future API integration
+   - Warning displayed in reports when hours are estimated
+
+5. **AI Integration (OpenRouter)**
+   - Model-agnostic design supporting multiple LLMs
+   - Default: `anthropic/claude-3.5-sonnet`
+   - Configurable via `LLM_PROVIDER` and `LLM_MODEL` env vars
+   - Fallback to template-based summaries if API unavailable
+
+### Database Schema Updates
+
+```sql
+-- hours_worked table additions
+ALTER TABLE hours_worked
+ADD COLUMN is_estimated BOOLEAN DEFAULT FALSE,
+ADD COLUMN data_source TEXT DEFAULT 'Manual Input';
+
+-- sites table additions  
+ALTER TABLE sites
+ADD COLUMN is_project_based BOOLEAN DEFAULT TRUE;
+```
+
+### Edge Function: `generate-safety-report`
+
+**Location:** `supabase/functions/generate-safety-report/index.ts`
+
+**Input:**
+```json
+{
+  "siteId": 123,        // Optional for employer reports
+  "employerId": 9,
+  "month": "2025-12",
+  "reportType": "site" | "employer"
+}
+```
+
+**Output:**
+```json
+{
+  "executiveSummary": "AI-generated summary...",
+  "metrics": { "lti": 0, "mti": 2, "ltifr": 0, "trifr": 4.5, ... },
+  "incidentBreakdown": { "byType": [...], "byState": [...] },
+  "recommendations": ["Recommendation 1", ...],
+  "dataQuality": { "hasEstimatedHours": false, ... },
+  "comparison": { "previousMonth": {...}, "industryBenchmark": {...} }
+}
+```
+
+**Environment Variables (Supabase Edge Functions):**
+```bash
+supabase secrets set LLM_PROVIDER=openrouter
+supabase secrets set LLM_API_KEY=sk-or-v1-xxx
+supabase secrets set LLM_MODEL=anthropic/claude-3.5-sonnet
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `/apps/operations/src/pages/ReportDashboard.tsx` | Main reporting hub |
+| `/apps/operations/src/pages/SiteReport.tsx` | Site-level report view |
+| `/apps/operations/src/pages/EmployerReport.tsx` | Employer-level report view |
+| `/apps/operations/src/components/reports/ReportPDFDocument.tsx` | PDF generation template |
+| `/apps/operations/src/components/reports/FrequencyRateCard.tsx` | LTIFR/TRIFR/MTIFR display |
+| `/apps/operations/src/components/reports/JurisdictionalComparison.tsx` | State comparison table |
+| `/apps/operations/src/types/reports.ts` | TypeScript type definitions |
+| `/supabase/functions/generate-safety-report/index.ts` | AI report generation |
+| `/supabase/migrations/20251203_add_reporting_fields.sql` | Database schema updates |
+
+### Vercel Routing
+
+Added to `vercel.json`:
+```json
+{ "source": "/reports/(.*)", "destination": "/operations/index.html" },
+{ "source": "/reports", "destination": "/operations/index.html" }
+```
+
+### Educational Philosophy
+
+The reporting system emphasizes learning over compliance:
+- "What did we learn from the last incident?"
+- "What patterns emerged this month?"
+- Focus on health-based approach, not just LTI metrics
+- Near-misses as learning opportunities
+
+### Future Enhancements (Planned)
+- API integration with Procore/HammerTech for automatic hours import
+- Vector embeddings for semantic incident search (pgvector)
+- Subcontractor risk scoring model
+- Industry benchmark comparison by sector
+
+---
+
 ## Testing Recommendations
 
 ### Regression Testing
@@ -1089,6 +1215,6 @@ npm run preview      # Preview build
 
 ---
 
-**Last Updated**: November 30, 2025
-**Version**: 4.15.0
-**Status**: ✅ PRODUCTION READY | ✅ Incident Submission - WORKING | ✅ Voice Agent - Fully Operational (with Phonetic Matching) | ✅ Medical Booking Agent "Emma" - Configured | ✅ RLS + Clerk Auth - Fixed | ✅ Site Management Redesign - Complete | ✅ Sites RBAC - Fixed | ✅ Cost Estimator - Complete
+**Last Updated**: December 1, 2025
+**Version**: 4.16.0
+**Status**: ✅ PRODUCTION READY | ✅ Incident Submission - WORKING | ✅ Voice Agent - Fully Operational | ✅ Medical Booking Agent "Emma" - Configured | ✅ RLS + Clerk Auth - Fixed | ✅ Site Management Redesign - Complete | ✅ Sites RBAC - Fixed | ✅ Cost Estimator - Complete | ✅ Safety Reporting System - Complete
