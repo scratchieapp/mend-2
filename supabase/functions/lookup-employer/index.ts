@@ -47,12 +47,97 @@ interface EmployerMatch {
 }
 
 /**
- * Check if search term matches any alias (case-insensitive)
+ * Normalize a string for phonetic comparison
+ * Handles common speech-to-text variations
+ */
+function normalizeForPhonetic(str: string): string {
+  return str
+    .toLowerCase()
+    .trim()
+    // Remove common suffixes/prefixes that speech adds
+    .replace(/^the\s+/i, '')
+    .replace(/\s+group$/i, '')
+    .replace(/\s+pty\.?\s*ltd\.?$/i, '')
+    .replace(/\s+limited$/i, '')
+    // Handle possessives that speech-to-text adds
+    .replace(/'s$/i, 's')
+    .replace(/s'$/i, 's')
+    // Normalize common sound-alike variations
+    .replace(/ck/g, 'k')
+    .replace(/x$/g, 'ks')  // "rix" -> "riks"
+    .replace(/cks$/g, 'ks')
+    .replace(/ics$/g, 'iks')
+    // Remove any remaining punctuation
+    .replace(/[^a-z0-9\s]/g, '')
+    .trim();
+}
+
+/**
+ * Check if two strings sound similar (phonetic match)
+ */
+function soundsLike(str1: string, str2: string): boolean {
+  const norm1 = normalizeForPhonetic(str1);
+  const norm2 = normalizeForPhonetic(str2);
+  
+  // Exact match after normalization
+  if (norm1 === norm2) return true;
+  
+  // One contains the other
+  if (norm1.includes(norm2) || norm2.includes(norm1)) return true;
+  
+  // Check Levenshtein distance for short strings (allow 1-2 character difference)
+  if (norm1.length <= 6 && norm2.length <= 6) {
+    const distance = levenshteinDistance(norm1, norm2);
+    return distance <= 2;
+  }
+  
+  return false;
+}
+
+/**
+ * Simple Levenshtein distance calculation
+ */
+function levenshteinDistance(a: string, b: string): number {
+  const matrix: number[][] = [];
+  
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
+  
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  
+  return matrix[b.length][a.length];
+}
+
+/**
+ * Check if search term matches any alias (with phonetic matching)
  */
 function matchesAlias(searchTerm: string, aliases: string[] | null | undefined): boolean {
   if (!aliases || aliases.length === 0) return false;
   const search = searchTerm.toLowerCase().trim();
-  return aliases.some(alias => alias.toLowerCase().trim() === search);
+  return aliases.some(alias => {
+    const aliasLower = alias.toLowerCase().trim();
+    // Exact match
+    if (search === aliasLower) return true;
+    // Phonetic match
+    if (soundsLike(search, aliasLower)) return true;
+    return false;
+  });
 }
 
 /**
@@ -66,8 +151,12 @@ function calculateMatchScore(searchTerm: string, employerName: string, aliases?:
   // Exact match on employer_name = 100
   if (search === employer) return 100;
 
-  // Exact match on alias = 98 (very high, almost like exact match)
+  // Phonetic match on alias = 98 (very high, almost like exact match)
+  // This handles "Rix" -> "RIX", "Ricks" -> "RIX", etc.
   if (matchesAlias(searchTerm, aliases)) return 98;
+  
+  // Check if normalized search sounds like employer name
+  if (soundsLike(searchTerm, employerName)) return 95;
 
   // Search term is the start of employer name = 90
   // e.g., "Urban Development" matches "Urban Development Pty Ltd"
@@ -299,21 +388,19 @@ serve(async (req: Request) => {
       }
     }
 
-    // Also search for case-insensitive partial alias matches
-    // This catches cases where someone says "Rix" but the alias is "RIX"
+    // Also search for phonetic alias matches
+    // This catches cases where speech-to-text converts "RIX" to "Rix", "Ricks", "Rig", etc.
     const { data: aliasPartialMatches } = await supabase
       .from('employers')
       .select('employer_id, employer_name, aliases, manager_name, manager_phone')
       .limit(50);
 
-    // Filter for employers whose aliases contain the search term (case-insensitive)
+    // Filter for employers whose aliases match phonetically
     if (aliasPartialMatches) {
       const aliasMatched = aliasPartialMatches.filter((emp) => 
-        emp.aliases?.some((alias: string) => 
-          alias.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          searchTerm.toLowerCase().includes(alias.toLowerCase())
-        )
+        emp.aliases?.some((alias: string) => soundsLike(searchTerm, alias))
       );
+      console.log('Phonetic alias matches:', aliasMatched.map(e => e.employer_name));
       fuzzyMatches = [...fuzzyMatches, ...aliasMatched];
     }
 
