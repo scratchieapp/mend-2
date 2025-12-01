@@ -259,6 +259,38 @@ export function BookMedicalAppointmentDialog({
     },
   });
 
+  // Cancel booking workflow mutation
+  const cancelWorkflowMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('booking_workflows')
+        .update({ 
+          status: 'cancelled', 
+          failure_reason: 'Cancelled by user',
+          updated_at: new Date().toISOString()
+        })
+        .eq('incident_id', incidentId)
+        .not('status', 'in', '("completed","cancelled")');
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Booking Cancelled',
+        description: 'The booking workflow has been cancelled. You can start a new one.',
+      });
+      queryClient.invalidateQueries({ queryKey: ['booking-workflow', incidentId] });
+      queryClient.invalidateQueries({ queryKey: ['incident-booking-workflow', incidentId] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Cancel Failed',
+        description: error.message || 'Failed to cancel the booking workflow.',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const resetForm = () => {
     setSelectedMedicalCenterId('');
     setDoctorPreference('any_doctor');
@@ -368,7 +400,21 @@ export function BookMedicalAppointmentDialog({
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex gap-2 sm:gap-0">
+            <Button 
+              variant="destructive" 
+              onClick={() => cancelWorkflowMutation.mutate()}
+              disabled={cancelWorkflowMutation.isPending}
+            >
+              {cancelWorkflowMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Cancelling...
+                </>
+              ) : (
+                'Cancel Booking'
+              )}
+            </Button>
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Close
             </Button>

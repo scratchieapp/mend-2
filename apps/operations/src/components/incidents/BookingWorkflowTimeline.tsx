@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { 
@@ -9,9 +9,12 @@ import {
   Clock, 
   XCircle,
   Bot,
-  Loader2
+  Loader2,
+  Square
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { toast } from '@/hooks/use-toast';
 
 interface BookingWorkflowTimelineProps {
   incidentId: number;
@@ -167,6 +170,41 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
     refetchInterval: 10000, // Poll every 10 seconds for updates
   });
 
+  const queryClient = useQueryClient();
+
+  // Cancel workflow mutation
+  const cancelWorkflowMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('booking_workflows')
+        .update({ 
+          status: 'cancelled', 
+          failure_reason: 'Cancelled by user',
+          updated_at: new Date().toISOString()
+        })
+        .eq('incident_id', incidentId)
+        .not('status', 'in', '("completed","cancelled")');
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Booking Cancelled',
+        description: 'The booking workflow has been cancelled.',
+      });
+      queryClient.invalidateQueries({ queryKey: ['booking-workflow-timeline', incidentId] });
+      queryClient.invalidateQueries({ queryKey: ['booking-workflow', incidentId] });
+      queryClient.invalidateQueries({ queryKey: ['incident-booking-workflow', incidentId] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Cancel Failed',
+        description: error.message || 'Failed to cancel the booking workflow.',
+        variant: 'destructive',
+      });
+    },
+  });
+
   // Don't show anything if no workflow exists
   if (!workflow && !isLoading) {
     return null;
@@ -227,9 +265,32 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
               {isFailed ? 'Booking Failed' : isCompleted ? 'Appointment Confirmed' : 'AI Booking in Progress'}
             </h3>
           </div>
-          <span className="text-xs text-muted-foreground">
-            Started {workflow?.created_at ? format(new Date(workflow.created_at), 'MMM d, h:mm a') : ''}
-          </span>
+          <div className="flex items-center gap-3">
+            {!isCompleted && workflow?.status !== 'cancelled' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "h-7 text-xs",
+                  isFailed ? "text-red-600 hover:text-red-700 hover:bg-red-100" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100"
+                )}
+                onClick={() => cancelWorkflowMutation.mutate()}
+                disabled={cancelWorkflowMutation.isPending}
+              >
+                {cancelWorkflowMutation.isPending ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <>
+                    <Square className="h-3 w-3 mr-1" />
+                    Cancel
+                  </>
+                )}
+              </Button>
+            )}
+            <span className="text-xs text-muted-foreground">
+              Started {workflow?.created_at ? format(new Date(workflow.created_at), 'MMM d, h:mm a') : ''}
+            </span>
+          </div>
         </div>
 
         {/* Timeline Steps - Always show, even when failed */}
