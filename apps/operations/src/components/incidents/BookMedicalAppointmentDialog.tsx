@@ -36,6 +36,7 @@ import {
   Building2
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { MedicalCenterPreparationDialog } from './MedicalCenterPreparationDialog';
 import { PreparePatientDialog } from './PreparePatientDialog';
 
@@ -90,6 +91,7 @@ export function BookMedicalAppointmentDialog({
   workerPreparationStatus,
 }: BookMedicalAppointmentDialogProps) {
   const { userData } = useAuth();
+  const { getToken } = useClerkAuth();
   const queryClient = useQueryClient();
   const [selectedMedicalCenterId, setSelectedMedicalCenterId] = useState<string>('');
   const [doctorPreference, setDoctorPreference] = useState<'any_doctor' | 'specific_doctor'>('any_doctor');
@@ -204,6 +206,9 @@ export function BookMedicalAppointmentDialog({
   // Initiate booking mutation
   const initiateBookingMutation = useMutation({
     mutationFn: async () => {
+      // Get fresh Clerk token for Edge Function auth
+      const token = await getToken();
+      
       const { data, error } = await supabase.functions.invoke('initiate-booking-workflow', {
         body: {
           incident_id: incidentId,
@@ -214,6 +219,7 @@ export function BookMedicalAppointmentDialog({
           requested_by: userData?.custom_display_name || userData?.display_name || userData?.email || 'Unknown',
           requested_by_user_id: userData?.user_id,
         },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
 
       if (error) throw error;
