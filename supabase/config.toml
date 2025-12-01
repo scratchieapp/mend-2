@@ -1,1 +1,8 @@
 project_id = "rkzcybthcszeusrohbtc"
+
+# Third-Party Auth integration with Clerk
+# This allows Clerk JWTs to be used directly without going through GoTrue
+[auth.third_party.clerk]
+enabled = true
+# Your Clerk domain (without https://)
+domain = "clerk.mendplatform.au"

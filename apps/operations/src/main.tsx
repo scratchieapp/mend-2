@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ClerkProvider } from '@clerk/clerk-react';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { AuthProvider } from '@/lib/auth/AuthContext';
+import { ClerkSupabaseProvider } from '@/lib/clerk/ClerkSupabaseProvider';
 import App from './App';
 import './index.css';
 
@@ -128,9 +129,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
         <ClerkProvider publishableKey={clerkPubKey}>
-          <AuthProvider>
-            <App />
-          </AuthProvider>
+          {/* ClerkSupabaseProvider sets up the token provider for Supabase Third-Party Auth */}
+          <ClerkSupabaseProvider>
+            <AuthProvider>
+              <App />
+            </AuthProvider>
+          </ClerkSupabaseProvider>
         </ClerkProvider>
       </QueryClientProvider>
     </BrowserRouter>
