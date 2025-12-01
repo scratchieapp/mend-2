@@ -1,16 +1,17 @@
 import { useState, useEffect } from "react";
 import { FormField, FormItem } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
-import { UseFormReturn, useWatch } from "react-hook-form";
+import { UseFormReturn } from "react-hook-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Phone, FileText, Plus, Pencil, Check, X, Clock } from "lucide-react";
+import { FileText, Plus, Pencil, Check, X, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useParams } from "react-router-dom";
 import type { IncidentReportFormData, IncidentEditFormData } from "@/lib/validations/incident";
+import { VoiceCallTranscripts } from "@/components/incidents/VoiceCallTranscripts";
 
 interface CaseNote {
   id: number;
@@ -36,13 +37,6 @@ export function CaseNotesSection({ form }: CaseNotesSectionProps) {
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editingText, setEditingText] = useState("");
 
-  // Check if call_transcripts field exists (only in edit schema)
-  const callTranscripts = useWatch({
-    control: form.control,
-    name: "call_transcripts" as keyof IncidentEditFormData,
-  });
-
-  const hasCallTranscripts = callTranscripts && callTranscripts.trim().length > 0;
   const incidentId = id ? parseInt(id) : null;
 
   // Fetch case notes for this incident
@@ -145,42 +139,9 @@ export function CaseNotesSection({ form }: CaseNotesSectionProps) {
 
   return (
     <div className="space-y-6">
-      {/* Call Transcripts Section - Read-only display of voice agent transcripts */}
-      {'call_transcripts' in (form.getValues() || {}) && (
-        <Card className="border-blue-200 bg-blue-50/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Phone className="h-5 w-5 text-blue-600" />
-              Call Transcripts
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Transcripts from voice agent calls related to this incident
-            </p>
-          </CardHeader>
-          <CardContent>
-            <FormField
-              control={form.control}
-              name={"call_transcripts" as keyof IncidentEditFormData}
-              render={({ field }) => (
-                <FormItem>
-                  {hasCallTranscripts ? (
-                    <div className="bg-white rounded-md border p-4 max-h-[300px] overflow-y-auto">
-                      <pre className="whitespace-pre-wrap text-sm font-mono text-gray-700">
-                        {field.value as string}
-                      </pre>
-                    </div>
-                  ) : (
-                    <div className="bg-white rounded-md border p-4 text-center text-muted-foreground">
-                      <Phone className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p>No call transcripts available for this incident.</p>
-                      <p className="text-xs mt-1">Transcripts will appear here when incidents are reported via voice agent.</p>
-                    </div>
-                  )}
-                </FormItem>
-              )}
-            />
-          </CardContent>
-        </Card>
+      {/* Voice Call Transcripts - Shows actual call recordings and transcripts */}
+      {incidentId && (
+        <VoiceCallTranscripts incidentId={incidentId} />
       )}
 
       {/* Progressive Case Notes Section */}

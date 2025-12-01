@@ -977,6 +977,15 @@ export default function BuilderSiteManagement() {
                           </SelectItem>
                         </SelectContent>
                       </Select>
+                      {getSelectedMedicalCenter(2) && getSelectedMedicalCenter(2) !== 'none' && (
+                        <div className="text-xs text-muted-foreground flex items-center gap-2">
+                          {medicalCenters.find(c => c.id === getSelectedMedicalCenter(2))?.mend_prepared ? (
+                            <><CheckCircle2 className="h-3 w-3 text-green-500" /> Prepared for AI calls</>
+                          ) : (
+                            <><Clock className="h-3 w-3 text-amber-500" /> Needs briefing before AI calls</>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Backup 2 Medical Center */}
@@ -1021,6 +1030,15 @@ export default function BuilderSiteManagement() {
                           </SelectItem>
                         </SelectContent>
                       </Select>
+                      {getSelectedMedicalCenter(3) && getSelectedMedicalCenter(3) !== 'none' && (
+                        <div className="text-xs text-muted-foreground flex items-center gap-2">
+                          {medicalCenters.find(c => c.id === getSelectedMedicalCenter(3))?.mend_prepared ? (
+                            <><CheckCircle2 className="h-3 w-3 text-green-500" /> Prepared for AI calls</>
+                          ) : (
+                            <><Clock className="h-3 w-3 text-amber-500" /> Needs briefing before AI calls</>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1401,6 +1419,15 @@ export default function BuilderSiteManagement() {
                         </SelectItem>
                       </SelectContent>
                     </Select>
+                    {getSelectedMedicalCenter(2) && getSelectedMedicalCenter(2) !== 'none' && (
+                      <div className="text-xs text-muted-foreground flex items-center gap-2">
+                        {medicalCenters.find(c => c.id === getSelectedMedicalCenter(2))?.mend_prepared ? (
+                          <><CheckCircle2 className="h-3 w-3 text-green-500" /> Prepared for AI calls</>
+                        ) : (
+                          <><Clock className="h-3 w-3 text-amber-500" /> Needs briefing before AI calls</>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Backup 2 Medical Center */}
@@ -1445,6 +1472,15 @@ export default function BuilderSiteManagement() {
                         </SelectItem>
                       </SelectContent>
                     </Select>
+                    {getSelectedMedicalCenter(3) && getSelectedMedicalCenter(3) !== 'none' && (
+                      <div className="text-xs text-muted-foreground flex items-center gap-2">
+                        {medicalCenters.find(c => c.id === getSelectedMedicalCenter(3))?.mend_prepared ? (
+                          <><CheckCircle2 className="h-3 w-3 text-green-500" /> Prepared for AI calls</>
+                        ) : (
+                          <><Clock className="h-3 w-3 text-amber-500" /> Needs briefing before AI calls</>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
