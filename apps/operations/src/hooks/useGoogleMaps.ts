@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 
 interface UseGoogleMapsOptions {
-  libraries?: ("drawing" | "geometry" | "localContext" | "places" | "visualization")[];
+  libraries?: ("drawing" | "geometry" | "localContext" | "places" | "visualization" | "marker")[];
 }
 
-// Default libraries to always load - places is needed for AddressAutocomplete
-const DEFAULT_LIBRARIES: UseGoogleMapsOptions['libraries'] = ['places'];
+// Default libraries to always load
+// - places: for PlaceAutocompleteElement (new API)
+// - marker: for AdvancedMarkerElement (new API)
+const DEFAULT_LIBRARIES: UseGoogleMapsOptions['libraries'] = ['places', 'marker'];
 
 export const useGoogleMaps = (options: UseGoogleMapsOptions = {}) => {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -23,9 +25,16 @@ export const useGoogleMaps = (options: UseGoogleMapsOptions = {}) => {
       return;
     }
 
-    // Check if Google Maps is already loaded WITH places library
-    if (window.google?.maps?.Map && window.google?.maps?.Marker && window.google?.maps?.places?.Autocomplete) {
-      console.log('Google Maps already loaded with Places');
+    // Check if Google Maps is already loaded with required libraries
+    // Note: We still check for the old APIs as fallbacks, but prefer new ones
+    const isFullyLoaded = () => {
+      return window.google?.maps?.Map && 
+        (window.google?.maps?.marker?.AdvancedMarkerElement || window.google?.maps?.Marker) &&
+        (window.google?.maps?.places?.PlaceAutocompleteElement || window.google?.maps?.places?.Autocomplete);
+    };
+
+    if (isFullyLoaded()) {
+      console.log('Google Maps already loaded');
       setIsLoaded(true);
       return;
     }
@@ -35,18 +44,20 @@ export const useGoogleMaps = (options: UseGoogleMapsOptions = {}) => {
     if (existingScript) {
       console.log('Google Maps script exists, waiting for load...');
       const checkLoaded = () => {
-        // Check for both Map and Places to be loaded
-        if (window.google?.maps?.Map && window.google?.maps?.places?.Autocomplete) {
+        if (isFullyLoaded()) {
           console.log('Google Maps fully loaded');
           setIsLoaded(true);
         } else if (window.google?.maps?.Map && window.google?.maps?.importLibrary) {
-          // If Map is loaded but Places isn't, try to import places dynamically
-          console.log('Loading places library dynamically...');
-          window.google.maps.importLibrary('places').then(() => {
-            console.log('Places library loaded dynamically');
+          // Try to import required libraries dynamically
+          console.log('Loading libraries dynamically...');
+          Promise.all([
+            window.google.maps.importLibrary('places'),
+            window.google.maps.importLibrary('marker'),
+          ]).then(() => {
+            console.log('Libraries loaded dynamically');
             setIsLoaded(true);
           }).catch(err => {
-            console.error('Failed to load places library:', err);
+            console.error('Failed to load libraries:', err);
             setTimeout(checkLoaded, 200);
           });
         } else {
@@ -64,8 +75,8 @@ export const useGoogleMaps = (options: UseGoogleMapsOptions = {}) => {
     (window as any)[callbackName] = () => {
       console.log('Google Maps callback fired');
       const checkReady = () => {
-        if (window.google?.maps?.Map && window.google?.maps?.places?.Autocomplete) {
-          console.log('Google Maps with Places ready');
+        if (isFullyLoaded()) {
+          console.log('Google Maps with all libraries ready');
           setIsLoaded(true);
           delete (window as any)[callbackName];
         } else {
@@ -75,7 +86,7 @@ export const useGoogleMaps = (options: UseGoogleMapsOptions = {}) => {
       checkReady();
     };
 
-    // Construct script URL with libraries - always include places
+    // Construct script URL with libraries
     const scriptUrl = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=${libraries.join(',')}&loading=async&callback=${callbackName}`;
     console.log('Loading Google Maps with libraries:', libraries.join(','));
 

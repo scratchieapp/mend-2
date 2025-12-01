@@ -99,19 +99,32 @@ const STATE_CAPITALS: Record<string, { lat: number; lng: number }> = {
   'ACT': { lat: -35.2809, lng: 149.1300 },
 };
 
-// Generate distinct colors for employers
-const EMPLOYER_COLORS = [
-  '#3b82f6', // Blue
-  '#22c55e', // Green  
-  '#f59e0b', // Amber
-  '#ef4444', // Red
-  '#8b5cf6', // Purple
-  '#06b6d4', // Cyan
-  '#ec4899', // Pink
-  '#f97316', // Orange
-  '#14b8a6', // Teal
-  '#6366f1', // Indigo
-];
+// Create a colored pin marker element
+const createPinElement = (color: string, scale: number = 1): HTMLElement => {
+  const pin = document.createElement('div');
+  pin.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${24 * scale}" height="${36 * scale}" viewBox="0 0 24 36">
+      <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="${color}" stroke="#333" stroke-width="1"/>
+      <circle cx="12" cy="12" r="5" fill="white"/>
+    </svg>
+  `;
+  pin.style.cursor = 'pointer';
+  return pin;
+};
+
+// Create head office marker element
+const createHeadOfficeElement = (): HTMLElement => {
+  const div = document.createElement('div');
+  div.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+      <rect x="4" y="4" width="24" height="24" rx="3" fill="#dc2626" stroke="#991b1b" stroke-width="2"/>
+      <path d="M12 10h8v12h-8V10z" fill="white"/>
+      <path d="M14 12h2v2h-2v-2zm4 0h2v2h-2v-2zm-4 4h2v2h-2v-2zm4 0h2v2h-2v-2z" fill="#dc2626"/>
+    </svg>
+  `;
+  div.style.cursor = 'pointer';
+  return div;
+};
 
 export function GoogleSitesMap({ 
   sites, 
@@ -124,22 +137,32 @@ export function GoogleSitesMap({
   showLegend = false,
 }: GoogleSitesMapProps) {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-  const { isLoaded: mapLoaded } = useGoogleMaps(); // Uses default options with places library
+  const { isLoaded: mapLoaded } = useGoogleMaps();
   
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<google.maps.Marker[]>([]);
-  const headOfficeMarkersRef = useRef<google.maps.Marker[]>([]);
+  const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const headOfficeMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
 
-  const initializeMap = useCallback(() => {
+  const initializeMap = useCallback(async () => {
     if (!mapLoaded || !mapRef.current || !sites) {
       return;
     }
 
-    // Safety check for Google Maps API
-    if (!window.google?.maps?.Map || !window.google?.maps?.Marker) {
+    // Safety check for Google Maps API - prefer new AdvancedMarkerElement
+    const hasAdvancedMarker = window.google?.maps?.marker?.AdvancedMarkerElement;
+    if (!window.google?.maps?.Map) {
       return;
+    }
+
+    // If AdvancedMarkerElement not available, try to import it
+    if (!hasAdvancedMarker && window.google?.maps?.importLibrary) {
+      try {
+        await window.google.maps.importLibrary('marker');
+      } catch (e) {
+        console.error('Failed to load marker library:', e);
+      }
     }
 
     // Check if map container is visible
@@ -151,11 +174,11 @@ export function GoogleSitesMap({
     try {
       // Clear existing markers
       if (markersRef.current.length > 0) {
-        markersRef.current.forEach(marker => marker.setMap(null));
+        markersRef.current.forEach(marker => marker.map = null);
         markersRef.current = [];
       }
       if (headOfficeMarkersRef.current.length > 0) {
-        headOfficeMarkersRef.current.forEach(marker => marker.setMap(null));
+        headOfficeMarkersRef.current.forEach(marker => marker.map = null);
         headOfficeMarkersRef.current = [];
       }
 
@@ -170,6 +193,7 @@ export function GoogleSitesMap({
           mapTypeControl: true,
           streetViewControl: false,
           fullscreenControl: true,
+          mapId: 'MEND_SITES_MAP', // Required for AdvancedMarkerElement
         });
         googleMapRef.current = map;
       }
@@ -184,18 +208,16 @@ export function GoogleSitesMap({
       const bounds = new google.maps.LatLngBounds();
       let hasValidMarkers = false;
 
-      // Build employer color map for consistent coloring
-      const employerColorMap = new Map<number, string>();
-      const uniqueEmployers = [...new Set(sites.map(s => s.employer_id).filter(Boolean))];
-      uniqueEmployers.forEach((empId, index) => {
-        if (empId) {
-          employerColorMap.set(empId, EMPLOYER_COLORS[index % EMPLOYER_COLORS.length]);
-        }
-      });
+      // Check if we have AdvancedMarkerElement available
+      const AdvancedMarkerElement = window.google?.maps?.marker?.AdvancedMarkerElement;
+      
+      if (!AdvancedMarkerElement) {
+        console.warn('AdvancedMarkerElement not available, markers will not be displayed');
+        return;
+      }
 
-      // Add HEAD OFFICE markers first (so they appear "below" site markers)
+      // Add HEAD OFFICE markers first
       headOffices.forEach((office) => {
-        // Try to get coordinates from state capital
         const stateCoords = office.employer_state ? STATE_CAPITALS[office.employer_state.toUpperCase()] : null;
         const coords = office.latitude && office.longitude
           ? { lat: Number(office.latitude), lng: Number(office.longitude) }
@@ -206,27 +228,12 @@ export function GoogleSitesMap({
         bounds.extend(coords);
         hasValidMarkers = true;
 
-        // Create custom SVG icon for head office (red square with building icon)
-        const headOfficeSvg = `
-          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-            <rect x="4" y="4" width="24" height="24" rx="3" fill="#dc2626" stroke="#991b1b" stroke-width="2"/>
-            <path d="M12 10h8v12h-8V10z" fill="white"/>
-            <path d="M14 12h2v2h-2v-2zm4 0h2v2h-2v-2zm-4 4h2v2h-2v-2zm4 0h2v2h-2v-2z" fill="#dc2626"/>
-          </svg>
-        `;
-
-        const headOfficeIcon = {
-          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(headOfficeSvg),
-          scaledSize: new google.maps.Size(32, 32),
-          anchor: new google.maps.Point(16, 16),
-        };
-
-        const marker = new google.maps.Marker({
+        const marker = new AdvancedMarkerElement({
           map,
           position: coords,
           title: `${office.employer_name} - Head Office`,
-          icon: headOfficeIcon,
-          zIndex: 1000, // Head offices on top
+          content: createHeadOfficeElement(),
+          zIndex: 1000,
         });
 
         marker.addListener('click', () => {
@@ -271,27 +278,22 @@ export function GoogleSitesMap({
         bounds.extend(coords);
         hasValidMarkers = true;
 
-        // Get employer color or use status-based color
-        let markerColor = '#22c55e';
-        let markerIcon = 'https://maps.google.com/mapfiles/ms/icons/green-dot.png';
+        // Get marker color based on status
+        let markerColor = '#22c55e'; // Green for active
         
         if (mode === 'public' || mode === 'read_only') {
-          markerColor = '#3b82f6';
-          markerIcon = 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png';
+          markerColor = '#3b82f6'; // Blue
         } else if (site.status === 'paused') {
-          markerColor = '#f59e0b';
-          markerIcon = 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png';
+          markerColor = '#f59e0b'; // Amber
         } else if (site.status === 'finished') {
-          markerColor = '#6b7280';
-          markerIcon = 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png';
+          markerColor = '#6b7280'; // Gray
         }
 
-        const marker = new google.maps.Marker({
+        const marker = new AdvancedMarkerElement({
           map,
           position: coords,
           title: site.site_name,
-          icon: markerIcon,
-          animation: google.maps.Animation.DROP,
+          content: createPinElement(markerColor),
           zIndex: 100,
         });
 
@@ -366,7 +368,6 @@ export function GoogleSitesMap({
 
   // Initialize map when loaded or sites change
   useEffect(() => {
-    // Small delay to ensure DOM is ready
     const timer = setTimeout(() => {
       initializeMap();
     }, 100);
@@ -384,7 +385,6 @@ export function GoogleSitesMap({
     );
   }
 
-  // When using height="100%", the wrapper needs to also be 100% height
   const wrapperStyle = typeof height === 'string' && height.includes('%') 
     ? { height } 
     : {};
@@ -426,4 +426,3 @@ export function GoogleSitesMap({
     </div>
   );
 }
-

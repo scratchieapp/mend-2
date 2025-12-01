@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MapPin, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
+import { useGoogleMaps } from '@/hooks/useGoogleMaps';
 import type { Tables } from '@/integrations/supabase/types';
 
 interface SiteLocationMapProps {
@@ -29,12 +30,27 @@ const CITY_COORDINATES: Record<string, { lat: number; lng: number }> = {
   'newcastle': { lat: -32.9283, lng: 151.7817 },
 };
 
+// Create a red pin marker element for incidents
+const createIncidentPinElement = (): HTMLElement => {
+  const pin = document.createElement('div');
+  pin.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="48" viewBox="0 0 24 36">
+      <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="#ef4444" stroke="#991b1b" stroke-width="1"/>
+      <circle cx="12" cy="12" r="5" fill="white"/>
+    </svg>
+  `;
+  pin.style.cursor = 'pointer';
+  return pin;
+};
+
 export function SiteLocationMap({ site, incidentDate }: SiteLocationMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const [mapLoaded, setMapLoaded] = useState(false);
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);
-  const markerRef = useRef<google.maps.Marker | null>(null);
+  const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
+  
+  const { isLoaded: mapLoaded } = useGoogleMaps();
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
   // Get coordinates from site data or fallback
   const getCoordinates = useCallback(() => {
@@ -57,97 +73,78 @@ export function SiteLocationMap({ site, incidentDate }: SiteLocationMapProps) {
     return { lat: -33.8688, lng: 151.2093 };
   }, [site]);
 
-  // Load Google Maps script
-  useEffect(() => {
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-    
-    if (!apiKey) {
-      console.warn('Google Maps API key not found. Map will not be displayed.');
-      return;
-    }
-
-    // Check if already loaded
-    if (window.google?.maps) {
-      setMapLoaded(true);
-      return;
-    }
-
-    // Check if script is already being loaded
-    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-    if (existingScript) {
-      existingScript.addEventListener('load', () => setMapLoaded(true));
-      return;
-    }
-
-    // Load the script (without marker library - using standard Marker)
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=Function.prototype`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      // Poll for full API availability
-      const checkGoogleMaps = () => {
-        if (window.google?.maps?.Map && window.google?.maps?.Marker) {
-          setMapLoaded(true);
-        } else {
-          setTimeout(checkGoogleMaps, 100);
-        }
-      };
-      checkGoogleMaps();
-    };
-    script.onerror = () => console.error('Failed to load Google Maps');
-    document.head.appendChild(script);
-  }, []);
-
   // Initialize map when loaded
   useEffect(() => {
-    if (!mapLoaded || !mapRef.current) return;
+    const initMap = async () => {
+      if (!mapLoaded || !mapRef.current) return;
 
-    // Safety check for Google Maps API
-    if (!window.google?.maps?.Map || !window.google?.maps?.Marker) {
-      console.error('Google Maps API not fully loaded');
-      return;
-    }
+      // Safety check for Google Maps API
+      if (!window.google?.maps?.Map) {
+        console.error('Google Maps API not fully loaded');
+        return;
+      }
 
-    try {
-      const coords = getCoordinates();
-      setCoordinates(coords);
+      // Try to get AdvancedMarkerElement
+      let AdvancedMarkerElement = window.google?.maps?.marker?.AdvancedMarkerElement;
+      
+      if (!AdvancedMarkerElement && window.google?.maps?.importLibrary) {
+        try {
+          const markerLib = await window.google.maps.importLibrary('marker') as google.maps.MarkerLibrary;
+          AdvancedMarkerElement = markerLib.AdvancedMarkerElement;
+        } catch (e) {
+          console.error('Failed to load marker library:', e);
+          return;
+        }
+      }
 
-      const map = new google.maps.Map(mapRef.current, {
-        center: coords,
-        zoom: 15,
-        disableDefaultUI: false,
-        zoomControl: true,
-        mapTypeControl: false,
-        streetViewControl: true,
-        fullscreenControl: true,
-        styles: [
-          {
-            featureType: 'poi',
-            elementType: 'labels',
-            stylers: [{ visibility: 'off' }]
-          }
-        ]
-      });
+      if (!AdvancedMarkerElement) {
+        console.warn('AdvancedMarkerElement not available');
+        return;
+      }
 
-      googleMapRef.current = map;
+      try {
+        const coords = getCoordinates();
+        setCoordinates(coords);
 
-      // Use standard Marker with red icon for incident location
-      const marker = new google.maps.Marker({
-        map,
-        position: coords,
-        title: site?.site_name || 'Incident Location',
-        icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-      });
+        const map = new google.maps.Map(mapRef.current, {
+          center: coords,
+          zoom: 15,
+          disableDefaultUI: false,
+          zoomControl: true,
+          mapTypeControl: false,
+          streetViewControl: true,
+          fullscreenControl: true,
+          mapId: 'MEND_SITE_LOCATION_MAP', // Required for AdvancedMarkerElement
+          styles: [
+            {
+              featureType: 'poi',
+              elementType: 'labels',
+              stylers: [{ visibility: 'off' }]
+            }
+          ]
+        });
 
-      markerRef.current = marker;
-    } catch (error) {
-      console.error('Error initializing Google Maps:', error);
-    }
+        googleMapRef.current = map;
+
+        // Use AdvancedMarkerElement with red pin for incident location
+        const marker = new AdvancedMarkerElement({
+          map,
+          position: coords,
+          title: site?.site_name || 'Incident Location',
+          content: createIncidentPinElement(),
+        });
+
+        markerRef.current = marker;
+      } catch (error) {
+        console.error('Error initializing Google Maps:', error);
+      }
+    };
+
+    initMap();
 
     return () => {
       if (markerRef.current) {
-        markerRef.current.setMap(null);
+        markerRef.current.map = null;
       }
     };
   }, [mapLoaded, getCoordinates, site?.site_name]);
@@ -170,8 +167,6 @@ export function SiteLocationMap({ site, incidentDate }: SiteLocationMapProps) {
       window.open(url, '_blank');
     }
   };
-
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
   return (
     <Card className="h-full">
@@ -239,4 +234,3 @@ declare global {
     google: typeof google;
   }
 }
-
