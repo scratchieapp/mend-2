@@ -581,7 +581,8 @@ export default function BuilderSiteManagement() {
   const updateMedicalCenterSelection = (priority: number, medicalCenterId: string) => {
     setMedicalCenterSelections(prev => {
       const filtered = prev.filter(s => s.priority !== priority);
-      if (medicalCenterId) {
+      // "none" is our placeholder for clearing the selection
+      if (medicalCenterId && medicalCenterId !== 'none') {
         return [...filtered, { medical_center_id: medicalCenterId, priority }].sort((a, b) => a.priority - b.priority);
       }
       return filtered;
@@ -590,7 +591,8 @@ export default function BuilderSiteManagement() {
 
   // Get selected medical center for a priority level
   const getSelectedMedicalCenter = (priority: number): string => {
-    return medicalCenterSelections.find(s => s.priority === priority)?.medical_center_id || '';
+    const selection = medicalCenterSelections.find(s => s.priority === priority)?.medical_center_id;
+    return selection || 'none';
   };
 
   const filteredSites = sites?.filter(site =>
@@ -848,7 +850,7 @@ export default function BuilderSiteManagement() {
                           <SelectValue placeholder="Select backup medical center..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value="none">None</SelectItem>
                           {medicalCenters
                             .filter(c => c.id !== getSelectedMedicalCenter(1))
                             .map((center) => (
@@ -879,7 +881,7 @@ export default function BuilderSiteManagement() {
                           <SelectValue placeholder="Select backup medical center..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value="none">None</SelectItem>
                           {medicalCenters
                             .filter(c => c.id !== getSelectedMedicalCenter(1) && c.id !== getSelectedMedicalCenter(2))
                             .map((center) => (
@@ -1238,7 +1240,7 @@ export default function BuilderSiteManagement() {
                         <SelectValue placeholder="Select backup medical center..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         {medicalCenters
                           .filter(c => c.id !== getSelectedMedicalCenter(1))
                           .map((center) => (
@@ -1269,7 +1271,7 @@ export default function BuilderSiteManagement() {
                         <SelectValue placeholder="Select backup medical center..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         {medicalCenters
                           .filter(c => c.id !== getSelectedMedicalCenter(1) && c.id !== getSelectedMedicalCenter(2))
                           .map((center) => (
