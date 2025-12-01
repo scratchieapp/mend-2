@@ -147,6 +147,7 @@ export function AddressAutocomplete({
       // If searchType is 'all' or undefined, don't set types - allows all results
 
       // Create autocomplete instance
+      console.log('Creating Autocomplete instance on:', inputRef.current);
       autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, options);
 
       // Handle place selection
@@ -181,13 +182,20 @@ export function AddressAutocomplete({
       
       // Force high z-index for the autocomplete dropdown
       // This is a workaround for when the input is inside a modal
-      const style = document.createElement('style');
-      style.innerHTML = `
-        .pac-container {
-          z-index: 10000 !important;
-        }
-      `;
-      document.head.appendChild(style);
+      const styleId = 'google-places-autocomplete-z-index-debug';
+      if (!document.getElementById(styleId)) {
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.innerHTML = `
+          .pac-container {
+            z-index: 99999 !important;
+            display: block !important;
+            border: 2px solid red !important;
+          }
+        `;
+        document.head.appendChild(style);
+        console.log('Injected debug styles for pac-container');
+      }
 
     } catch (error) {
       console.error('Failed to initialize Google Places Autocomplete:', error);
