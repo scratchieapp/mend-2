@@ -178,6 +178,17 @@ export function AddressAutocomplete({
       initRef.current = true;
       setIsReady(true);
       console.log('Google Places Autocomplete initialized with type:', searchType || 'all');
+      
+      // Force high z-index for the autocomplete dropdown
+      // This is a workaround for when the input is inside a modal
+      const style = document.createElement('style');
+      style.innerHTML = `
+        .pac-container {
+          z-index: 10000 !important;
+        }
+      `;
+      document.head.appendChild(style);
+
     } catch (error) {
       console.error('Failed to initialize Google Places Autocomplete:', error);
     }
@@ -186,11 +197,16 @@ export function AddressAutocomplete({
   // Initialize autocomplete when Google Maps is loaded
   useEffect(() => {
     if (mapsLoaded && !initRef.current) {
-      // Small delay to ensure DOM is ready
-      const timeoutId = setTimeout(() => {
-        initAutocomplete();
-      }, 100);
-      return () => clearTimeout(timeoutId);
+      // Retry logic if window.google is not ready even if mapsLoaded is true
+      const attemptInit = () => {
+        if (window.google?.maps?.places?.Autocomplete && inputRef.current) {
+          initAutocomplete();
+        } else {
+          setTimeout(attemptInit, 100);
+        }
+      };
+      
+      attemptInit();
     }
   }, [mapsLoaded, initAutocomplete]);
 
