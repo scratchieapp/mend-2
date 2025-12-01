@@ -141,6 +141,15 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
     return null;
   }
 
+  // Hide failed workflows that are older than 1 hour
+  if (workflow?.status === 'failed') {
+    const updatedAt = new Date(workflow.updated_at);
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    if (updatedAt < oneHourAgo) {
+      return null;
+    }
+  }
+
   // Show loading state briefly
   if (isLoading) {
     return null; // Don't show loading spinner, just don't render until we have data
