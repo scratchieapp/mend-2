@@ -28,6 +28,7 @@ import { BookMedicalAppointmentDialog } from "@/components/incidents/BookMedical
 import { UpcomingAppointments } from "@/components/incidents/UpcomingAppointments";
 import { CallLogSummaryCard } from "@/components/incidents/CallLogSummaryCard";
 import { VoiceCallLogModal } from "@/components/incidents/VoiceCallLogModal";
+import { BookingWorkflowTimeline } from "@/components/incidents/BookingWorkflowTimeline";
 import { useAuth } from "@/lib/auth/AuthContext";
 
 // Type for the incident with all joined relations
@@ -464,6 +465,9 @@ const IncidentDetailsPage = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Booking Workflow Timeline - shows when booking is in progress */}
+        {id && <BookingWorkflowTimeline incidentId={parseInt(id)} />}
 
         {/* Main Content - 3 Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

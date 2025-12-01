@@ -43,7 +43,7 @@ interface RetellCreateCallRequest {
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info',
 };
 
 serve(async (req: Request) => {
@@ -142,7 +142,7 @@ serve(async (req: Request) => {
         ),
         employers (
           employer_id,
-          company_name
+          employer_name
         )
       `)
       .eq('incident_id', incident_id)
@@ -237,7 +237,7 @@ serve(async (req: Request) => {
         : '',
       
       // Employer
-      employer_name: incident.employers?.company_name || '',
+      employer_name: incident.employers?.employer_name || '',
       
       // Workflow tracking
       workflow_id: workflowId,
