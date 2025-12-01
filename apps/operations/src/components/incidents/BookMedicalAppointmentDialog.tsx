@@ -209,8 +209,18 @@ export function BookMedicalAppointmentDialog({
       // Get fresh Clerk token for Edge Function auth
       const token = await getToken();
       
-      const { data, error } = await supabase.functions.invoke('initiate-booking-workflow', {
-        body: {
+      // Use direct fetch to bypass Supabase SDK JWT validation at gateway
+      // The Edge Function handles its own auth
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const response = await fetch(`${supabaseUrl}/functions/v1/initiate-booking-workflow`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnonKey,
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
           incident_id: incidentId,
           medical_center_id: selectedMedicalCenterId,
           doctor_preference: doctorPreference,
@@ -218,12 +228,15 @@ export function BookMedicalAppointmentDialog({
           urgency,
           requested_by: userData?.custom_display_name || userData?.display_name || userData?.email || 'Unknown',
           requested_by_user_id: userData?.user_id,
-        },
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        }),
       });
 
-      if (error) throw error;
-      return data;
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `HTTP ${response.status}`);
+      }
+      
+      return response.json();
     },
     onSuccess: (data) => {
       toast({
