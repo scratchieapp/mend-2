@@ -232,72 +232,79 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
           </span>
         </div>
 
-        {/* Timeline Steps */}
-        {!isFailed && (
-          <div className="flex items-center justify-between">
-            {WORKFLOW_STEPS.map((step, index) => {
-              const StepIcon = step.icon;
-              const isActive = index === currentStepIndex;
-              const isComplete = index < currentStepIndex || isCompleted;
-              const isPending = index > currentStepIndex && !isCompleted;
+        {/* Timeline Steps - Always show, even when failed */}
+        <div className="flex items-center justify-between">
+          {WORKFLOW_STEPS.map((step, index) => {
+            const StepIcon = step.icon;
+            const isActive = index === currentStepIndex;
+            const isComplete = index < currentStepIndex || isCompleted;
+            const isPending = index > currentStepIndex && !isCompleted;
+            const isFailedStep = isFailed && isActive;
 
-              // Get dynamic description with phone number
-              const getStepDescription = () => {
-                if (step.id === 'getting_times' && workflow?.medical_center?.phone_number) {
-                  return `Calling ${workflow.medical_center.phone_number}`;
-                }
-                if (step.id === 'confirming_patient' && workflow?.worker?.phone) {
-                  return `Calling ${workflow.worker.phone}`;
-                }
-                if (step.id === 'finalizing' && workflow?.medical_center?.phone_number) {
-                  return `Calling ${workflow.medical_center.phone_number}`;
-                }
-                return step.description;
-              };
+            // Get dynamic description with phone number
+            const getStepDescription = () => {
+              if (step.id === 'getting_times' && workflow?.medical_center?.phone_number) {
+                return `Calling ${workflow.medical_center.phone_number}`;
+              }
+              if (step.id === 'confirming_patient' && workflow?.worker?.phone) {
+                return `Calling ${workflow.worker.phone}`;
+              }
+              if (step.id === 'finalizing' && workflow?.medical_center?.phone_number) {
+                return `Calling ${workflow.medical_center.phone_number}`;
+              }
+              return step.description;
+            };
 
-              return (
-                <div key={step.id} className="flex items-center flex-1">
-                  {/* Step */}
-                  <div className="flex flex-col items-center">
-                    <div className={cn(
-                      "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300",
-                      isComplete ? "bg-emerald-500 text-white" :
-                      isActive ? "bg-emerald-100 text-emerald-700 ring-2 ring-emerald-500 ring-offset-2" :
-                      "bg-gray-100 text-gray-400"
-                    )}>
-                      {isActive && !isCompleted ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                      ) : (
-                        <StepIcon className="h-5 w-5" />
-                      )}
-                    </div>
-                    <span className={cn(
-                      "text-xs mt-2 font-medium text-center",
-                      isComplete ? "text-emerald-700" :
-                      isActive ? "text-emerald-600" :
-                      "text-gray-400"
-                    )}>
-                      {step.label}
-                    </span>
-                    {isActive && !isCompleted && (
-                      <span className="text-[10px] text-emerald-600 mt-0.5 text-center max-w-[100px]">
-                        {getStepDescription()}
-                      </span>
+            return (
+              <div key={step.id} className="flex items-center flex-1">
+                {/* Step */}
+                <div className="flex flex-col items-center">
+                  <div className={cn(
+                    "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300",
+                    isFailedStep ? "bg-red-500 text-white ring-2 ring-red-300 ring-offset-2" :
+                    isComplete ? "bg-emerald-500 text-white" :
+                    isActive ? "bg-emerald-100 text-emerald-700 ring-2 ring-emerald-500 ring-offset-2" :
+                    "bg-gray-100 text-gray-400"
+                  )}>
+                    {isFailedStep ? (
+                      <XCircle className="h-5 w-5" />
+                    ) : isActive && !isCompleted ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <StepIcon className="h-5 w-5" />
                     )}
                   </div>
-
-                  {/* Connector Line */}
-                  {index < WORKFLOW_STEPS.length - 1 && (
-                    <div className={cn(
-                      "flex-1 h-0.5 mx-2 transition-all duration-300",
-                      index < currentStepIndex || isCompleted ? "bg-emerald-500" : "bg-gray-200"
-                    )} />
+                  <span className={cn(
+                    "text-xs mt-2 font-medium text-center",
+                    isFailedStep ? "text-red-600" :
+                    isComplete ? "text-emerald-700" :
+                    isActive ? "text-emerald-600" :
+                    "text-gray-400"
+                  )}>
+                    {step.label}
+                  </span>
+                  {(isActive || isFailedStep) && !isCompleted && (
+                    <span className={cn(
+                      "text-[10px] mt-0.5 text-center max-w-[100px]",
+                      isFailedStep ? "text-red-500" : "text-emerald-600"
+                    )}>
+                      {isFailedStep ? 'Failed' : getStepDescription()}
+                    </span>
                   )}
                 </div>
-              );
-            })}
-          </div>
-        )}
+
+                {/* Connector Line */}
+                {index < WORKFLOW_STEPS.length - 1 && (
+                  <div className={cn(
+                    "flex-1 h-0.5 mx-2 transition-all duration-300",
+                    isFailedStep ? "bg-red-300" :
+                    index < currentStepIndex || isCompleted ? "bg-emerald-500" : "bg-gray-200"
+                  )} />
+                )}
+              </div>
+            );
+          })}
+        </div>
 
         {/* Confirmed Time Display */}
         {isCompleted && workflow?.confirmed_datetime && (
@@ -311,26 +318,33 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
           </div>
         )}
 
-        {/* Failed State */}
+        {/* Failed State Details - Shows below timeline */}
         {isFailed && (
-          <div className="mt-2 space-y-1">
-            <p className="text-sm text-red-600">
-              {workflow?.failure_reason || 'The booking process encountered an issue.'}
-            </p>
-            {workflow?.medical_center && (
-              <p className="text-xs text-red-500">
-                <span className="font-medium">Medical Center:</span> {workflow.medical_center.name}
-                {workflow.medical_center.phone_number && ` (${workflow.medical_center.phone_number})`}
-              </p>
-            )}
-            {workflow && (workflow.call_count > 1 || workflow.medical_center_attempt > 1) && (
-              <p className="text-xs text-red-400">
-                Attempted {workflow.call_count || 1} call(s) across {workflow.medical_center_attempt || 1} medical center(s)
-              </p>
-            )}
-            <p className="text-xs text-muted-foreground mt-2">
-              Please try again or book manually.
-            </p>
+          <div className="mt-4 pt-3 border-t border-red-200">
+            <div className="flex items-start gap-3">
+              <div className="flex-1">
+                <p className="text-sm text-red-600 font-medium">
+                  {workflow?.failure_reason || 'The booking process encountered an issue.'}
+                </p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-red-500">
+                  {workflow?.medical_center && (
+                    <span>
+                      <span className="font-medium">Clinic:</span> {workflow.medical_center.name}
+                      {workflow.medical_center.phone_number && ` (${workflow.medical_center.phone_number})`}
+                    </span>
+                  )}
+                  {workflow && (workflow.call_count > 1 || workflow.medical_center_attempt > 1) && (
+                    <span>
+                      <span className="font-medium">Attempts:</span> {workflow.call_count || 1} call(s)
+                      {workflow.medical_center_attempt > 1 && ` across ${workflow.medical_center_attempt} clinic(s)`}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                Try again or book manually
+              </span>
+            </div>
           </div>
         )}
 
