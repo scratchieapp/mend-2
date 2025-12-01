@@ -205,6 +205,7 @@ export function BookMedicalAppointmentDialog({
 
   // Initiate booking mutation
   const initiateBookingMutation = useMutation({
+    retry: 0, // Don't retry - workflow creation is not idempotent
     mutationFn: async () => {
       // Get fresh Clerk token for Edge Function auth
       const token = await getToken();
