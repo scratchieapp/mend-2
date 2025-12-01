@@ -1,12 +1,14 @@
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import { Label } from "@/components/ui/label";
 import { HoursEntry } from "./types";
+import { AlertTriangle } from "lucide-react";
 
 interface MonthlyHoursInputsProps {
   month: string;
   hours: HoursEntry;
-  onChange: (month: string, field: keyof HoursEntry, value: string) => void;
+  onChange: (month: string, field: keyof HoursEntry, value: string | boolean) => void;
 }
 
 export const MonthlyHoursInputs = ({ month, hours, onChange }: MonthlyHoursInputsProps) => {
@@ -43,6 +45,20 @@ export const MonthlyHoursInputs = ({ month, hours, onChange }: MonthlyHoursInput
             placeholder="0"
             className="h-8"
           />
+        </div>
+        <div className="flex items-center space-x-2 pt-1">
+          <Checkbox
+            id={`estimated-${month}`}
+            checked={hours.is_estimated || false}
+            onCheckedChange={(checked) => onChange(month, 'is_estimated', checked as boolean)}
+          />
+          <Label 
+            htmlFor={`estimated-${month}`} 
+            className="text-xs text-muted-foreground flex items-center gap-1 cursor-pointer"
+          >
+            {hours.is_estimated && <AlertTriangle className="h-3 w-3 text-amber-500" />}
+            Hours are estimated
+          </Label>
         </div>
       </div>
     </div>

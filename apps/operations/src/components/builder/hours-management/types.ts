@@ -1,6 +1,7 @@
 export interface HoursEntry {
   employer_hours: string;
   subcontractor_hours: string;
+  is_estimated?: boolean;
 }
 
 export interface MonthlyHours {

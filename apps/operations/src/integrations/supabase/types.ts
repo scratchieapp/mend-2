@@ -507,9 +507,11 @@ export type Database = {
       hours_worked: {
         Row: {
           created_at: string | null
+          data_source: string | null
           employer_hours: number
           employer_id: number | null
           id: number
+          is_estimated: boolean | null
           month: string
           site_id: number | null
           subcontractor_hours: number
@@ -517,9 +519,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          data_source?: string | null
           employer_hours?: number
           employer_id?: number | null
           id?: number
+          is_estimated?: boolean | null
           month: string
           site_id?: number | null
           subcontractor_hours?: number
@@ -527,9 +531,11 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          data_source?: string | null
           employer_hours?: number
           employer_id?: number | null
           id?: number
+          is_estimated?: boolean | null
           month?: string
           site_id?: number | null
           subcontractor_hours?: number
@@ -1350,6 +1356,7 @@ export type Database = {
           city: string | null
           created_at: string | null
           employer_id: number | null
+          is_project_based: boolean | null
           post_code: string | null
           project_type: string | null
           site_id: number
@@ -1364,6 +1371,7 @@ export type Database = {
           city?: string | null
           created_at?: string | null
           employer_id?: number | null
+          is_project_based?: boolean | null
           post_code?: string | null
           project_type?: string | null
           site_id?: number
@@ -1378,6 +1386,7 @@ export type Database = {
           city?: string | null
           created_at?: string | null
           employer_id?: number | null
+          is_project_based?: boolean | null
           post_code?: string | null
           project_type?: string | null
           site_id?: number

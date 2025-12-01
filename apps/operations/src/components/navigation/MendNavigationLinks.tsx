@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Database, Users, FileText } from "lucide-react";
+import { Database, Users, FileText, BarChart3 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { isSuperAdmin, isBuilderAdmin, isMendDataEntry } from "@/lib/auth/roles";
+import { isSuperAdmin, isBuilderAdmin, isMendDataEntry, isSiteAdmin, isMendStaff } from "@/lib/auth/roles";
 
 export function MendNavigationLinks() {
   const { userData } = useAuth();
@@ -20,6 +20,12 @@ export function MendNavigationLinks() {
     isBuilderAdmin(roleId)
   );
 
+  const canViewReports = roleId && (
+    isMendStaff(userData) ||
+    isBuilderAdmin(roleId) ||
+    isSiteAdmin(userData)
+  );
+
   return (
     <>
       {canManageUsers && (
@@ -27,6 +33,14 @@ export function MendNavigationLinks() {
           <Button variant="ghost">
             <Users className="h-4 w-4 mr-2" />
             Users
+          </Button>
+        </Link>
+      )}
+      {canViewReports && (
+        <Link to="/reports">
+          <Button variant="ghost">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Reports
           </Button>
         </Link>
       )}

@@ -45,6 +45,7 @@ import SearchVerifyAdmin from "./pages/SearchVerifyAdmin";
 import SystemLogsAdmin from "./pages/SystemLogsAdmin";
 import MedicalProfessionalsAdmin from "./pages/MedicalProfessionalsAdmin";
 import HoursWorkedAdmin from "./pages/HoursWorkedAdmin";
+import HoursManagementPage from "./pages/HoursManagementPage";
 import UserManagementAdmin from "./pages/UserManagementAdmin";
 import EmployerManagementAdmin from "./pages/EmployerManagementAdmin";
 import SiteManagementAdmin from "./pages/SiteManagementAdmin";
@@ -65,6 +66,11 @@ import WorkerPortal from "./pages/WorkerPortal";
 import TestRoleQuery from "./pages/TestRoleQuery";
 import DebugAuth from "./pages/DebugAuth";
 import ClerkDebug from "./pages/ClerkDebug";
+
+// Reports
+import ReportDashboard from "./pages/ReportDashboard";
+import SiteReport from "./pages/SiteReport";
+import EmployerReport from "./pages/EmployerReport";
 
 function App() {
   return (
@@ -125,6 +131,14 @@ function App() {
             <Route path="incident-report" element={<IncidentReport />} />
             <Route path="incident/:id" element={<IncidentDetailsPage />} />
             <Route path="incident/:id/edit" element={<IncidentEditPage />} />
+
+            {/* Reports routes */}
+            <Route path="reports" element={<ReportDashboard />} />
+            <Route path="reports/site/:siteId" element={<SiteReport />} />
+            <Route path="reports/employer/:employerId" element={<EmployerReport />} />
+            
+            {/* Hours management */}
+            <Route path="hours-management" element={<HoursManagementPage />} />
             
             {/* User Profile route for Clerk */}
             <Route

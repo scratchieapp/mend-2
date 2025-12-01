@@ -26,7 +26,7 @@ export const SiteHoursList = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedSites, setExpandedSites] = useState<string[]>([]);
 
-  const handleInputChange = (month: string, siteId: number, field: keyof HoursEntry, value: string) => {
+  const handleInputChange = (month: string, siteId: number, field: keyof HoursEntry, value: string | boolean) => {
     setHoursData({
       ...hoursData,
       [month]: {
@@ -62,6 +62,8 @@ export const SiteHoursList = ({
           month: `${month}-01`,
           employer_hours: Number(hoursData[month]?.[siteId]?.employer_hours || 0),
           subcontractor_hours: Number(hoursData[month]?.[siteId]?.subcontractor_hours || 0),
+          is_estimated: hoursData[month]?.[siteId]?.is_estimated || false,
+          data_source: 'Manual Input',
         }, {
           onConflict: 'site_id,employer_id,month'
         });
