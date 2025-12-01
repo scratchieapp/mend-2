@@ -145,20 +145,17 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
         }
       }
 
-      // Get the worker info if we have a worker_id
+      // Get the worker info from the incident (more reliable than direct workers query due to RLS)
       let workerInfo = null;
-      if (workflowData.worker_id) {
-        const { data: workerData } = await supabase
-          .from('workers')
-          .select('given_name, family_name, mobile_number, phone_number')
-          .eq('worker_id', workflowData.worker_id)
-          .single();
-        if (workerData) {
-          workerInfo = {
-            name: `${workerData.given_name} ${workerData.family_name}`.trim(),
-            phone: workerData.mobile_number || workerData.phone_number
-          };
-        }
+      const { data: incidentData } = await supabase
+        .rpc('get_incident_details', { p_incident_id: incidentId });
+      
+      if (incidentData?.worker) {
+        const worker = incidentData.worker;
+        workerInfo = {
+          name: `${worker.given_name || ''} ${worker.family_name || ''}`.trim(),
+          phone: worker.mobile_number || worker.phone_number
+        };
       }
 
       return {
