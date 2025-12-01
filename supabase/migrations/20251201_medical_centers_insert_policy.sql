@@ -1,6 +1,9 @@
 -- Add INSERT/UPDATE policies for medical_centers table
 -- Medical centers are global reference data that can be created by Mend staff or Builder Admins
 
+-- Drop old conflicting policy that used auth.uid() instead of auth.jwt()->>'email'
+DROP POLICY IF EXISTS "Only super admins can modify medical centers" ON public.medical_centers;
+
 -- Allow Mend staff to fully manage medical_centers
 DROP POLICY IF EXISTS "mend_staff_manage_medical_centers" ON public.medical_centers;
 CREATE POLICY "mend_staff_manage_medical_centers"

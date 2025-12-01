@@ -100,23 +100,26 @@
   }
 }
 
-/* Google Places Autocomplete dropdown - ensure it appears above dialogs */
+/* Google Places Autocomplete dropdown - ensure it appears above dialogs and is clickable */
 .pac-container {
-  z-index: 10000 !important;
-  background-color: white;
+  z-index: 100000 !important;
+  position: fixed !important;
+  background-color: white !important;
   border-radius: 0.5rem;
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   font-family: inherit;
   border: 1px solid hsl(var(--border));
   margin-top: 4px;
+  pointer-events: auto !important;
 }
 
 .pac-item {
   padding: 8px 12px;
-  cursor: pointer;
+  cursor: pointer !important;
   font-size: 14px;
   line-height: 1.5;
   border-bottom: 1px solid hsl(var(--border));
+  pointer-events: auto !important;
 }
 
 .pac-item:hover {
@@ -133,4 +136,18 @@
 
 .pac-item-query {
   font-weight: 500;
+}
+
+/* Ensure the pac-container is not blocked by dialog overlays */
+[data-radix-popper-content-wrapper] {
+  z-index: 50 !important;
+}
+
+[role="dialog"] {
+  z-index: 50 !important;
+}
+
+/* The overlay behind dialogs */
+[data-radix-dialog-overlay] {
+  z-index: 49 !important;
 }
