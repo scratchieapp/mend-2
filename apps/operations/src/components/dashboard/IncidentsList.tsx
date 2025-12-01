@@ -14,8 +14,33 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
-  Bot
+  Bot,
+  Archive,
+  Trash2,
+  RotateCcw,
+  MoreHorizontal
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/lib/auth/AuthContext';
+import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { useIncidentsDashboard } from '@/hooks/useIncidentsDashboard';
@@ -64,11 +89,15 @@ interface IncidentsListOptimizedProps {
 const IncidentRow = React.memo(({ 
   incident, 
   isHighlighted, 
-  onView
+  onView,
+  isSelected,
+  onToggleSelect
 }: {
   incident: IncidentData;
   isHighlighted: boolean;
   onView: (id: number) => void;
+  isSelected: boolean;
+  onToggleSelect: (id: number) => void;
 }) => {
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -112,10 +141,18 @@ const IncidentRow = React.memo(({
     <TableRow 
       className={cn(
         "hover:bg-muted/50 transition-colors cursor-pointer",
-        isHighlighted && "bg-yellow-50 border-yellow-300"
+        isHighlighted && "bg-yellow-50 border-yellow-300",
+        isSelected && "bg-primary/5"
       )}
       onClick={() => onView(incident.incident_id)}
     >
+      <TableCell onClick={(e) => e.stopPropagation()}>
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={() => onToggleSelect(incident.incident_id)}
+          aria-label={`Select incident ${incident.incident_number}`}
+        />
+      </TableCell>
       <TableCell className="font-medium">
         {incident.incident_number || `INC-${incident.incident_id}`}
       </TableCell>
@@ -156,7 +193,13 @@ export function IncidentsList({
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
+  const [archiveFilter, setArchiveFilter] = useState<string>('active'); // 'active', 'archived', 'deleted', 'all'
+  const [selectedIncidents, setSelectedIncidents] = useState<Set<number>>(new Set());
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [showPermanentDeleteConfirm, setShowPermanentDeleteConfirm] = useState(false);
+  const [bulkAction, setBulkAction] = useState<'archive' | 'delete' | 'restore' | 'permanent_delete' | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const { userData } = useAuth();
 
   // Calculate date filters
   const { startDate, endDate } = useMemo(() => {
@@ -204,7 +247,8 @@ export function IncidentsList({
     employerId: selectedEmployerId,
     startDate,
     endDate,
-    prefetchNext: true
+    prefetchNext: true,
+    archiveFilter: archiveFilter as 'active' | 'archived' | 'deleted' | 'all'
   });
   
   // Force refetch when employer changes - add a key reset to ensure full re-render
@@ -290,12 +334,104 @@ export function IncidentsList({
     }
   }, [totalPages, prefetchNextPage]);
 
+  // Toggle incident selection
+  const toggleIncidentSelection = useCallback((incidentId: number) => {
+    setSelectedIncidents(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(incidentId)) {
+        newSet.delete(incidentId);
+      } else {
+        newSet.add(incidentId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Select all visible incidents
+  const selectAllVisible = useCallback(() => {
+    const visibleIds = filteredIncidents.map(i => i.incident_id);
+    setSelectedIncidents(new Set(visibleIds));
+  }, [filteredIncidents]);
+
+  // Clear selection
+  const clearSelection = useCallback(() => {
+    setSelectedIncidents(new Set());
+  }, []);
+
+  // Bulk action handlers
+  const handleBulkArchive = useCallback(async () => {
+    const userName = userData?.custom_display_name || userData?.display_name || userData?.email || 'Unknown User';
+    let successCount = 0;
+    
+    for (const incidentId of selectedIncidents) {
+      const { error } = await supabase.rpc('archive_incident', {
+        p_incident_id: incidentId,
+        p_user_name: userName
+      });
+      if (!error) successCount++;
+    }
+    
+    toast.success(`${successCount} incident(s) archived`);
+    setSelectedIncidents(new Set());
+    refetch();
+  }, [selectedIncidents, userData, refetch]);
+
+  const handleBulkRestore = useCallback(async () => {
+    let successCount = 0;
+    
+    for (const incidentId of selectedIncidents) {
+      const { error } = await supabase.rpc('restore_incident', {
+        p_incident_id: incidentId
+      });
+      if (!error) successCount++;
+    }
+    
+    toast.success(`${successCount} incident(s) restored`);
+    setSelectedIncidents(new Set());
+    refetch();
+  }, [selectedIncidents, refetch]);
+
+  const handleBulkDelete = useCallback(async () => {
+    const userName = userData?.custom_display_name || userData?.display_name || userData?.email || 'Unknown User';
+    let successCount = 0;
+    
+    for (const incidentId of selectedIncidents) {
+      const { error } = await supabase.rpc('soft_delete_incident', {
+        p_incident_id: incidentId,
+        p_user_name: userName
+      });
+      if (!error) successCount++;
+    }
+    
+    toast.success(`${successCount} incident(s) deleted`);
+    setSelectedIncidents(new Set());
+    setShowBulkDeleteConfirm(false);
+    refetch();
+  }, [selectedIncidents, userData, refetch]);
+
+  const handlePermanentDelete = useCallback(async () => {
+    let successCount = 0;
+    
+    for (const incidentId of selectedIncidents) {
+      const { error } = await supabase
+        .from('incidents')
+        .delete()
+        .eq('incident_id', incidentId);
+      if (!error) successCount++;
+    }
+    
+    toast.success(`${successCount} incident(s) permanently deleted`);
+    setSelectedIncidents(new Set());
+    setShowPermanentDeleteConfirm(false);
+    refetch();
+  }, [selectedIncidents, refetch]);
+
   // Loading skeleton
   const renderSkeleton = () => (
     <TableBody>
       {[...Array(5)].map((_, i) => (
         <TableRow key={i}>
-          {[...Array(8)].map((_, j) => (
+          {[...Array(9)].map((_, j) => (
             <TableCell key={j}>
               <Skeleton className="h-4 w-full" />
             </TableCell>
@@ -324,16 +460,119 @@ export function IncidentsList({
   }
 
   return (
+    <>
+    {/* Bulk Delete Confirmation Dialog */}
+    <AlertDialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete {selectedIncidents.size} incident(s)?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will soft delete the selected incidents. They will be hidden from view but can be restored by an admin.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={handleBulkDelete}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    {/* Permanent Delete Confirmation Dialog */}
+    <AlertDialog open={showPermanentDeleteConfirm} onOpenChange={setShowPermanentDeleteConfirm}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Permanently delete {selectedIncidents.size} incident(s)?</AlertDialogTitle>
+          <AlertDialogDescription className="text-destructive">
+            ⚠️ This action cannot be undone. The incidents and all associated data will be permanently removed from the database.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={handlePermanentDelete}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            Permanently Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center flex-wrap gap-2">
           <CardTitle className="flex items-center gap-2">
             Incidents
             {isFetching && !isLoading && (
               <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
             )}
+            {selectedIncidents.size > 0 && (
+              <Badge variant="secondary" className="ml-2">
+                {selectedIncidents.size} selected
+              </Badge>
+            )}
           </CardTitle>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {/* Bulk Actions */}
+            {selectedIncidents.size > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <MoreHorizontal className="h-4 w-4" />
+                    Actions
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  {archiveFilter === 'active' && (
+                    <DropdownMenuItem onClick={handleBulkArchive}>
+                      <Archive className="h-4 w-4 mr-2" />
+                      Archive Selected
+                    </DropdownMenuItem>
+                  )}
+                  {archiveFilter === 'archived' && (
+                    <DropdownMenuItem onClick={handleBulkRestore}>
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      Restore Selected
+                    </DropdownMenuItem>
+                  )}
+                  {archiveFilter !== 'deleted' && (
+                    <DropdownMenuItem 
+                      onClick={() => setShowBulkDeleteConfirm(true)}
+                      className="text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Selected
+                    </DropdownMenuItem>
+                  )}
+                  {archiveFilter === 'deleted' && (
+                    <>
+                      <DropdownMenuItem onClick={handleBulkRestore}>
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Restore Selected
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={() => setShowPermanentDeleteConfirm(true)}
+                        className="text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Permanently Delete
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={clearSelection}>
+                    Clear Selection
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -343,6 +582,31 @@ export function IncidentsList({
                 onChange={(e) => handleSearchChange(e.target.value)}
               />
             </div>
+            
+            {/* Archive Filter */}
+            <Select value={archiveFilter} onValueChange={setArchiveFilter}>
+              <SelectTrigger className="w-[130px]">
+                <Archive className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="View" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="archived">
+                  <span className="flex items-center gap-1">
+                    <Archive className="h-3 w-3" />
+                    Archived
+                  </span>
+                </SelectItem>
+                <SelectItem value="deleted">
+                  <span className="flex items-center gap-1 text-destructive">
+                    <Trash2 className="h-3 w-3" />
+                    Deleted
+                  </span>
+                </SelectItem>
+                <SelectItem value="all">All Records</SelectItem>
+              </SelectContent>
+            </Select>
+            
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Status" />
@@ -393,6 +657,16 @@ export function IncidentsList({
           <Table>
             <TableHeader className="sticky top-0 bg-background z-10">
               <TableRow>
+                <TableHead className="w-[40px]">
+                  <Checkbox
+                    checked={filteredIncidents.length > 0 && selectedIncidents.size === filteredIncidents.length}
+                    onCheckedChange={(checked) => {
+                      if (checked) selectAllVisible();
+                      else clearSelection();
+                    }}
+                    aria-label="Select all"
+                  />
+                </TableHead>
                 <TableHead className="w-[120px]">Incident #</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Worker</TableHead>
@@ -407,7 +681,7 @@ export function IncidentsList({
               <TableBody>
                 {filteredIncidents.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                       No incidents found
                     </TableCell>
                   </TableRow>
@@ -418,6 +692,8 @@ export function IncidentsList({
                       incident={incident}
                       isHighlighted={incident.incident_id === highlightIncidentId}
                       onView={handleView}
+                      isSelected={selectedIncidents.has(incident.incident_id)}
+                      onToggleSelect={toggleIncidentSelection}
                     />
                   ))
                 )}
@@ -502,5 +778,6 @@ export function IncidentsList({
         )}
       </CardContent>
     </Card>
+    </>
   );
 }

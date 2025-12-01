@@ -51,6 +51,7 @@ interface UseIncidentsOptions {
   startDate?: string | null;
   endDate?: string | null;
   enabled?: boolean;
+  archiveFilter?: 'active' | 'archived' | 'deleted' | 'all';
 }
 
 interface IncidentsResponse {
@@ -83,7 +84,8 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
     workerId,
     startDate,
     endDate,
-    enabled = true
+    enabled = true,
+    archiveFilter = 'active'
   } = options;
   
   // Cleanup previous queries and force refetch when employer changes
@@ -204,9 +206,10 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
       pageOffset,
       workerId,
       startDate,
-      endDate
+      endDate,
+      archiveFilter
     }
-  ], [roleId, userEmployerId, filterEmployerId, pageSize, pageOffset, workerId, startDate, endDate]);
+  ], [roleId, userEmployerId, filterEmployerId, pageSize, pageOffset, workerId, startDate, endDate, archiveFilter]);
 
   // Main query
   const query = useQuery({
@@ -233,7 +236,8 @@ export function useIncidentsDashboard(options: UseIncidentsOptions = {}): Incide
           filter_start_date: startDate,
           filter_end_date: endDate,
           user_role_id: roleId,
-          user_employer_id: userEmployerId
+          user_employer_id: userEmployerId,
+          filter_archive_status: archiveFilter
         }, signal); // Use React Query's signal directly
 
         if (error) {
