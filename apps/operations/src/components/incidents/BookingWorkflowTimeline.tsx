@@ -99,27 +99,39 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
   const { data: workflow, isLoading } = useQuery({
     queryKey: ['booking-workflow-timeline', incidentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // First get the workflow
+      const { data: workflowData, error } = await supabase
         .from('booking_workflows')
-        .select(`
-          *,
-          medical_centers (
-            name
-          )
-        `)
+        .select('*')
         .eq('incident_id', incidentId)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        if (error.code === 'PGRST116') {
-          // No workflow found
-          return null;
-        }
-        throw error;
+        console.error('Error fetching booking workflow:', error);
+        return null;
       }
-      return data as BookingWorkflow;
+      
+      if (!workflowData) {
+        return null;
+      }
+
+      // Then get the medical center name if we have an ID
+      let medicalCenterName = null;
+      if (workflowData.medical_center_id) {
+        const { data: mcData } = await supabase
+          .from('medical_centers')
+          .select('name')
+          .eq('id', workflowData.medical_center_id)
+          .single();
+        medicalCenterName = mcData?.name;
+      }
+
+      return {
+        ...workflowData,
+        medical_center: medicalCenterName ? { name: medicalCenterName } : undefined
+      } as BookingWorkflow;
     },
     refetchInterval: 10000, // Poll every 10 seconds for updates
   });
