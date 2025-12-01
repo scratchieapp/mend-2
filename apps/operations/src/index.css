@@ -99,3 +99,38 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Google Places Autocomplete dropdown - ensure it appears above dialogs */
+.pac-container {
+  z-index: 10000 !important;
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  font-family: inherit;
+  border: 1px solid hsl(var(--border));
+  margin-top: 4px;
+}
+
+.pac-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1.5;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.pac-item:hover {
+  background-color: hsl(var(--accent));
+}
+
+.pac-item-selected {
+  background-color: hsl(var(--accent));
+}
+
+.pac-icon {
+  margin-right: 8px;
+}
+
+.pac-item-query {
+  font-weight: 500;
+}
