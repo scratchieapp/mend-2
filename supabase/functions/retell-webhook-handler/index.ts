@@ -70,6 +70,85 @@ interface BookingWorkflow {
   available_times: any[];
   urgency: string;
   requested_by: string;
+  retry_attempt?: number;
+  medical_center_attempt?: number;
+}
+
+const MAX_RETRY_ATTEMPTS = 3;
+
+// Handle retry or fallback to next medical center
+async function handleBookingRetryOrFallback(
+  supabase: ReturnType<typeof createClient>,
+  supabaseUrl: string,
+  supabaseServiceKey: string,
+  workflowId: string,
+  workflow: BookingWorkflow,
+  incident: any,
+  failureReason: string,
+  taskType: 'booking_get_times' | 'booking_patient_confirm' | 'booking_final_confirm'
+): Promise<{ shouldRetry: boolean; nextMedicalCenter?: any }> {
+  const currentRetryAttempt = workflow.retry_attempt || 0;
+  const currentMedicalCenterAttempt = workflow.medical_center_attempt || 1;
+
+  console.log(`Handling retry for workflow ${workflowId}: attempt ${currentRetryAttempt + 1}/${MAX_RETRY_ATTEMPTS}, medical center attempt ${currentMedicalCenterAttempt}`);
+
+  // If we haven't exhausted retries for this medical center
+  if (currentRetryAttempt < MAX_RETRY_ATTEMPTS - 1) {
+    // Update workflow with incremented retry count
+    await supabase.rpc('update_booking_workflow_v2', {
+      p_workflow_id: workflowId,
+      p_status: 'retrying',
+      p_retry_attempt: currentRetryAttempt + 1,
+      p_failure_reason: `Attempt ${currentRetryAttempt + 1}: ${failureReason}`,
+      p_increment_call_count: false,
+    });
+
+    return { shouldRetry: true };
+  }
+
+  // We've exhausted retries - check for next medical center
+  console.log(`Exhausted ${MAX_RETRY_ATTEMPTS} attempts, checking for fallback medical center...`);
+  
+  const { data: nextMcData } = await supabase.rpc('get_next_priority_medical_center', {
+    p_site_id: incident?.site_id,
+    p_current_priority: currentMedicalCenterAttempt,
+  });
+
+  if (nextMcData && nextMcData.length > 0) {
+    const nextMc = nextMcData[0];
+    console.log(`Found fallback medical center: ${nextMc.name} (priority ${nextMc.priority})`);
+
+    // Update workflow to use next medical center
+    await supabase.rpc('update_booking_workflow_v2', {
+      p_workflow_id: workflowId,
+      p_status: 'initiated',  // Reset status to try again
+      p_medical_center_id: nextMc.medical_center_id,
+      p_medical_center_attempt: nextMc.priority,
+      p_retry_attempt: 0,  // Reset retry count for new medical center
+      p_failure_reason: null,  // Clear failure reason
+      p_increment_call_count: false,
+    });
+
+    // Log the fallback
+    await supabase.from('incident_activity_log').insert({
+      incident_id: workflow.incident_id,
+      action_type: 'voice_agent',
+      summary: 'Trying backup medical center',
+      details: `Primary medical center unreachable after ${MAX_RETRY_ATTEMPTS} attempts. Trying ${nextMc.name}.`,
+      actor_name: 'AI Booking Agent',
+      metadata: { 
+        workflow_id: workflowId, 
+        new_medical_center_id: nextMc.medical_center_id,
+        priority: nextMc.priority,
+      },
+    });
+
+    return { shouldRetry: true, nextMedicalCenter: nextMc };
+  }
+
+  // No more medical centers to try - mark as failed
+  console.log('No more medical centers available, marking workflow as failed');
+  return { shouldRetry: false };
 }
 
 // Process inbound incident from Incident Reporter agent
@@ -388,7 +467,7 @@ async function processBookingWorkflowCall(
       // First call to medical center - get available times
       if (callSuccessful && customData.available_times?.length > 0) {
         // Update workflow with available times
-        await supabase.rpc('update_booking_workflow', {
+        await supabase.rpc('update_booking_workflow_v2', {
           p_workflow_id: workflowId,
           p_status: 'times_collected',
           p_available_times: customData.available_times,
@@ -420,21 +499,68 @@ async function processBookingWorkflowCall(
           customData.available_times
         );
       } else {
-        // Failed to get times
-        await supabase.rpc('update_booking_workflow', {
-          p_workflow_id: workflowId,
-          p_status: 'failed',
-          p_failure_reason: customData.failure_reason || 'Unable to get available appointment times',
-        });
+        // Failed to get times - check if we should retry or try next medical center
+        const failureReason = customData.failure_reason || 'Unable to get available appointment times';
+        
+        const retryResult = await handleBookingRetryOrFallback(
+          supabase,
+          supabaseUrl,
+          supabaseServiceKey!,
+          workflowId,
+          workflow,
+          incident,
+          failureReason,
+          'booking_get_times'
+        );
 
-        await supabase.from('incident_activity_log').insert({
-          incident_id: workflow.incident_id,
-          action_type: 'voice_agent',
-          summary: 'Medical booking call failed',
-          details: `AI agent was unable to get available times from ${medicalCenter?.name}: ${customData.failure_reason || 'Unknown reason'}`,
-          actor_name: 'AI Booking Agent',
-          metadata: { workflow_id: workflowId, call_id: call.call_id },
-        });
+        if (retryResult.shouldRetry) {
+          // Get the medical center to call (either same one for retry, or new one for fallback)
+          const mcToCall = retryResult.nextMedicalCenter || medicalCenter;
+          
+          // Log the retry attempt
+          await supabase.from('incident_activity_log').insert({
+            incident_id: workflow.incident_id,
+            action_type: 'voice_agent',
+            summary: retryResult.nextMedicalCenter 
+              ? `Calling backup medical center: ${retryResult.nextMedicalCenter.name}`
+              : `Retrying call to ${medicalCenter?.name}`,
+            details: `Previous attempt failed: ${failureReason}. ${retryResult.nextMedicalCenter ? 'Trying next priority medical center.' : `Attempt ${(workflow.retry_attempt || 0) + 2} of ${MAX_RETRY_ATTEMPTS}.`}`,
+            actor_name: 'AI Booking Agent',
+            metadata: { workflow_id: workflowId, call_id: call.call_id },
+          });
+
+          // Initiate retry call after a short delay (10 seconds to avoid hammering)
+          // Note: For production, consider using pg_cron for 1-minute delays
+          await new Promise(resolve => setTimeout(resolve, 10000)); // 10 second delay
+          
+          await initiateNextBookingCall(
+            supabaseUrl,
+            supabaseServiceKey!,
+            workflowId,
+            'booking_get_times',
+            { ...workflow, medical_center_id: mcToCall.medical_center_id || workflow.medical_center_id },
+            incident,
+            mcToCall,
+            []
+          );
+        } else {
+          // All retries and fallbacks exhausted - mark as failed
+          await supabase.rpc('update_booking_workflow_v2', {
+            p_workflow_id: workflowId,
+            p_status: 'failed',
+            p_failure_reason: `All medical centers unreachable after multiple attempts. Last error: ${failureReason}`,
+            p_increment_call_count: false,
+          });
+
+          await supabase.from('incident_activity_log').insert({
+            incident_id: workflow.incident_id,
+            action_type: 'voice_agent',
+            summary: 'Medical booking failed - all options exhausted',
+            details: `AI agent was unable to reach any available medical centers after multiple attempts. Please book manually.`,
+            actor_name: 'AI Booking Agent',
+            metadata: { workflow_id: workflowId, call_id: call.call_id },
+          });
+        }
       }
       break;
     }
@@ -443,7 +569,7 @@ async function processBookingWorkflowCall(
       // Second call to patient - confirm preferred time
       if (callSuccessful && customData.patient_confirmed_time) {
         // Update workflow with patient's choice
-        await supabase.rpc('update_booking_workflow', {
+        await supabase.rpc('update_booking_workflow_v2', {
           p_workflow_id: workflowId,
           p_status: 'patient_confirmed',
           p_patient_preferred_time: customData.patient_confirmed_time,
@@ -478,7 +604,7 @@ async function processBookingWorkflowCall(
         );
       } else if (customData.patient_needs_reschedule) {
         // Patient can't make any offered times - need to call clinic again
-        await supabase.rpc('update_booking_workflow', {
+        await supabase.rpc('update_booking_workflow_v2', {
           p_workflow_id: workflowId,
           p_status: 'initiated',  // Reset to try again
         });
@@ -508,7 +634,7 @@ async function processBookingWorkflowCall(
         );
       } else {
         // Failed to confirm with patient
-        await supabase.rpc('update_booking_workflow', {
+        await supabase.rpc('update_booking_workflow_v2', {
           p_workflow_id: workflowId,
           p_status: 'failed',
           p_failure_reason: customData.failure_reason || 'Unable to confirm with patient',
@@ -554,7 +680,7 @@ async function processBookingWorkflowCall(
           .single();
 
         // Update workflow as completed
-        await supabase.rpc('update_booking_workflow', {
+        await supabase.rpc('update_booking_workflow_v2', {
           p_workflow_id: workflowId,
           p_status: 'completed',
           p_confirmed_datetime: customData.confirmed_datetime || customData.patient_confirmed_time,
@@ -583,7 +709,7 @@ async function processBookingWorkflowCall(
         console.log(`Booking workflow ${workflowId} completed successfully. Appointment ID: ${appointment?.id}`);
       } else {
         // Final confirmation failed
-        await supabase.rpc('update_booking_workflow', {
+        await supabase.rpc('update_booking_workflow_v2', {
           p_workflow_id: workflowId,
           p_status: 'failed',
           p_failure_reason: customData.failure_reason || 'Unable to confirm final booking',
@@ -775,7 +901,7 @@ async function initiateNextBookingCall(
     'booking_final_confirm': 'confirming_booking',
   };
 
-  await supabase.rpc('update_booking_workflow', {
+  await supabase.rpc('update_booking_workflow_v2', {
     p_workflow_id: workflowId,
     p_status: statusMap[taskType],
     p_current_call_id: retellData.call_id,
