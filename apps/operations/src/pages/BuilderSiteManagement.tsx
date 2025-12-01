@@ -30,8 +30,6 @@ import {
   MapPin, 
   Plus, 
   Search, 
-  Edit, 
-  Trash2,
   Building2,
   Phone,
   User,
@@ -41,7 +39,14 @@ import {
   EyeOff,
   Stethoscope,
   CheckCircle2,
-  Clock
+  Clock,
+  Pause,
+  Play,
+  Archive,
+  Filter,
+  PauseCircle,
+  Trash2,
+  Edit
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -142,11 +147,21 @@ export default function BuilderSiteManagement() {
   const { isAuthenticated, isLoading: authLoading, userData } = useAuth();
   
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isNewSupervisorDialogOpen, setIsNewSupervisorDialogOpen] = useState(false);
+  const [isNewMedicalCenterDialogOpen, setIsNewMedicalCenterDialogOpen] = useState(false);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [showMap, setShowMap] = useState(true);
+  const [newMedicalCenterData, setNewMedicalCenterData] = useState({
+    name: "",
+    phone_number: "",
+    address: "",
+    suburb: "",
+    postcode: "",
+    state: "",
+  });
   const [formData, setFormData] = useState<SiteFormData>({
     site_name: "",
     street_address: "",
@@ -452,6 +467,64 @@ export default function BuilderSiteManagement() {
     }));
   };
 
+  // Create new medical center mutation
+  const createMedicalCenterMutation = useMutation({
+    mutationFn: async (data: typeof newMedicalCenterData) => {
+      const { data: result, error } = await supabase
+        .from('medical_centers')
+        .insert({
+          name: data.name,
+          phone_number: data.phone_number,
+          address: data.address,
+          suburb: data.suburb,
+          postcode: data.postcode,
+          state: data.state,
+          active: true,
+          mend_prepared: false,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['medical-centers'] });
+      toast({ title: "Success", description: "Medical center added successfully." });
+      setIsNewMedicalCenterDialogOpen(false);
+      // Auto-select the new medical center as primary if none selected
+      if (result?.id && getSelectedMedicalCenter(1) === 'none') {
+        updateMedicalCenterSelection(1, result.id);
+      }
+      setNewMedicalCenterData({ name: "", phone_number: "", address: "", suburb: "", postcode: "", state: "" });
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: `Failed to create medical center: ${error.message}`, variant: "destructive" });
+    }
+  });
+
+  // Update site status mutation
+  const updateSiteStatusMutation = useMutation({
+    mutationFn: async ({ siteId, status }: { siteId: number; status: 'working' | 'paused' | 'finished' }) => {
+      const { error } = await supabase
+        .from('site_status_history')
+        .insert({
+          site_id: siteId,
+          status: status,
+          month: new Date().toISOString().slice(0, 7) + '-01', // First of current month
+        });
+      if (error) throw error;
+      return { siteId, status };
+    },
+    onSuccess: ({ status }) => {
+      queryClient.invalidateQueries({ queryKey: ['builder-sites', userEmployerId] });
+      const statusLabels = { working: 'Active', paused: 'Paused', finished: 'Finished' };
+      toast({ title: "Status Updated", description: `Site is now ${statusLabels[status]}.` });
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: `Failed to update status: ${error.message}`, variant: "destructive" });
+    }
+  });
+
   // Loading/Auth states
   if (authLoading) {
     return (
@@ -595,13 +668,21 @@ export default function BuilderSiteManagement() {
     return selection || 'none';
   };
 
-  const filteredSites = sites?.filter(site =>
-    site.site_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    site.city?.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  // Filter sites by search and status
+  const filteredSites = sites?.filter(site => {
+    const matchesSearch = site.site_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      site.city?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (!matchesSearch) return false;
+    
+    const siteStatus = site.status || 'working';
+    if (statusFilter === 'active') return siteStatus === 'working';
+    if (statusFilter === 'inactive') return siteStatus === 'paused' || siteStatus === 'finished';
+    return true; // 'all'
+  }) || [];
 
-  const activeSites = filteredSites.filter(s => s.status === 'working' || !s.status);
-  const inactiveSites = filteredSites.filter(s => s.status === 'paused' || s.status === 'finished');
+  const activeSites = (sites || []).filter(s => s.status === 'working' || !s.status);
+  const inactiveSites = (sites || []).filter(s => s.status === 'paused' || s.status === 'finished');
 
   const breadcrumbItems = [
     { label: 'Home', href: '/' },
@@ -807,7 +888,13 @@ export default function BuilderSiteManagement() {
                       </Label>
                       <Select
                         value={getSelectedMedicalCenter(1)}
-                        onValueChange={(value) => updateMedicalCenterSelection(1, value)}
+                        onValueChange={(value) => {
+                          if (value === 'new') {
+                            setIsNewMedicalCenterDialogOpen(true);
+                          } else {
+                            updateMedicalCenterSelection(1, value);
+                          }
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select primary medical center..." />
@@ -826,6 +913,12 @@ export default function BuilderSiteManagement() {
                               </div>
                             </SelectItem>
                           ))}
+                          <SelectItem value="new" className="text-primary font-medium">
+                            <div className="flex items-center gap-2">
+                              <Plus className="h-4 w-4" />
+                              <span>Add New Medical Center...</span>
+                            </div>
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                       {getSelectedMedicalCenter(1) && (
@@ -844,7 +937,13 @@ export default function BuilderSiteManagement() {
                       <Label htmlFor="backup1_medical_center" className="text-sm">Backup Medical Center 1 (Optional)</Label>
                       <Select
                         value={getSelectedMedicalCenter(2)}
-                        onValueChange={(value) => updateMedicalCenterSelection(2, value)}
+                        onValueChange={(value) => {
+                          if (value === 'new') {
+                            setIsNewMedicalCenterDialogOpen(true);
+                          } else {
+                            updateMedicalCenterSelection(2, value);
+                          }
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select backup medical center..." />
@@ -866,6 +965,12 @@ export default function BuilderSiteManagement() {
                                 </div>
                               </SelectItem>
                             ))}
+                          <SelectItem value="new" className="text-primary font-medium">
+                            <div className="flex items-center gap-2">
+                              <Plus className="h-4 w-4" />
+                              <span>Add New Medical Center...</span>
+                            </div>
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -875,7 +980,13 @@ export default function BuilderSiteManagement() {
                       <Label htmlFor="backup2_medical_center" className="text-sm">Backup Medical Center 2 (Optional)</Label>
                       <Select
                         value={getSelectedMedicalCenter(3)}
-                        onValueChange={(value) => updateMedicalCenterSelection(3, value)}
+                        onValueChange={(value) => {
+                          if (value === 'new') {
+                            setIsNewMedicalCenterDialogOpen(true);
+                          } else {
+                            updateMedicalCenterSelection(3, value);
+                          }
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select backup medical center..." />
@@ -897,6 +1008,12 @@ export default function BuilderSiteManagement() {
                                 </div>
                               </SelectItem>
                             ))}
+                          <SelectItem value="new" className="text-primary font-medium">
+                            <div className="flex items-center gap-2">
+                              <Plus className="h-4 w-4" />
+                              <span>Add New Medical Center...</span>
+                            </div>
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -956,7 +1073,7 @@ export default function BuilderSiteManagement() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="mb-6">
+            <div className="mb-6 flex items-center gap-4">
               <div className="relative w-96">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -966,6 +1083,17 @@ export default function BuilderSiteManagement() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
+              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+                <SelectTrigger className="w-44">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active Sites</SelectItem>
+                  <SelectItem value="inactive">Paused / Finished</SelectItem>
+                  <SelectItem value="all">All Sites</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {sitesError ? (
@@ -1001,12 +1129,15 @@ export default function BuilderSiteManagement() {
                     <TableHead>Supervisor</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Incidents</TableHead>
-                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredSites.map((site) => (
-                    <TableRow key={site.site_id}>
+                    <TableRow 
+                      key={site.site_id} 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleEdit(site)}
+                    >
                       <TableCell>
                         <div>
                           <div className="font-medium">{site.site_name}</div>
@@ -1040,25 +1171,6 @@ export default function BuilderSiteManagement() {
                       <TableCell>{getStatusBadge(site.status)}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{site.incident_count}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleEdit(site)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              if (confirm(`Are you sure you want to delete ${site.site_name}?`)) {
-                                deleteSiteMutation.mutate(site.site_id);
-                              }
-                            }}
-                            disabled={site.incident_count > 0}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1197,7 +1309,13 @@ export default function BuilderSiteManagement() {
                     </Label>
                     <Select
                       value={getSelectedMedicalCenter(1)}
-                      onValueChange={(value) => updateMedicalCenterSelection(1, value)}
+                      onValueChange={(value) => {
+                        if (value === 'new') {
+                          setIsNewMedicalCenterDialogOpen(true);
+                        } else {
+                          updateMedicalCenterSelection(1, value);
+                        }
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select primary medical center..." />
@@ -1216,9 +1334,15 @@ export default function BuilderSiteManagement() {
                             </div>
                           </SelectItem>
                         ))}
+                        <SelectItem value="new" className="text-primary font-medium">
+                          <div className="flex items-center gap-2">
+                            <Plus className="h-4 w-4" />
+                            <span>Add New Medical Center...</span>
+                          </div>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
-                    {getSelectedMedicalCenter(1) && (
+                    {getSelectedMedicalCenter(1) && getSelectedMedicalCenter(1) !== 'none' && (
                       <div className="text-xs text-muted-foreground flex items-center gap-2">
                         {medicalCenters.find(c => c.id === getSelectedMedicalCenter(1))?.mend_prepared ? (
                           <><CheckCircle2 className="h-3 w-3 text-green-500" /> Prepared for AI calls</>
@@ -1234,7 +1358,13 @@ export default function BuilderSiteManagement() {
                     <Label htmlFor="edit_backup1_medical_center" className="text-sm">Backup Medical Center 1 (Optional)</Label>
                     <Select
                       value={getSelectedMedicalCenter(2)}
-                      onValueChange={(value) => updateMedicalCenterSelection(2, value)}
+                      onValueChange={(value) => {
+                        if (value === 'new') {
+                          setIsNewMedicalCenterDialogOpen(true);
+                        } else {
+                          updateMedicalCenterSelection(2, value);
+                        }
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select backup medical center..." />
@@ -1256,6 +1386,12 @@ export default function BuilderSiteManagement() {
                               </div>
                             </SelectItem>
                           ))}
+                        <SelectItem value="new" className="text-primary font-medium">
+                          <div className="flex items-center gap-2">
+                            <Plus className="h-4 w-4" />
+                            <span>Add New Medical Center...</span>
+                          </div>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1265,7 +1401,13 @@ export default function BuilderSiteManagement() {
                     <Label htmlFor="edit_backup2_medical_center" className="text-sm">Backup Medical Center 2 (Optional)</Label>
                     <Select
                       value={getSelectedMedicalCenter(3)}
-                      onValueChange={(value) => updateMedicalCenterSelection(3, value)}
+                      onValueChange={(value) => {
+                        if (value === 'new') {
+                          setIsNewMedicalCenterDialogOpen(true);
+                        } else {
+                          updateMedicalCenterSelection(3, value);
+                        }
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select backup medical center..." />
@@ -1287,10 +1429,112 @@ export default function BuilderSiteManagement() {
                               </div>
                             </SelectItem>
                           ))}
+                        <SelectItem value="new" className="text-primary font-medium">
+                          <div className="flex items-center gap-2">
+                            <Plus className="h-4 w-4" />
+                            <span>Add New Medical Center...</span>
+                          </div>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
+
+                {/* Site Status Management */}
+                <div className="col-span-2 space-y-4 border-t pt-4 mt-2">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-muted-foreground" />
+                    <Label className="text-base font-medium">Site Status</Label>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {editingSite && (
+                      <>
+                        {(editingSite.status === 'paused' || editingSite.status === 'finished') && (
+                          <Button 
+                            type="button" 
+                            variant="outline"
+                            className="gap-2"
+                            onClick={() => {
+                              updateSiteStatusMutation.mutate({ siteId: editingSite.site_id, status: 'working' });
+                              setIsEditDialogOpen(false);
+                            }}
+                          >
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            Reactivate Site
+                          </Button>
+                        )}
+                        {(!editingSite.status || editingSite.status === 'working') && (
+                          <>
+                            <Button 
+                              type="button" 
+                              variant="outline"
+                              className="gap-2"
+                              onClick={() => {
+                                updateSiteStatusMutation.mutate({ siteId: editingSite.site_id, status: 'paused' });
+                                setIsEditDialogOpen(false);
+                              }}
+                            >
+                              <PauseCircle className="h-4 w-4 text-amber-500" />
+                              Pause Site
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant="outline"
+                              className="gap-2"
+                              onClick={() => {
+                                updateSiteStatusMutation.mutate({ siteId: editingSite.site_id, status: 'finished' });
+                                setIsEditDialogOpen(false);
+                              }}
+                            >
+                              <Archive className="h-4 w-4 text-gray-500" />
+                              Mark Finished
+                            </Button>
+                          </>
+                        )}
+                        {editingSite.status === 'paused' && (
+                          <Button 
+                            type="button" 
+                            variant="outline"
+                            className="gap-2"
+                            onClick={() => {
+                              updateSiteStatusMutation.mutate({ siteId: editingSite.site_id, status: 'finished' });
+                              setIsEditDialogOpen(false);
+                            }}
+                          >
+                            <Archive className="h-4 w-4 text-gray-500" />
+                            Mark Finished
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Paused sites temporarily stop AI booking workflows. Finished sites are archived but retain all incident history.
+                  </p>
+                </div>
+
+                {/* Delete Site */}
+                {editingSite && editingSite.incident_count === 0 && (
+                  <div className="col-span-2 border-t pt-4 mt-2">
+                    <Button 
+                      type="button" 
+                      variant="destructive"
+                      className="gap-2"
+                      onClick={() => {
+                        if (confirm(`Are you sure you want to delete ${editingSite.site_name}? This action cannot be undone.`)) {
+                          deleteSiteMutation.mutate(editingSite.site_id);
+                          setIsEditDialogOpen(false);
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete Site
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Only sites with no incidents can be deleted.
+                    </p>
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
@@ -1377,6 +1621,96 @@ export default function BuilderSiteManagement() {
                 disabled={!newSupervisorData.given_name || !newSupervisorData.family_name || !newSupervisorData.mobile_number || createSupervisorMutation.isPending}
               >
                 {createSupervisorMutation.isPending ? 'Adding...' : 'Add Supervisor'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* New Medical Center Dialog */}
+        <Dialog open={isNewMedicalCenterDialogOpen} onOpenChange={setIsNewMedicalCenterDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add New Medical Center</DialogTitle>
+              <DialogDescription>Add a medical center to the global registry. It will be available for all sites.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="mc_name">Medical Center Name *</Label>
+                <Input 
+                  id="mc_name" 
+                  value={newMedicalCenterData.name} 
+                  onChange={(e) => setNewMedicalCenterData(prev => ({ ...prev, name: e.target.value }))} 
+                  placeholder="e.g., Sydney Medical Clinic"
+                  required 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="mc_phone">Phone Number *</Label>
+                <Input 
+                  id="mc_phone" 
+                  type="tel"
+                  value={newMedicalCenterData.phone_number} 
+                  onChange={(e) => setNewMedicalCenterData(prev => ({ ...prev, phone_number: e.target.value }))} 
+                  placeholder="02 1234 5678"
+                  required 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="mc_address">Street Address</Label>
+                <Input 
+                  id="mc_address" 
+                  value={newMedicalCenterData.address} 
+                  onChange={(e) => setNewMedicalCenterData(prev => ({ ...prev, address: e.target.value }))} 
+                  placeholder="123 Main Street"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="mc_suburb">Suburb *</Label>
+                  <Input 
+                    id="mc_suburb" 
+                    value={newMedicalCenterData.suburb} 
+                    onChange={(e) => setNewMedicalCenterData(prev => ({ ...prev, suburb: e.target.value }))} 
+                    required 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="mc_postcode">Postcode</Label>
+                  <Input 
+                    id="mc_postcode" 
+                    value={newMedicalCenterData.postcode} 
+                    onChange={(e) => setNewMedicalCenterData(prev => ({ ...prev, postcode: e.target.value }))} 
+                    maxLength={4}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="mc_state">State *</Label>
+                <Select 
+                  value={newMedicalCenterData.state} 
+                  onValueChange={(value) => setNewMedicalCenterData(prev => ({ ...prev, state: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select state..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'].map(s => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                After adding, you'll need to brief this medical center on Mend's approach before AI calls can be made.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsNewMedicalCenterDialogOpen(false)}>Cancel</Button>
+              <Button 
+                onClick={() => createMedicalCenterMutation.mutate(newMedicalCenterData)}
+                disabled={!newMedicalCenterData.name || !newMedicalCenterData.phone_number || !newMedicalCenterData.suburb || !newMedicalCenterData.state || createMedicalCenterMutation.isPending}
+              >
+                {createMedicalCenterMutation.isPending ? 'Adding...' : 'Add Medical Center'}
               </Button>
             </DialogFooter>
           </DialogContent>
