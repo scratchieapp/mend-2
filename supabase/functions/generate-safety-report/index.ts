@@ -108,6 +108,11 @@ function getMonthDateRange(month: string): { startDate: string; endDate: string 
 
 /**
  * Generate AI executive summary using configured LLM provider
+ * 
+ * Supported providers (set LLM_PROVIDER env var):
+ * - "openai" (default) - Uses OpenAI GPT-4o-mini
+ * - "anthropic" or "claude" - Uses Anthropic Claude 3.5 Sonnet
+ * - "openrouter" - Uses OpenRouter (set LLM_MODEL for specific model)
  */
 async function generateExecutiveSummary(
   metrics: IncidentMetrics,
@@ -118,7 +123,7 @@ async function generateExecutiveSummary(
   month: string
 ): Promise<{ summary: string; recommendations: string[] }> {
   const provider = Deno.env.get('LLM_PROVIDER') || 'openai';
-  const apiKey = Deno.env.get('LLM_API_KEY') || Deno.env.get('OPENAI_API_KEY');
+  const apiKey = Deno.env.get('LLM_API_KEY') || Deno.env.get('OPENAI_API_KEY') || Deno.env.get('OPENROUTER_API_KEY');
 
   if (!apiKey) {
     console.warn('No LLM API key configured, using template-based summary');
@@ -128,21 +133,23 @@ async function generateExecutiveSummary(
   const prompt = buildPrompt(metrics, breakdown, comparison, dataQuality, reportType, month);
 
   try {
-    let summary: string;
-    let recommendations: string[];
+    let result: { summary: string; recommendations: string[] };
 
-    if (provider === 'anthropic' || provider === 'claude') {
-      const result = await callAnthropicAPI(apiKey, prompt);
-      summary = result.summary;
-      recommendations = result.recommendations;
-    } else {
-      // Default to OpenAI
-      const result = await callOpenAIAPI(apiKey, prompt);
-      summary = result.summary;
-      recommendations = result.recommendations;
+    switch (provider.toLowerCase()) {
+      case 'anthropic':
+      case 'claude':
+        result = await callAnthropicAPI(apiKey, prompt);
+        break;
+      case 'openrouter':
+        result = await callOpenRouterAPI(apiKey, prompt);
+        break;
+      case 'openai':
+      default:
+        result = await callOpenAIAPI(apiKey, prompt);
+        break;
     }
 
-    return { summary, recommendations };
+    return result;
   } catch (error) {
     console.error('LLM API error:', error);
     return generateTemplateSummary(metrics, breakdown, comparison, dataQuality, reportType, month);
@@ -299,6 +306,62 @@ async function callAnthropicAPI(apiKey: string, prompt: string): Promise<{ summa
     }
   } catch {
     console.error('Failed to parse Anthropic response as JSON');
+  }
+
+  return { summary: content, recommendations: [] };
+}
+
+/**
+ * Call OpenRouter API - provides access to many models (GPT-4, Claude, Llama, Mistral, etc.)
+ * Set LLM_MODEL env var to choose model, e.g.:
+ * - anthropic/claude-3.5-sonnet
+ * - openai/gpt-4o
+ * - openai/gpt-4o-mini
+ * - meta-llama/llama-3.1-70b-instruct
+ * - mistralai/mistral-large
+ * See https://openrouter.ai/models for full list
+ */
+async function callOpenRouterAPI(apiKey: string, prompt: string): Promise<{ summary: string; recommendations: string[] }> {
+  const model = Deno.env.get('LLM_MODEL') || 'anthropic/claude-3.5-sonnet';
+  
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://mendplatform.au',
+      'X-Title': 'Mend Safety Reports',
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a workplace safety analyst for the Australian construction industry. Respond only with valid JSON.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 1500,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('OpenRouter API error:', errorText);
+    throw new Error(`OpenRouter API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices[0]?.message?.content || '';
+
+  try {
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+  } catch {
+    console.error('Failed to parse OpenRouter response as JSON');
   }
 
   return { summary: content, recommendations: [] };
