@@ -24,10 +24,16 @@ interface BookingWorkflow {
   last_call_type: string | null;
   available_times: unknown[];
   confirmed_datetime: string | null;
+  failure_reason: string | null;
   created_at: string;
   updated_at: string;
   medical_center?: {
     name: string;
+    phone_number: string | null;
+  };
+  worker?: {
+    name: string;
+    phone: string | null;
   };
 }
 
@@ -117,20 +123,42 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
         return null;
       }
 
-      // Then get the medical center name if we have an ID
-      let medicalCenterName = null;
+      // Get the medical center info if we have an ID
+      let medicalCenterInfo = null;
       if (workflowData.medical_center_id) {
         const { data: mcData } = await supabase
           .from('medical_centers')
-          .select('name')
+          .select('name, phone_number')
           .eq('id', workflowData.medical_center_id)
           .single();
-        medicalCenterName = mcData?.name;
+        if (mcData) {
+          medicalCenterInfo = { 
+            name: mcData.name, 
+            phone_number: mcData.phone_number 
+          };
+        }
+      }
+
+      // Get the worker info if we have a worker_id
+      let workerInfo = null;
+      if (workflowData.worker_id) {
+        const { data: workerData } = await supabase
+          .from('workers')
+          .select('given_name, family_name, mobile_number, phone_number')
+          .eq('worker_id', workflowData.worker_id)
+          .single();
+        if (workerData) {
+          workerInfo = {
+            name: `${workerData.given_name} ${workerData.family_name}`.trim(),
+            phone: workerData.mobile_number || workerData.phone_number
+          };
+        }
       }
 
       return {
         ...workflowData,
-        medical_center: medicalCenterName ? { name: medicalCenterName } : undefined
+        medical_center: medicalCenterInfo,
+        worker: workerInfo
       } as BookingWorkflow;
     },
     refetchInterval: 10000, // Poll every 10 seconds for updates
@@ -210,6 +238,20 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
               const isComplete = index < currentStepIndex || isCompleted;
               const isPending = index > currentStepIndex && !isCompleted;
 
+              // Get dynamic description with phone number
+              const getStepDescription = () => {
+                if (step.id === 'getting_times' && workflow?.medical_center?.phone_number) {
+                  return `Calling ${workflow.medical_center.phone_number}`;
+                }
+                if (step.id === 'confirming_patient' && workflow?.worker?.phone) {
+                  return `Calling ${workflow.worker.phone}`;
+                }
+                if (step.id === 'finalizing' && workflow?.medical_center?.phone_number) {
+                  return `Calling ${workflow.medical_center.phone_number}`;
+                }
+                return step.description;
+              };
+
               return (
                 <div key={step.id} className="flex items-center flex-1">
                   {/* Step */}
@@ -235,8 +277,8 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
                       {step.label}
                     </span>
                     {isActive && !isCompleted && (
-                      <span className="text-[10px] text-emerald-600 mt-0.5">
-                        {step.description}
+                      <span className="text-[10px] text-emerald-600 mt-0.5 text-center max-w-[100px]">
+                        {getStepDescription()}
                       </span>
                     )}
                   </div>
@@ -268,9 +310,20 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
 
         {/* Failed State */}
         {isFailed && (
-          <p className="text-sm text-red-600 mt-2">
-            The booking process encountered an issue. Please try again or book manually.
-          </p>
+          <div className="mt-2 space-y-1">
+            <p className="text-sm text-red-600">
+              {workflow?.failure_reason || 'The booking process encountered an issue.'}
+            </p>
+            {workflow?.medical_center && (
+              <p className="text-xs text-red-500">
+                <span className="font-medium">Medical Center:</span> {workflow.medical_center.name}
+                {workflow.medical_center.phone_number && ` (${workflow.medical_center.phone_number})`}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground mt-2">
+              Please try again or book manually.
+            </p>
+          </div>
         )}
 
         {/* Medical Center Info */}
