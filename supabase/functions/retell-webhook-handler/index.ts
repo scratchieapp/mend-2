@@ -160,18 +160,44 @@ async function processInboundIncident(
   try {
     console.log('Processing inbound incident from call:', call.call_id);
 
-    // Extract incident data from call analysis custom data or transcript
+    // Initialize Supabase client to check staging table
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // PRIORITY 1: Check staging table for data from submit_incident function
+    // This is the most reliable source as it comes directly from agent function calls
+    let stagedData: Record<string, any> | null = null;
+    try {
+      const { data: staged, error: stageError } = await supabase
+        .from('incident_staging')
+        .select('*')
+        .eq('call_id', call.call_id)
+        .is('processed_at', null)  // Only get unprocessed records
+        .single();
+
+      if (!stageError && staged) {
+        console.log('Found staged incident data from submit_incident:', JSON.stringify(staged, null, 2));
+        stagedData = staged;
+      } else if (stageError && stageError.code !== 'PGRST116') {  // PGRST116 = no rows returned
+        console.log('No staged data found, will use fallback extraction');
+      }
+    } catch (e) {
+      console.log('Error checking staging table (may not exist yet):', e);
+    }
+
+    // PRIORITY 2: Check call analysis custom data (Retell Post-Call Analysis)
     const customData = call.call_analysis?.custom_analysis_data || {};
     const transcript = call.transcript || '';
+    
+    // Merge staged data with custom data, preferring staged data (more accurate)
+    const mergedData = { ...customData, ...stagedData };
 
-    // Build extracted data from custom analysis (set by submit_incident function)
-    // or fall back to basic extraction from transcript
+    // Build extracted data from staged data (priority), custom analysis, or transcript fallback
     // IMPORTANT: Include IDs from lookup functions (worker_id, employer_id, site_id)
     
     // Try to extract injury type from description if not explicitly set
-    let injuryType = customData.injury_type;
-    if (!injuryType && customData.injury_description) {
-      const desc = customData.injury_description.toLowerCase();
+    let injuryType = mergedData.injury_type;
+    if (!injuryType && mergedData.injury_description) {
+      const desc = mergedData.injury_description.toLowerCase();
       if (desc.includes('fracture') || desc.includes('broke') || desc.includes('broken')) {
         injuryType = 'Fracture';
       } else if (desc.includes('sprain') || desc.includes('strain')) {
@@ -191,33 +217,41 @@ async function processInboundIncident(
     
     const extractedData: Record<string, any> = {
       // IDs from lookup functions - these are critical for linking records
-      worker_id: customData.worker_id || null,
-      employer_id: customData.employer_id || null,
-      site_id: customData.site_id || null,
+      // Staged data is most reliable (from submit_incident), then custom data, then null
+      worker_id: mergedData.worker_id || null,
+      employer_id: mergedData.employer_id || null,
+      site_id: mergedData.site_id || null,
       // Names for fallback lookup
-      worker_name: customData.worker_name || extractFromTranscript(transcript, 'worker_name'),
-      worker_phone: customData.worker_phone || customData.caller_phone || call.from_number,
-      employer_name: customData.employer_name || extractFromTranscript(transcript, 'employer_name'),
-      site_name: customData.site_name || extractFromTranscript(transcript, 'site_name'),
+      worker_name: mergedData.worker_name || extractFromTranscript(transcript, 'worker_name'),
+      worker_phone: mergedData.worker_phone || mergedData.caller_phone || call.from_number,
+      employer_name: mergedData.employer_name || extractFromTranscript(transcript, 'employer_name'),
+      site_name: mergedData.site_name || extractFromTranscript(transcript, 'site_name'),
       // Injury details - extract type from description if needed
       injury_type: injuryType || 'Unknown',
-      injury_description: customData.injury_description || extractFromTranscript(transcript, 'injury_description'),
-      body_part_injured: customData.body_part_injured || customData.body_part || extractFromTranscript(transcript, 'body_part'),
-      body_side: customData.body_side || null,
-      date_of_injury: customData.date_of_injury || new Date().toISOString().split('T')[0],
-      time_of_injury: customData.time_of_injury || null,
-      treatment_received: customData.treatment_received || customData.treatment_provided || null,
-      severity: customData.severity || 'unknown',
+      injury_description: mergedData.injury_description || extractFromTranscript(transcript, 'injury_description'),
+      body_part_injured: mergedData.body_part_injured || mergedData.body_part || extractFromTranscript(transcript, 'body_part'),
+      body_side: mergedData.body_side || null,
+      date_of_injury: mergedData.date_of_injury || new Date().toISOString().split('T')[0],
+      time_of_injury: mergedData.time_of_injury || null,
+      treatment_received: mergedData.treatment_received || mergedData.treatment_provided || null,
+      severity: mergedData.severity || 'unknown',
       // Caller/reporter info - use full name if available
-      caller_name: customData.caller_name,
-      caller_role: customData.caller_role,
-      caller_phone: customData.caller_phone,
+      caller_name: mergedData.caller_name,
+      caller_role: mergedData.caller_role,
+      caller_phone: mergedData.caller_phone,
       // User profile info for authenticated web callers
-      caller_position: customData.caller_position || null,
-      is_authenticated: customData.is_authenticated || call.metadata?.is_authenticated || false,
+      caller_position: mergedData.caller_position || null,
+      is_authenticated: mergedData.is_authenticated || call.metadata?.is_authenticated || false,
     };
     
-    console.log('Extracted data from call:', JSON.stringify(extractedData, null, 2));
+    console.log('Extracted data from call (staged + custom + transcript):', JSON.stringify(extractedData, null, 2));
+    if (stagedData) {
+      console.log('Data source: incident_staging table (submit_incident function)');
+    } else if (Object.keys(customData).length > 0) {
+      console.log('Data source: Retell custom_analysis_data');
+    } else {
+      console.log('Data source: transcript extraction fallback');
+    }
 
     // Call the process-inbound-incident edge function
     const response = await fetch(
@@ -244,6 +278,20 @@ async function processInboundIncident(
     }
 
     console.log('Inbound incident processed successfully:', result);
+    
+    // Mark staging record as processed
+    if (stagedData) {
+      try {
+        await supabase
+          .from('incident_staging')
+          .update({ processed_at: new Date().toISOString() })
+          .eq('call_id', call.call_id);
+        console.log('Marked staging record as processed');
+      } catch (e) {
+        console.log('Could not mark staging record as processed:', e);
+      }
+    }
+    
     return { success: true, incident_id: result.incident_id };
   } catch (error) {
     console.error('Error processing inbound incident:', error);

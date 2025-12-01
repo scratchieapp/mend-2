@@ -147,10 +147,16 @@ NOTES:
 4. submit_incident (CALL LAST - after all details collected)
 --------------------------------------------------------------------------------
 
+** NOW AN ACTUAL EDGE FUNCTION - Data is stored reliably! **
+
 Schema:
 {
   "type": "object",
   "properties": {
+    "call_id": {
+      "type": "string",
+      "description": "REQUIRED: The Retell call_id - use {{call_id}} variable"
+    },
     "employer_id": { 
       "type": "number",
       "description": "Employer ID from lookup_employer - CRITICAL for linking"
@@ -158,7 +164,7 @@ Schema:
     "employer_name": { "type": "string" },
     "site_id": { 
       "type": "number",
-      "description": "Site ID from lookup_site - use if found"
+      "description": "Site ID from lookup_site - CRITICAL for linking to site"
     },
     "site_name": { "type": "string" },
     "worker_id": { 
@@ -182,16 +188,19 @@ Schema:
     "time_of_injury": { "type": "string" },
     "treatment_received": { "type": "string" }
   },
-  "required": ["employer_id", "employer_name", "injury_description", "injury_type"]
+  "required": ["call_id", "employer_id", "employer_name", "injury_description", "injury_type"]
 }
 
 IMPORTANT FIELDS TO INCLUDE:
+- call_id: REQUIRED! Use {{call_id}} to pass the Retell call identifier
 - employer_id: ALWAYS pass this from lookup_employer
-- site_id: Pass if you found it via lookup_site
+- site_id: ALWAYS pass this from lookup_site - THIS LINKS THE INCIDENT TO THE SITE!
 - worker_id: Pass if you found it via lookup_worker
 - injury_type: ALWAYS specify (Fracture, Sprain/strain, etc.)
 - body_side: Specify left, right, both, or not_applicable
 - caller_position: Include if known from dynamic variables
+
+URL: https://<project>.supabase.co/functions/v1/submit-incident
 
 
 --------------------------------------------------------------------------------
