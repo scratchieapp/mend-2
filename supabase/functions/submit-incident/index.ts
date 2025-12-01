@@ -69,42 +69,69 @@ serve(async (req: Request) => {
     
     console.log('submit-incident called with data:', JSON.stringify(rawData, null, 2));
 
-    // Retell wraps function calls in a "call" object with collected_dynamic_variables
-    // Extract the actual data from Retell's structure
+    // Retell sends data in multiple places:
+    // 1. Function arguments (what agent passes to submit_incident) - in args/arguments/input
+    // 2. collected_dynamic_variables (from previous function responses like lookup_employer)
+    // 3. call object with call_id
+    // We need to merge all these sources, preferring explicit arguments over collected vars
+    
     let data: SubmitIncidentRequest;
     let callId: string | undefined;
     
     if (rawData.call) {
-      // Retell format: data is in call.collected_dynamic_variables, call_id is in call.call_id
       const callData = rawData.call;
       const vars = callData.collected_dynamic_variables || {};
       
+      // Get function arguments - Retell may put them in different locations
+      const args = rawData.args || rawData.arguments || rawData.input || {};
+      
       callId = callData.call_id;
-      data = {
-        call_id: callId,
-        employer_id: vars.employer_id ? Number(vars.employer_id) : undefined,
-        employer_name: vars.employer_name,
-        site_id: vars.site_id ? Number(vars.site_id) : undefined,
-        site_name: vars.site_name,
-        worker_id: vars.worker_id ? Number(vars.worker_id) : undefined,
-        worker_name: vars.worker_name,
-        caller_name: vars.caller_name,
-        caller_role: vars.caller_role,
-        caller_position: vars.caller_position,
-        caller_phone: vars.caller_phone,
-        injury_type: vars.injury_type,
-        injury_description: vars.injury_description,
-        body_part_injured: vars.body_part_injured,
-        body_side: vars.body_side,
-        severity: vars.severity,
-        date_of_injury: vars.date_of_injury,
-        time_of_injury: vars.time_of_injury,
-        treatment_received: vars.treatment_received,
-        witness_name: vars.witness_name,
-        caller_was_witness: vars.caller_was_witness === 'true' || vars.caller_was_witness === true,
+      
+      // Helper to get value from args first, then vars, with optional number conversion
+      const getValue = (key: string, asNumber = false): any => {
+        const argValue = args[key];
+        const varValue = vars[key];
+        const value = argValue !== undefined ? argValue : varValue;
+        
+        if (asNumber && value !== undefined && value !== null) {
+          const num = Number(value);
+          return isNaN(num) ? undefined : num;
+        }
+        return value;
       };
       
-      console.log('Extracted from Retell call object:', JSON.stringify(data, null, 2));
+      data = {
+        call_id: callId,
+        // IDs from lookup functions (in collected_dynamic_variables)
+        employer_id: getValue('employer_id', true),
+        employer_name: getValue('employer_name'),
+        site_id: getValue('site_id', true),
+        site_name: getValue('site_name'),
+        worker_id: getValue('worker_id', true),
+        // Worker name could come from args (what caller said) or vars (from lookup)
+        worker_name: getValue('worker_name'),
+        // Caller/reporter info - usually from args
+        caller_name: getValue('caller_name'),
+        caller_role: getValue('caller_role'),
+        caller_position: getValue('caller_position'),
+        caller_phone: getValue('caller_phone'),
+        // Injury details - usually from args (agent collects during call)
+        injury_type: getValue('injury_type'),
+        injury_description: getValue('injury_description'),
+        body_part_injured: getValue('body_part_injured'),
+        body_side: getValue('body_side'),
+        severity: getValue('severity'),
+        date_of_injury: getValue('date_of_injury'),
+        time_of_injury: getValue('time_of_injury'),
+        treatment_received: getValue('treatment_received'),
+        // Witness info
+        witness_name: getValue('witness_name'),
+        caller_was_witness: getValue('caller_was_witness') === 'true' || getValue('caller_was_witness') === true,
+      };
+      
+      console.log('Function arguments (args):', JSON.stringify(args, null, 2));
+      console.log('Collected variables (vars):', JSON.stringify(vars, null, 2));
+      console.log('Merged data:', JSON.stringify(data, null, 2));
     } else {
       // Direct format (for testing or other callers)
       data = rawData as SubmitIncidentRequest;
@@ -146,6 +173,8 @@ serve(async (req: Request) => {
         date_of_injury: data.date_of_injury || null,
         time_of_injury: data.time_of_injury || null,
         treatment_received: data.treatment_received || null,
+        witness_name: data.witness_name || null,
+        caller_was_witness: data.caller_was_witness || false,
         created_at: new Date().toISOString(),
       }, {
         onConflict: 'call_id',

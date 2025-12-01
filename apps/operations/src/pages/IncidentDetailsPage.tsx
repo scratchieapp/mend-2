@@ -5,8 +5,19 @@ import { Button } from "@/components/ui/button";
 import { 
   ChevronLeft, Clock, MapPin, User, AlertCircle, FileText, Calendar, 
   Phone, Stethoscope, Activity, Pencil, History, MessageSquare,
-  PhoneCall, CalendarCheck, Bot, Plus
+  PhoneCall, CalendarCheck, Bot, Plus, Archive, Trash2, RotateCcw
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -305,6 +316,82 @@ const IncidentDetailsPage = () => {
     }
   });
 
+  // Archive incident mutation
+  const archiveMutation = useMutation({
+    mutationFn: async () => {
+      const userName = userData?.custom_display_name || userData?.display_name || userData?.email || 'Unknown User';
+      const { error } = await supabase.rpc('archive_incident', {
+        p_incident_id: Number(id),
+        p_user_name: userName
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Incident Archived",
+        description: "The incident has been archived and hidden from the default view.",
+      });
+      navigate(-1);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to archive incident. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Restore incident mutation
+  const restoreMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('restore_incident', {
+        p_incident_id: Number(id)
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Incident Restored",
+        description: "The incident has been restored and is now visible.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['incident', id] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to restore incident. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Delete incident mutation (soft delete)
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      const userName = userData?.custom_display_name || userData?.display_name || userData?.email || 'Unknown User';
+      const { error } = await supabase.rpc('soft_delete_incident', {
+        p_incident_id: Number(id),
+        p_user_name: userName
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Incident Deleted",
+        description: "The incident has been deleted.",
+      });
+      navigate(-1);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete incident. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -382,6 +469,70 @@ const IncidentDetailsPage = () => {
             </Button>
             
             <div className="flex items-center gap-2">
+              {/* Archive/Restore button */}
+              {(incident as any)?.archived_at ? (
+                <Button 
+                  onClick={() => restoreMutation.mutate()}
+                  size="sm" 
+                  variant="outline"
+                  className="gap-2"
+                  disabled={restoreMutation.isPending}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Restore
+                </Button>
+              ) : (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="sm" variant="outline" className="gap-2">
+                      <Archive className="h-4 w-4" />
+                      Archive
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Archive Incident?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will hide the incident from the default view. You can restore it later from the archived incidents list.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => archiveMutation.mutate()}>
+                        Archive
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+              
+              {/* Delete button */}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button size="sm" variant="outline" className="gap-2 text-destructive hover:text-destructive">
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Incident?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently remove the incident from view. This action requires admin access to undo.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={() => deleteMutation.mutate()}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              
               <Button 
                 onClick={() => setIsBookingDialogOpen(true)}
                 size="sm" 
