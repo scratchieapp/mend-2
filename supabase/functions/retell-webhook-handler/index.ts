@@ -56,6 +56,20 @@ interface VoiceTask {
   context_data: Record<string, any>;
   target_phone?: string;
   target_name?: string;
+  booking_workflow_id?: string;
+}
+
+interface BookingWorkflow {
+  id: string;
+  incident_id: number;
+  worker_id: number;
+  medical_center_id: string;
+  preferred_doctor_id?: number;
+  doctor_preference: string;
+  status: string;
+  available_times: any[];
+  urgency: string;
+  requested_by: string;
 }
 
 // Process inbound incident from Incident Reporter agent
@@ -312,6 +326,482 @@ async function verifyRetellSignature(
     .join('');
 
   return signature === expectedSignature;
+}
+
+// Process booking workflow call completion
+async function processBookingWorkflowCall(
+  supabase: ReturnType<typeof createClient>,
+  supabaseUrl: string,
+  supabaseServiceKey: string,
+  call: RetellWebhookEvent['call'],
+  voiceTask: VoiceTask
+): Promise<void> {
+  const workflowId = voiceTask.booking_workflow_id || voiceTask.context_data?.workflow_id;
+  if (!workflowId) {
+    console.error('No workflow ID found for booking task');
+    return;
+  }
+
+  console.log(`Processing booking workflow call: ${voiceTask.task_type} for workflow ${workflowId}`);
+
+  // Get workflow details
+  const { data: workflowResult } = await supabase
+    .rpc('get_booking_workflow', { p_workflow_id: workflowId });
+
+  if (!workflowResult?.found) {
+    console.error('Booking workflow not found:', workflowId);
+    return;
+  }
+
+  const workflow = workflowResult.workflow as BookingWorkflow;
+  const medicalCenter = workflowResult.medical_center;
+  
+  // Extract data from custom analysis (set by agent tools)
+  const customData = call.call_analysis?.custom_analysis_data || {};
+  const callSuccessful = call.call_analysis?.call_successful ?? false;
+
+  // Get incident and worker details for next calls
+  const { data: incident } = await supabase
+    .from('incidents')
+    .select(`
+      *,
+      workers (
+        worker_id,
+        given_name,
+        family_name,
+        mobile_number,
+        phone_number,
+        date_of_birth
+      )
+    `)
+    .eq('incident_id', workflow.incident_id)
+    .single();
+
+  const workerName = incident?.workers 
+    ? `${incident.workers.given_name} ${incident.workers.family_name}`.trim()
+    : '';
+  const workerPhone = incident?.workers?.mobile_number || incident?.workers?.phone_number;
+
+  // Handle based on task type
+  switch (voiceTask.task_type) {
+    case 'booking_get_times': {
+      // First call to medical center - get available times
+      if (callSuccessful && customData.available_times?.length > 0) {
+        // Update workflow with available times
+        await supabase.rpc('update_booking_workflow', {
+          p_workflow_id: workflowId,
+          p_status: 'times_collected',
+          p_available_times: customData.available_times,
+        });
+
+        // Log activity
+        await supabase.from('incident_activity_log').insert({
+          incident_id: workflow.incident_id,
+          action_type: 'voice_agent',
+          summary: 'Available appointment times collected',
+          details: `AI agent collected ${customData.available_times.length} available times from ${medicalCenter?.name}`,
+          actor_name: 'AI Booking Agent',
+          metadata: {
+            workflow_id: workflowId,
+            available_times: customData.available_times,
+            call_id: call.call_id,
+          },
+        });
+
+        // Start call to patient
+        await initiateNextBookingCall(
+          supabaseUrl,
+          supabaseServiceKey,
+          workflowId,
+          'booking_patient_confirm',
+          workflow,
+          incident,
+          medicalCenter,
+          customData.available_times
+        );
+      } else {
+        // Failed to get times
+        await supabase.rpc('update_booking_workflow', {
+          p_workflow_id: workflowId,
+          p_status: 'failed',
+          p_failure_reason: customData.failure_reason || 'Unable to get available appointment times',
+        });
+
+        await supabase.from('incident_activity_log').insert({
+          incident_id: workflow.incident_id,
+          action_type: 'voice_agent',
+          summary: 'Medical booking call failed',
+          details: `AI agent was unable to get available times from ${medicalCenter?.name}: ${customData.failure_reason || 'Unknown reason'}`,
+          actor_name: 'AI Booking Agent',
+          metadata: { workflow_id: workflowId, call_id: call.call_id },
+        });
+      }
+      break;
+    }
+
+    case 'booking_patient_confirm': {
+      // Second call to patient - confirm preferred time
+      if (callSuccessful && customData.patient_confirmed_time) {
+        // Update workflow with patient's choice
+        await supabase.rpc('update_booking_workflow', {
+          p_workflow_id: workflowId,
+          p_status: 'patient_confirmed',
+          p_patient_preferred_time: customData.patient_confirmed_time,
+          p_patient_preferred_doctor: customData.patient_preferred_doctor || null,
+        });
+
+        await supabase.from('incident_activity_log').insert({
+          incident_id: workflow.incident_id,
+          action_type: 'voice_agent',
+          summary: 'Patient confirmed appointment time',
+          details: `${workerName} confirmed availability for ${customData.patient_confirmed_time}`,
+          actor_name: 'AI Booking Agent',
+          metadata: {
+            workflow_id: workflowId,
+            confirmed_time: customData.patient_confirmed_time,
+            call_id: call.call_id,
+          },
+        });
+
+        // Start final confirmation call to medical center
+        await initiateNextBookingCall(
+          supabaseUrl,
+          supabaseServiceKey,
+          workflowId,
+          'booking_final_confirm',
+          workflow,
+          incident,
+          medicalCenter,
+          workflow.available_times,
+          customData.patient_confirmed_time,
+          customData.patient_preferred_doctor
+        );
+      } else if (customData.patient_needs_reschedule) {
+        // Patient can't make any offered times - need to call clinic again
+        await supabase.rpc('update_booking_workflow', {
+          p_workflow_id: workflowId,
+          p_status: 'initiated',  // Reset to try again
+        });
+
+        await supabase.from('incident_activity_log').insert({
+          incident_id: workflow.incident_id,
+          action_type: 'voice_agent',
+          summary: 'Patient requested different times',
+          details: `${workerName} is not available for the offered times. Will call clinic for alternative times.`,
+          actor_name: 'AI Booking Agent',
+          metadata: { workflow_id: workflowId, call_id: call.call_id },
+        });
+
+        // Call medical center again for different times
+        await initiateNextBookingCall(
+          supabaseUrl,
+          supabaseServiceKey,
+          workflowId,
+          'booking_get_times',
+          workflow,
+          incident,
+          medicalCenter,
+          [],
+          null,
+          null,
+          customData.patient_availability_notes
+        );
+      } else {
+        // Failed to confirm with patient
+        await supabase.rpc('update_booking_workflow', {
+          p_workflow_id: workflowId,
+          p_status: 'failed',
+          p_failure_reason: customData.failure_reason || 'Unable to confirm with patient',
+        });
+
+        await supabase.from('incident_activity_log').insert({
+          incident_id: workflow.incident_id,
+          action_type: 'voice_agent',
+          summary: 'Patient confirmation call failed',
+          details: `AI agent was unable to confirm appointment time with ${workerName}`,
+          actor_name: 'AI Booking Agent',
+          metadata: { workflow_id: workflowId, call_id: call.call_id },
+        });
+      }
+      break;
+    }
+
+    case 'booking_final_confirm': {
+      // Final call to medical center - confirm the booking
+      if (callSuccessful && customData.booking_confirmed) {
+        // Create appointment record
+        const { data: appointment } = await supabase
+          .from('appointments')
+          .insert({
+            incident_id: workflow.incident_id,
+            worker_id: workflow.worker_id,
+            medical_center_id: workflow.medical_center_id,
+            medical_professional_id: workflow.preferred_doctor_id || null,
+            appointment_type: 'initial_consult',
+            scheduled_date: customData.confirmed_datetime || customData.patient_confirmed_time,
+            status: 'confirmed',
+            confirmation_method: 'voice_agent',
+            confirmed_at: new Date().toISOString(),
+            confirmed_by: 'ai_booking_agent',
+            location_address: medicalCenter?.address 
+              ? `${medicalCenter.address}, ${medicalCenter.suburb || ''} ${medicalCenter.postcode || ''}`.trim()
+              : null,
+            location_suburb: medicalCenter?.suburb,
+            notes: customData.booking_notes || `Booked by AI agent. Doctor: ${customData.confirmed_doctor_name || 'Any available'}`,
+            created_by: 'ai_booking_agent',
+          })
+          .select()
+          .single();
+
+        // Update workflow as completed
+        await supabase.rpc('update_booking_workflow', {
+          p_workflow_id: workflowId,
+          p_status: 'completed',
+          p_confirmed_datetime: customData.confirmed_datetime || customData.patient_confirmed_time,
+          p_confirmed_doctor_name: customData.confirmed_doctor_name,
+          p_confirmed_location: medicalCenter?.address,
+          p_clinic_email: customData.clinic_email,
+          p_special_instructions: customData.special_instructions,
+          p_appointment_id: appointment?.id,
+        });
+
+        await supabase.from('incident_activity_log').insert({
+          incident_id: workflow.incident_id,
+          action_type: 'voice_agent',
+          summary: 'Medical appointment booked successfully',
+          details: `Appointment confirmed at ${medicalCenter?.name} for ${customData.confirmed_datetime || 'scheduled time'} with ${customData.confirmed_doctor_name || 'available doctor'}`,
+          actor_name: 'AI Booking Agent',
+          metadata: {
+            workflow_id: workflowId,
+            appointment_id: appointment?.id,
+            confirmed_datetime: customData.confirmed_datetime,
+            doctor_name: customData.confirmed_doctor_name,
+            call_id: call.call_id,
+          },
+        });
+
+        console.log(`Booking workflow ${workflowId} completed successfully. Appointment ID: ${appointment?.id}`);
+      } else {
+        // Final confirmation failed
+        await supabase.rpc('update_booking_workflow', {
+          p_workflow_id: workflowId,
+          p_status: 'failed',
+          p_failure_reason: customData.failure_reason || 'Unable to confirm final booking',
+        });
+
+        await supabase.from('incident_activity_log').insert({
+          incident_id: workflow.incident_id,
+          action_type: 'voice_agent',
+          summary: 'Final booking confirmation failed',
+          details: `AI agent was unable to confirm the final booking with ${medicalCenter?.name}`,
+          actor_name: 'AI Booking Agent',
+          metadata: { workflow_id: workflowId, call_id: call.call_id },
+        });
+      }
+      break;
+    }
+  }
+}
+
+// Initiate the next call in the booking workflow sequence
+async function initiateNextBookingCall(
+  supabaseUrl: string,
+  supabaseServiceKey: string,
+  workflowId: string,
+  taskType: 'booking_get_times' | 'booking_patient_confirm' | 'booking_final_confirm',
+  workflow: BookingWorkflow,
+  incident: any,
+  medicalCenter: any,
+  availableTimes: any[] = [],
+  patientConfirmedTime?: string,
+  patientPreferredDoctor?: string,
+  additionalNotes?: string
+): Promise<void> {
+  const retellApiKey = Deno.env.get('RETELL_API_KEY');
+  const retellPhoneNumber = Deno.env.get('RETELL_PHONE_NUMBER') || '+61299999999';
+  const bookingAgentId = Deno.env.get('RETELL_BOOKING_AGENT_ID');
+
+  if (!retellApiKey || !bookingAgentId) {
+    console.error('Missing Retell configuration for booking workflow');
+    return;
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+  // Determine target phone and build dynamic variables
+  let targetPhone: string;
+  let targetName: string;
+  let callType: string;
+  const workerName = incident?.workers 
+    ? `${incident.workers.given_name} ${incident.workers.family_name}`.trim()
+    : '';
+
+  if (taskType === 'booking_patient_confirm') {
+    // Call the patient
+    targetPhone = incident?.workers?.mobile_number || incident?.workers?.phone_number;
+    targetName = workerName;
+    callType = 'patient';
+  } else {
+    // Call the medical center
+    targetPhone = medicalCenter?.phone_number;
+    targetName = medicalCenter?.name;
+    callType = 'medical_center';
+  }
+
+  if (!targetPhone) {
+    console.error(`No phone number available for ${taskType}`);
+    return;
+  }
+
+  // Format phone number
+  if (targetPhone.startsWith('0') && targetPhone.length === 10) {
+    targetPhone = '+61' + targetPhone.substring(1);
+  } else if (!targetPhone.startsWith('+')) {
+    targetPhone = '+61' + targetPhone;
+  }
+
+  // Build dynamic variables for the agent
+  const dynamicVariables: Record<string, string> = {
+    workflow_id: workflowId,
+    call_type: taskType.replace('booking_', ''),
+    worker_name: workerName,
+    worker_first_name: incident?.workers?.given_name || '',
+    medical_center_name: medicalCenter?.name || '',
+    doctor_preference: workflow.doctor_preference,
+    urgency: workflow.urgency,
+  };
+
+  if (taskType === 'booking_patient_confirm') {
+    // Include available times for patient call
+    dynamicVariables.available_times_summary = availableTimes
+      .map((t: any, i: number) => `Option ${i + 1}: ${t.datetime || t.time} ${t.doctor_name ? `with ${t.doctor_name}` : ''}`)
+      .join('. ');
+    dynamicVariables.available_times_json = JSON.stringify(availableTimes);
+  }
+
+  if (taskType === 'booking_final_confirm') {
+    // Include confirmed time for final confirmation
+    dynamicVariables.patient_confirmed_time = patientConfirmedTime || '';
+    dynamicVariables.patient_preferred_doctor = patientPreferredDoctor || '';
+  }
+
+  if (additionalNotes) {
+    dynamicVariables.additional_notes = additionalNotes;
+  }
+
+  // Determine call sequence number
+  const { data: existingTasks } = await supabase
+    .from('voice_tasks')
+    .select('id')
+    .eq('booking_workflow_id', workflowId);
+  
+  const callSequence = (existingTasks?.length || 0) + 1;
+
+  // Create voice task
+  const { data: voiceTask, error: taskError } = await supabase
+    .from('voice_tasks')
+    .insert({
+      incident_id: workflow.incident_id,
+      task_type: taskType,
+      priority: workflow.urgency === 'urgent' ? 9 : 5,
+      target_phone: targetPhone,
+      target_name: targetName,
+      booking_workflow_id: workflowId,
+      context_data: {
+        workflow_id: workflowId,
+        medical_center_id: workflow.medical_center_id,
+        worker_name: workerName,
+        available_times: availableTimes,
+        patient_confirmed_time: patientConfirmedTime,
+        call_sequence: callSequence,
+      },
+      status: 'pending',
+      scheduled_at: new Date().toISOString(),
+      created_by: 'ai_booking_agent',
+    })
+    .select()
+    .single();
+
+  if (taskError) {
+    console.error('Error creating voice task:', taskError);
+    return;
+  }
+
+  // Create Retell call
+  const retellResponse = await fetch('https://api.retellai.com/v2/create-phone-call', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${retellApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from_number: retellPhoneNumber,
+      to_number: targetPhone,
+      override_agent_id: bookingAgentId,
+      retell_llm_dynamic_variables: dynamicVariables,
+      metadata: {
+        task_id: voiceTask.id,
+        workflow_id: workflowId,
+        incident_id: workflow.incident_id,
+        task_type: taskType,
+        call_sequence: callSequence,
+      },
+    }),
+  });
+
+  if (!retellResponse.ok) {
+    const errorText = await retellResponse.text();
+    console.error('Retell API error:', errorText);
+    await supabase.from('voice_tasks').update({
+      status: 'failed',
+      failure_reason: `Retell API error: ${errorText}`,
+    }).eq('id', voiceTask.id);
+    return;
+  }
+
+  const retellData = await retellResponse.json();
+  console.log(`Next booking call created: ${retellData.call_id} (${taskType})`);
+
+  // Update task and workflow
+  await supabase.from('voice_tasks').update({
+    retell_call_id: retellData.call_id,
+    status: 'in_progress',
+  }).eq('id', voiceTask.id);
+
+  // Update workflow status based on call type
+  const statusMap: Record<string, string> = {
+    'booking_get_times': 'calling_medical_center',
+    'booking_patient_confirm': 'calling_patient',
+    'booking_final_confirm': 'confirming_booking',
+  };
+
+  await supabase.rpc('update_booking_workflow', {
+    p_workflow_id: workflowId,
+    p_status: statusMap[taskType],
+    p_current_call_id: retellData.call_id,
+    p_last_call_type: callType,
+  });
+
+  // Log activity
+  const activityMap: Record<string, string> = {
+    'booking_get_times': 'Calling medical center for appointment times',
+    'booking_patient_confirm': `Calling ${workerName} to confirm preferred time`,
+    'booking_final_confirm': 'Calling medical center to confirm final booking',
+  };
+
+  await supabase.from('incident_activity_log').insert({
+    incident_id: workflow.incident_id,
+    action_type: 'voice_agent',
+    summary: activityMap[taskType],
+    details: `AI agent calling ${targetName} at ${targetPhone}`,
+    actor_name: 'AI Booking Agent',
+    metadata: {
+      workflow_id: workflowId,
+      call_id: retellData.call_id,
+      task_type: taskType,
+      call_sequence: callSequence,
+    },
+  });
 }
 
 // Extract structured data from transcript
@@ -685,6 +1175,16 @@ serve(async (req: Request) => {
             updated_at: new Date().toISOString(),
           })
           .eq('id', voiceTask.id);
+
+        // Process booking workflow calls (multi-step booking process)
+        const bookingTaskTypes = ['booking_get_times', 'booking_patient_confirm', 'booking_final_confirm'];
+        if (bookingTaskTypes.includes(voiceTask.task_type)) {
+          try {
+            await processBookingWorkflowCall(supabase, supabaseUrl, supabaseServiceKey!, call, voiceTask);
+          } catch (bookingError) {
+            console.error('Error processing booking workflow:', bookingError);
+          }
+        }
 
         // If booking was successful, create appointment record
         if (

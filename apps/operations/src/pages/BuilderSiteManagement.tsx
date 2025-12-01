@@ -38,7 +38,10 @@ import {
   Map as MapIcon,
   AlertCircle,
   Eye,
-  EyeOff
+  EyeOff,
+  Stethoscope,
+  CheckCircle2,
+  Clock
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -76,6 +79,26 @@ interface SupervisorWorker {
   mobile_number: string;
   phone_number: string;
   email: string;
+}
+
+interface MedicalCenter {
+  id: string;
+  name: string;
+  phone_number: string;
+  address: string;
+  suburb: string;
+  postcode: string;
+  state: string;
+  active: boolean;
+  mend_prepared: boolean;
+  mend_prepared_at: string | null;
+  mend_prepared_by: string | null;
+}
+
+interface SiteMedicalCenterSelection {
+  medical_center_id: string;
+  priority: number; // 1=primary, 2=backup1, 3=backup2
+  notes?: string;
 }
 
 interface SiteFormData {
@@ -144,6 +167,7 @@ export default function BuilderSiteManagement() {
     mobile_number: "",
     occupation: "Site Supervisor",
   });
+  const [medicalCenterSelections, setMedicalCenterSelections] = useState<SiteMedicalCenterSelection[]>([]);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -185,6 +209,21 @@ export default function BuilderSiteManagement() {
       return (data || []) as SupervisorWorker[];
     },
     enabled: !!userEmployerId && isAuthenticated && !authLoading
+  });
+
+  // Fetch all active medical centers
+  const { data: medicalCenters = [] } = useQuery({
+    queryKey: ['medical-centers'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('medical_centers')
+        .select('*')
+        .eq('active', true)
+        .order('name');
+      if (error) throw error;
+      return data as MedicalCenter[];
+    },
+    enabled: isAuthenticated && !authLoading
   });
 
   // Fetch sites for this employer
@@ -378,6 +417,41 @@ export default function BuilderSiteManagement() {
     }
   });
 
+  // Save site medical centers mutation
+  const saveSiteMedicalCentersMutation = useMutation({
+    mutationFn: async ({ siteId, selections }: { siteId: number; selections: SiteMedicalCenterSelection[] }) => {
+      const { data: result, error } = await supabase.rpc('set_site_medical_centers', {
+        p_site_id: siteId,
+        p_medical_centers: selections.filter(s => s.medical_center_id),
+        p_user_role_id: userData?.role_id ? parseInt(userData.role_id) : null,
+        p_user_employer_id: userEmployerId,
+        p_created_by: userData?.display_name || userData?.email || 'system'
+      });
+      if (error) throw error;
+      if (!result?.success) throw new Error(result?.error || 'Failed to save medical centers');
+      return result;
+    },
+    onError: (error) => {
+      console.error('Error saving medical centers:', error);
+    }
+  });
+
+  // Fetch site medical centers when editing
+  const fetchSiteMedicalCenters = async (siteId: number) => {
+    const { data, error } = await supabase.rpc('get_site_medical_centers', {
+      p_site_id: siteId
+    });
+    if (error) {
+      console.error('Error fetching site medical centers:', error);
+      return [];
+    }
+    return (data || []).map((mc: any) => ({
+      medical_center_id: mc.id,
+      priority: mc.priority,
+      notes: mc.notes
+    }));
+  };
+
   // Loading/Auth states
   if (authLoading) {
     return (
@@ -429,9 +503,10 @@ export default function BuilderSiteManagement() {
       latitude: undefined,
       longitude: undefined,
     });
+    setMedicalCenterSelections([]);
   };
 
-  const handleEdit = (site: Site) => {
+  const handleEdit = async (site: Site) => {
     setSelectedSite(site);
     setFormData({
       site_name: site.site_name,
@@ -447,6 +522,9 @@ export default function BuilderSiteManagement() {
       latitude: site.latitude,
       longitude: site.longitude,
     });
+    // Fetch existing medical center assignments
+    const existingMedicalCenters = await fetchSiteMedicalCenters(site.site_id);
+    setMedicalCenterSelections(existingMedicalCenters);
     setIsEditDialogOpen(true);
   };
 
@@ -473,10 +551,46 @@ export default function BuilderSiteManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedSite) {
-      updateSiteMutation.mutate({ id: selectedSite.site_id, data: formData });
+      updateSiteMutation.mutate({ id: selectedSite.site_id, data: formData }, {
+        onSuccess: () => {
+          // Save medical centers after site update
+          if (medicalCenterSelections.length > 0) {
+            saveSiteMedicalCentersMutation.mutate({
+              siteId: selectedSite.site_id,
+              selections: medicalCenterSelections
+            });
+          }
+        }
+      });
     } else {
-      createSiteMutation.mutate(formData);
+      createSiteMutation.mutate(formData, {
+        onSuccess: (result: any) => {
+          // Save medical centers after site creation
+          if (result?.site?.site_id && medicalCenterSelections.length > 0) {
+            saveSiteMedicalCentersMutation.mutate({
+              siteId: result.site.site_id,
+              selections: medicalCenterSelections
+            });
+          }
+        }
+      });
     }
+  };
+
+  // Helper to update medical center selection
+  const updateMedicalCenterSelection = (priority: number, medicalCenterId: string) => {
+    setMedicalCenterSelections(prev => {
+      const filtered = prev.filter(s => s.priority !== priority);
+      if (medicalCenterId) {
+        return [...filtered, { medical_center_id: medicalCenterId, priority }].sort((a, b) => a.priority - b.priority);
+      }
+      return filtered;
+    });
+  };
+
+  // Get selected medical center for a priority level
+  const getSelectedMedicalCenter = (priority: number): string => {
+    return medicalCenterSelections.find(s => s.priority === priority)?.medical_center_id || '';
   };
 
   const filteredSites = sites?.filter(site =>
@@ -671,6 +785,119 @@ export default function BuilderSiteManagement() {
                     <Label htmlFor="aliases">Voice Agent Aliases</Label>
                     <Input id="aliases" value={formData.aliases} onChange={(e) => setFormData({ ...formData, aliases: e.target.value })} placeholder="e.g., Curry Curry, Kerry Kerry (comma-separated)" />
                     <p className="text-xs text-muted-foreground">Alternative names/phonetic spellings for voice agent recognition</p>
+                  </div>
+
+                  {/* Medical Center Assignment Section */}
+                  <div className="col-span-2 space-y-4 border-t pt-4 mt-2">
+                    <div className="flex items-center gap-2">
+                      <Stethoscope className="h-5 w-5 text-muted-foreground" />
+                      <Label className="text-base font-medium">Preferred Medical Centers</Label>
+                    </div>
+                    <p className="text-sm text-muted-foreground -mt-2">
+                      Select medical centers for AI voice agent to use when booking appointments for injured workers at this site.
+                    </p>
+                    
+                    {/* Primary Medical Center */}
+                    <div className="space-y-2">
+                      <Label htmlFor="primary_medical_center" className="text-sm">
+                        Primary Medical Center
+                        <Badge variant="outline" className="ml-2 text-xs">Required for AI booking</Badge>
+                      </Label>
+                      <Select
+                        value={getSelectedMedicalCenter(1)}
+                        onValueChange={(value) => updateMedicalCenterSelection(1, value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select primary medical center..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {medicalCenters.map((center) => (
+                            <SelectItem key={center.id} value={center.id}>
+                              <div className="flex items-center gap-2">
+                                <span>{center.name}</span>
+                                <span className="text-xs text-muted-foreground">({center.suburb}, {center.state})</span>
+                                {center.mend_prepared ? (
+                                  <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                ) : (
+                                  <Clock className="h-3 w-3 text-amber-500" />
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {getSelectedMedicalCenter(1) && (
+                        <div className="text-xs text-muted-foreground flex items-center gap-2">
+                          {medicalCenters.find(c => c.id === getSelectedMedicalCenter(1))?.mend_prepared ? (
+                            <><CheckCircle2 className="h-3 w-3 text-green-500" /> Prepared for AI calls</>
+                          ) : (
+                            <><Clock className="h-3 w-3 text-amber-500" /> Needs briefing before AI calls</>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Backup 1 Medical Center */}
+                    <div className="space-y-2">
+                      <Label htmlFor="backup1_medical_center" className="text-sm">Backup Medical Center 1 (Optional)</Label>
+                      <Select
+                        value={getSelectedMedicalCenter(2)}
+                        onValueChange={(value) => updateMedicalCenterSelection(2, value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select backup medical center..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">None</SelectItem>
+                          {medicalCenters
+                            .filter(c => c.id !== getSelectedMedicalCenter(1))
+                            .map((center) => (
+                              <SelectItem key={center.id} value={center.id}>
+                                <div className="flex items-center gap-2">
+                                  <span>{center.name}</span>
+                                  <span className="text-xs text-muted-foreground">({center.suburb})</span>
+                                  {center.mend_prepared ? (
+                                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                  ) : (
+                                    <Clock className="h-3 w-3 text-amber-500" />
+                                  )}
+                                </div>
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Backup 2 Medical Center */}
+                    <div className="space-y-2">
+                      <Label htmlFor="backup2_medical_center" className="text-sm">Backup Medical Center 2 (Optional)</Label>
+                      <Select
+                        value={getSelectedMedicalCenter(3)}
+                        onValueChange={(value) => updateMedicalCenterSelection(3, value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select backup medical center..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">None</SelectItem>
+                          {medicalCenters
+                            .filter(c => c.id !== getSelectedMedicalCenter(1) && c.id !== getSelectedMedicalCenter(2))
+                            .map((center) => (
+                              <SelectItem key={center.id} value={center.id}>
+                                <div className="flex items-center gap-2">
+                                  <span>{center.name}</span>
+                                  <span className="text-xs text-muted-foreground">({center.suburb})</span>
+                                  {center.mend_prepared ? (
+                                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                  ) : (
+                                    <Clock className="h-3 w-3 text-amber-500" />
+                                  )}
+                                </div>
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
                 <DialogFooter>
@@ -948,6 +1175,119 @@ export default function BuilderSiteManagement() {
                   <Label htmlFor="edit_aliases">Voice Agent Aliases</Label>
                   <Input id="edit_aliases" value={formData.aliases} onChange={(e) => setFormData({ ...formData, aliases: e.target.value })} placeholder="e.g., Curry Curry, Kerry Kerry (comma-separated)" />
                   <p className="text-xs text-muted-foreground">Alternative names/phonetic spellings for voice agent recognition</p>
+                </div>
+
+                {/* Medical Center Assignment Section */}
+                <div className="col-span-2 space-y-4 border-t pt-4 mt-2">
+                  <div className="flex items-center gap-2">
+                    <Stethoscope className="h-5 w-5 text-muted-foreground" />
+                    <Label className="text-base font-medium">Preferred Medical Centers</Label>
+                  </div>
+                  <p className="text-sm text-muted-foreground -mt-2">
+                    Select medical centers for AI voice agent to use when booking appointments for injured workers at this site.
+                  </p>
+                  
+                  {/* Primary Medical Center */}
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_primary_medical_center" className="text-sm">
+                      Primary Medical Center
+                      <Badge variant="outline" className="ml-2 text-xs">Required for AI booking</Badge>
+                    </Label>
+                    <Select
+                      value={getSelectedMedicalCenter(1)}
+                      onValueChange={(value) => updateMedicalCenterSelection(1, value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select primary medical center..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {medicalCenters.map((center) => (
+                          <SelectItem key={center.id} value={center.id}>
+                            <div className="flex items-center gap-2">
+                              <span>{center.name}</span>
+                              <span className="text-xs text-muted-foreground">({center.suburb}, {center.state})</span>
+                              {center.mend_prepared ? (
+                                <CheckCircle2 className="h-3 w-3 text-green-500" />
+                              ) : (
+                                <Clock className="h-3 w-3 text-amber-500" />
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {getSelectedMedicalCenter(1) && (
+                      <div className="text-xs text-muted-foreground flex items-center gap-2">
+                        {medicalCenters.find(c => c.id === getSelectedMedicalCenter(1))?.mend_prepared ? (
+                          <><CheckCircle2 className="h-3 w-3 text-green-500" /> Prepared for AI calls</>
+                        ) : (
+                          <><Clock className="h-3 w-3 text-amber-500" /> Needs briefing before AI calls</>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Backup 1 Medical Center */}
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_backup1_medical_center" className="text-sm">Backup Medical Center 1 (Optional)</Label>
+                    <Select
+                      value={getSelectedMedicalCenter(2)}
+                      onValueChange={(value) => updateMedicalCenterSelection(2, value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select backup medical center..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">None</SelectItem>
+                        {medicalCenters
+                          .filter(c => c.id !== getSelectedMedicalCenter(1))
+                          .map((center) => (
+                            <SelectItem key={center.id} value={center.id}>
+                              <div className="flex items-center gap-2">
+                                <span>{center.name}</span>
+                                <span className="text-xs text-muted-foreground">({center.suburb})</span>
+                                {center.mend_prepared ? (
+                                  <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                ) : (
+                                  <Clock className="h-3 w-3 text-amber-500" />
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Backup 2 Medical Center */}
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_backup2_medical_center" className="text-sm">Backup Medical Center 2 (Optional)</Label>
+                    <Select
+                      value={getSelectedMedicalCenter(3)}
+                      onValueChange={(value) => updateMedicalCenterSelection(3, value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select backup medical center..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">None</SelectItem>
+                        {medicalCenters
+                          .filter(c => c.id !== getSelectedMedicalCenter(1) && c.id !== getSelectedMedicalCenter(2))
+                          .map((center) => (
+                            <SelectItem key={center.id} value={center.id}>
+                              <div className="flex items-center gap-2">
+                                <span>{center.name}</span>
+                                <span className="text-xs text-muted-foreground">({center.suburb})</span>
+                                {center.mend_prepared ? (
+                                  <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                ) : (
+                                  <Clock className="h-3 w-3 text-amber-500" />
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
               <DialogFooter>

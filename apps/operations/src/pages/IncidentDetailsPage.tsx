@@ -24,6 +24,10 @@ import { BodyInjuryViewer } from "@/components/incident-report/BodyInjuryViewer"
 import IncidentCostEstimate from "@/components/incident-report/cost/IncidentCostEstimate";
 import { SiteLocationMap } from "@/components/incidents/SiteLocationMap";
 import { IncidentActivityLog, type ActivityLogEntry } from "@/components/incidents/IncidentActivityLog";
+import { BookMedicalAppointmentDialog } from "@/components/incidents/BookMedicalAppointmentDialog";
+import { UpcomingAppointments } from "@/components/incidents/UpcomingAppointments";
+import { CallLogSummaryCard } from "@/components/incidents/CallLogSummaryCard";
+import { VoiceCallLogModal } from "@/components/incidents/VoiceCallLogModal";
 import { useAuth } from "@/lib/auth/AuthContext";
 
 // Type for the incident with all joined relations
@@ -143,6 +147,8 @@ const IncidentDetailsPage = () => {
   const queryClient = useQueryClient();
   const { userData } = useAuth();
   const [isAddActivityOpen, setIsAddActivityOpen] = useState(false);
+  const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
+  const [isCallLogModalOpen, setIsCallLogModalOpen] = useState(false);
   const [newActivity, setNewActivity] = useState({
     type: 'note' as 'call' | 'appointment' | 'note' | 'voice_agent' | 'edit',
     title: '',
@@ -371,12 +377,22 @@ const IncidentDetailsPage = () => {
               Back to Dashboard
             </Button>
             
-            <Link to={`/incident/${id}/edit`}>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Pencil className="h-4 w-4" />
-                Edit Incident
+            <div className="flex items-center gap-2">
+              <Button 
+                onClick={() => setIsBookingDialogOpen(true)}
+                size="sm" 
+                className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+              >
+                <Bot className="h-4 w-4" />
+                Book Appointment
               </Button>
-            </Link>
+              <Link to={`/incident/${id}/edit`}>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Pencil className="h-4 w-4" />
+                  Edit Incident
+                </Button>
+              </Link>
+            </div>
           </div>
           
           {/* Title row: Clean incident title with classification */}
@@ -587,8 +603,11 @@ const IncidentDetailsPage = () => {
             </Card>
           </div>
 
-          {/* Right Column - Cost & Activity Log */}
+          {/* Right Column - Appointments, Cost & Activity Log */}
           <div className="space-y-6">
+            {/* Upcoming Appointments - Prominent display */}
+            <UpcomingAppointments incidentId={incident?.incident_id || 0} />
+
             {/* Cost Estimate - LTI vs MTI Comparison */}
             <IncidentCostEstimate
               incidentId={incident?.incident_id}
@@ -601,6 +620,14 @@ const IncidentDetailsPage = () => {
               isFatality={incident?.fatality || false}
               readOnly={true}
             />
+
+            {/* Voice Agent Call Summary */}
+            {incident?.incident_id && (
+              <CallLogSummaryCard 
+                incidentId={incident.incident_id} 
+                onViewDetails={() => setIsCallLogModalOpen(true)}
+              />
+            )}
 
             {/* Reporting Information */}
             <Card>
@@ -739,6 +766,30 @@ const IncidentDetailsPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Book Medical Appointment Dialog */}
+      <BookMedicalAppointmentDialog
+        open={isBookingDialogOpen}
+        onOpenChange={setIsBookingDialogOpen}
+        incidentId={incident?.incident_id || 0}
+        workerName={`${incident?.worker?.given_name || ''} ${incident?.worker?.family_name || ''}`.trim() || 'the worker'}
+        workerId={incident?.worker?.worker_id}
+        siteId={incident?.site?.site_id}
+        workerPreparationStatus={incident?.worker ? {
+          ai_calls_prepared: (incident.worker as any).ai_calls_prepared || false,
+          ai_calls_prepared_at: (incident.worker as any).ai_calls_prepared_at || null,
+          ai_calls_prepared_by: (incident.worker as any).ai_calls_prepared_by || null,
+        } : undefined}
+      />
+
+      {/* Voice Call Log Detail Modal */}
+      {incident?.incident_id && (
+        <VoiceCallLogModal
+          open={isCallLogModalOpen}
+          onOpenChange={setIsCallLogModalOpen}
+          incidentId={incident.incident_id}
+        />
+      )}
     </div>
   );
 };

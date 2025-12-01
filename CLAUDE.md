@@ -15,10 +15,10 @@ AI-augmented incident management to achieve 5x revenue growth without proportion
    - RLS policies configured for all tables
 
 2. **Retell AI Agents Created**: 4 agents configured in Retell dashboard
-   - Medical Booking Agent (outbound - navigates IVR, books appointments)
+   - **Medical Booking Agent "Emma"** (outbound - 3-call workflow to book appointments) ✅ CONFIGURED
    - Wellness Check-In Agent (routine recovery check-ins)
    - Appointment Reminder Agent (confirmation calls)
-   - Incident Reporter Agent (inbound - receives incident reports)
+   - **Incident Reporter Agent "Sophie"** (inbound - receives incident reports) ✅ WORKING
 
 3. **Australian Phone Number**: Via Crazytel (not Twilio - SIP issues)
    - DID: `+61 2 9136 2358`
@@ -86,6 +86,52 @@ AI-augmented incident management to achieve 5x revenue growth without proportion
   - 40: Some words match
 - Auto-selects when: only one match, score ≥70, or best match 20+ points better than second
 - Only asks for clarification when genuinely ambiguous
+
+### ✅ Medical Booking Agent "Emma" (2025-11-30)
+**Automated 3-call workflow to book medical appointments for injured workers**
+
+**Workflow:**
+1. **Call 1 → Medical Center**: Get 2-3 available appointment times
+2. **Call 2 → Patient**: Confirm which time works for them
+3. **Call 3 → Medical Center**: Confirm the final booking
+
+**Database Tables Created:**
+- `booking_workflows` - Tracks multi-call state machine (pending_times → pending_patient → pending_confirmation → completed/failed)
+- New task types: `booking_get_times`, `booking_patient_confirm`, `booking_final_confirm`
+- `booking_workflow_id` columns added to `voice_tasks` and `voice_logs`
+
+**Edge Functions Deployed (all with --no-verify-jwt):**
+| Function | Purpose |
+|----------|---------|
+| `initiate-booking-workflow` | Creates workflow, initiates first call |
+| `booking-submit-times` | Receives available times from clinic call |
+| `booking-patient-confirm` | Records patient's selected time |
+| `booking-patient-reschedule` | Patient needs different times |
+| `booking-confirm-final` | Confirms final booking with clinic |
+| `booking-failed` | Marks workflow as failed |
+
+**Retell Agent Configuration:**
+- Agent Name: "Emma" (Medical Booking Agent)
+- 5 custom functions configured with dedicated endpoints
+- Post-Call Data Extraction fields for all 3 call types (16 fields total)
+- Simplified JSON schemas (flat, no nested objects)
+
+**UI Components Created:**
+- `BookMedicalAppointmentDialog.tsx` - Initiate booking from incident page
+- `UpcomingAppointments.tsx` - Display appointments prominently in case file
+- Quick action button on `IncidentDetailsPage.tsx`
+
+**Key Documentation:**
+- `/docs/BOOKING_AGENT_PROMPT.md` - Complete prompt, function schemas, post-call extraction config
+
+**Retell Function URLs:**
+```
+https://rkzcybthcszeusrohbtc.supabase.co/functions/v1/booking-submit-times
+https://rkzcybthcszeusrohbtc.supabase.co/functions/v1/booking-patient-confirm
+https://rkzcybthcszeusrohbtc.supabase.co/functions/v1/booking-patient-reschedule
+https://rkzcybthcszeusrohbtc.supabase.co/functions/v1/booking-confirm-final
+https://rkzcybthcszeusrohbtc.supabase.co/functions/v1/booking-failed
+```
 
 ### ✅ Enhanced Voice Agent Lookup (2025-11-29)
 **Major improvements to employer/site identification accuracy!**
@@ -594,11 +640,17 @@ get_case_notes(p_incident_id) RETURNS JSONB
 6. **Injury Type**: Uses name as value (not ID) to match database schema
    - Database stores `injury_type` as string (name), not foreign key
 
-### ⏳ Pending
-1. **Register Account-Level Webhook**: Retell Dashboard → Settings → Webhooks
+### ⏳ Pending / Next Steps
+1. **Integrate Booking Agent into Incident Page**: Connect UI components to live workflow
+   - Wire up "Book Appointment" button to `initiate-booking-workflow`
+   - Display booking workflow status in incident details
+   - Show upcoming appointments from `appointments` table
+   
+2. **Register Account-Level Webhook**: Retell Dashboard → Settings → Webhooks
    - URL: `https://rkzcybthcszeusrohbtc.supabase.co/functions/v1/retell-webhook-handler`
    - Events: `call_started`, `call_ended`, `call_analyzed`
-2. **HubSpot Integration**: Not started
+   
+3. **HubSpot Integration**: Not started
    - Sync call logs and transcripts
    - Link voice interactions to contacts
 
@@ -714,8 +766,10 @@ Claude can:
 ### 📚 Voice Agent Documentation
 - `/docs/Voice Agent Strategy For Incident Management.md` - Strategic architecture & business case
 - `/docs/VOICE_AGENT_SETUP.md` - Original implementation guide
-- `/docs/RETELL_CONFIGURATION_GUIDE.md` - **NEW** Step-by-step Retell config (dynamic vars, functions, webhooks)
-- `/docs/retell-agent-prompts.md` - Agent prompts and tool definitions
+- `/docs/RETELL_CONFIGURATION_GUIDE.md` - Step-by-step Retell config (dynamic vars, functions, webhooks)
+- `/docs/retell-agent-prompts.md` - Incident Reporter agent prompts and tool definitions
+- `/docs/incident_reporter_custom_functions.txt` - Incident Reporter function schemas
+- `/docs/BOOKING_AGENT_PROMPT.md` - **NEW** Medical Booking Agent "Emma" - prompt, functions, post-call extraction
 
 ---
 
@@ -1036,5 +1090,5 @@ npm run preview      # Preview build
 ---
 
 **Last Updated**: November 30, 2025
-**Version**: 4.14.0
-**Status**: ✅ PRODUCTION READY | ✅ Incident Submission - WORKING | ✅ Voice Agent - Fully Operational (with Phonetic Matching) | ✅ RLS + Clerk Auth - Fixed | ✅ Site Management Redesign - Complete | ✅ Sites RBAC - Fixed | ✅ Cost Estimator - Complete
+**Version**: 4.15.0
+**Status**: ✅ PRODUCTION READY | ✅ Incident Submission - WORKING | ✅ Voice Agent - Fully Operational (with Phonetic Matching) | ✅ Medical Booking Agent "Emma" - Configured | ✅ RLS + Clerk Auth - Fixed | ✅ Site Management Redesign - Complete | ✅ Sites RBAC - Fixed | ✅ Cost Estimator - Complete
