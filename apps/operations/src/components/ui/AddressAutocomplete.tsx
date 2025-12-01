@@ -39,6 +39,54 @@ interface AddressAutocompleteProps {
   }) => void;
 }
 
+// Parse Google address components into structured data (defined outside component to avoid closure issues)
+const parseAddressComponents = (place: google.maps.places.PlaceResult) => {
+  const components = place.address_components || [];
+  
+  const getComponent = (types: string[]) => {
+    const component = components.find(c => 
+      types.some(type => c.types.includes(type))
+    );
+    return component?.long_name || '';
+  };
+
+  const getShortComponent = (types: string[]) => {
+    const component = components.find(c => 
+      types.some(type => c.types.includes(type))
+    );
+    return component?.short_name || '';
+  };
+
+  // Build street address from components
+  const streetNumber = getComponent(['street_number']);
+  const streetName = getComponent(['route']);
+  let streetAddress = [streetNumber, streetName].filter(Boolean).join(' ');
+  
+  // If no street address, try to use the place name (for non-address locations)
+  if (!streetAddress && place.name) {
+    streetAddress = place.name;
+  }
+
+  // Get city/suburb - try multiple component types
+  // In Australia, 'locality' is usually the suburb
+  let city = getComponent(['locality', 'sublocality', 'sublocality_level_1']);
+  if (!city) {
+    // Fallback to administrative_area_level_2 (like a council area) or neighborhood
+    city = getComponent(['administrative_area_level_2', 'neighborhood', 'colloquial_area']);
+  }
+
+  return {
+    streetAddress,
+    city,
+    state: getShortComponent(['administrative_area_level_1']),
+    postCode: getComponent(['postal_code']),
+    country: getComponent(['country']),
+    latitude: place.geometry?.location?.lat(),
+    longitude: place.geometry?.location?.lng(),
+    formattedAddress: place.formatted_address || place.name || '',
+  };
+};
+
 export function AddressAutocomplete({
   value,
   onChange,
@@ -55,6 +103,17 @@ export function AddressAutocomplete({
   const { isLoaded: mapsLoaded } = useGoogleMaps(); // Use shared hook - includes places library
   const [isReady, setIsReady] = useState(false);
   const initRef = useRef(false);
+
+  // Store callbacks in refs to avoid stale closure issues
+  const onChangeRef = useRef(onChange);
+  const onPlaceSelectRef = useRef(onPlaceSelect);
+  const onAddressChangeRef = useRef(onAddressChange);
+  
+  useEffect(() => {
+    onChangeRef.current = onChange;
+    onPlaceSelectRef.current = onPlaceSelect;
+    onAddressChangeRef.current = onAddressChange;
+  }, [onChange, onPlaceSelect, onAddressChange]);
 
   // Initialize Google Places Autocomplete
   // Note: Using legacy Autocomplete API as PlaceAutocompleteElement has React lifecycle conflicts
@@ -100,19 +159,19 @@ export function AddressAutocomplete({
         // Update the simple value - use name if formatted_address is not available
         const displayValue = place.formatted_address || place.name || '';
         if (displayValue) {
-          onChange(displayValue);
+          onChangeRef.current(displayValue);
         }
 
         // Call onPlaceSelect callback
-        if (onPlaceSelect) {
-          onPlaceSelect(place);
+        if (onPlaceSelectRef.current) {
+          onPlaceSelectRef.current(place);
         }
 
         // Parse and return structured address data
-        if (onAddressChange) {
+        if (onAddressChangeRef.current) {
           const addressData = parseAddressComponents(place);
           console.log('Parsed address data:', addressData); // Debug logging
-          onAddressChange(addressData);
+          onAddressChangeRef.current(addressData);
         }
       });
 
@@ -122,54 +181,7 @@ export function AddressAutocomplete({
     } catch (error) {
       console.error('Failed to initialize Google Places Autocomplete:', error);
     }
-  }, [onChange, onPlaceSelect, onAddressChange, searchType]);
-
-  // Parse Google address components into structured data
-  const parseAddressComponents = (place: google.maps.places.PlaceResult) => {
-    const components = place.address_components || [];
-    
-    const getComponent = (types: string[]) => {
-      const component = components.find(c => 
-        types.some(type => c.types.includes(type))
-      );
-      return component?.long_name || '';
-    };
-
-    const getShortComponent = (types: string[]) => {
-      const component = components.find(c => 
-        types.some(type => c.types.includes(type))
-      );
-      return component?.short_name || '';
-    };
-
-    // Build street address from components
-    const streetNumber = getComponent(['street_number']);
-    const streetName = getComponent(['route']);
-    let streetAddress = [streetNumber, streetName].filter(Boolean).join(' ');
-    
-    // If no street address, try to use the place name (for non-address locations)
-    if (!streetAddress && place.name) {
-      streetAddress = place.name;
-    }
-
-    // Get city - try multiple component types
-    let city = getComponent(['locality', 'sublocality', 'sublocality_level_1']);
-    if (!city) {
-      // Fallback to administrative_area_level_2 (like a council area) or neighborhood
-      city = getComponent(['administrative_area_level_2', 'neighborhood', 'colloquial_area']);
-    }
-
-    return {
-      streetAddress,
-      city,
-      state: getShortComponent(['administrative_area_level_1']),
-      postCode: getComponent(['postal_code']),
-      country: getComponent(['country']),
-      latitude: place.geometry?.location?.lat(),
-      longitude: place.geometry?.location?.lng(),
-      formattedAddress: place.formatted_address || place.name || '',
-    };
-  };
+  }, [searchType]); // Only searchType needed since callbacks are in refs
 
   // Initialize autocomplete when Google Maps is loaded
   useEffect(() => {
