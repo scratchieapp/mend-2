@@ -145,23 +145,10 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
         }
       }
 
-      // Get the worker info from the incident (more reliable than direct workers query due to RLS)
-      let workerInfo = null;
-      const { data: incidentData } = await supabase
-        .rpc('get_incident_details', { p_incident_id: incidentId });
-      
-      if (incidentData?.worker) {
-        const worker = incidentData.worker;
-        workerInfo = {
-          name: `${worker.given_name || ''} ${worker.family_name || ''}`.trim(),
-          phone: worker.mobile_number || worker.phone_number
-        };
-      }
-
       return {
         ...workflowData,
         medical_center: medicalCenterInfo,
-        worker: workerInfo
+        worker: null // Worker phone not needed - medical center is primary
       } as BookingWorkflow;
     },
     refetchInterval: 10000, // Poll every 10 seconds for updates
@@ -204,6 +191,11 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
 
   // Don't show anything if no workflow exists
   if (!workflow && !isLoading) {
+    return null;
+  }
+
+  // Hide cancelled workflows completely
+  if (workflow?.status === 'cancelled') {
     return null;
   }
 
@@ -263,14 +255,11 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
             </h3>
           </div>
           <div className="flex items-center gap-3">
-            {!isCompleted && workflow?.status !== 'cancelled' && (
+            {!isCompleted && !isFailed && (
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                className={cn(
-                  "h-7 text-xs",
-                  isFailed ? "text-red-600 hover:text-red-700 hover:bg-red-100" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100"
-                )}
+                className="h-7 text-xs border-amber-300 text-amber-700 hover:bg-amber-50 hover:text-amber-800"
                 onClick={() => cancelWorkflowMutation.mutate()}
                 disabled={cancelWorkflowMutation.isPending}
               >
