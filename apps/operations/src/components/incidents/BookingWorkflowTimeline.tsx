@@ -25,6 +25,9 @@ interface BookingWorkflow {
   available_times: unknown[];
   confirmed_datetime: string | null;
   failure_reason: string | null;
+  retry_attempt: number;
+  medical_center_attempt: number;
+  call_count: number;
   created_at: string;
   updated_at: string;
   medical_center?: {
@@ -105,10 +108,10 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
   const { data: workflow, isLoading } = useQuery({
     queryKey: ['booking-workflow-timeline', incidentId],
     queryFn: async () => {
-      // First get the workflow
+      // First get the workflow with retry tracking fields
       const { data: workflowData, error } = await supabase
         .from('booking_workflows')
-        .select('*')
+        .select('*, retry_attempt, medical_center_attempt, call_count')
         .eq('incident_id', incidentId)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -320,8 +323,23 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
                 {workflow.medical_center.phone_number && ` (${workflow.medical_center.phone_number})`}
               </p>
             )}
+            {workflow && (workflow.call_count > 1 || workflow.medical_center_attempt > 1) && (
+              <p className="text-xs text-red-400">
+                Attempted {workflow.call_count || 1} call(s) across {workflow.medical_center_attempt || 1} medical center(s)
+              </p>
+            )}
             <p className="text-xs text-muted-foreground mt-2">
               Please try again or book manually.
+            </p>
+          </div>
+        )}
+
+        {/* Retrying State */}
+        {workflow?.status === 'retrying' && (
+          <div className="mt-3 pt-3 border-t border-amber-200">
+            <p className="text-xs text-amber-700 flex items-center gap-1">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Retrying call (attempt {(workflow.retry_attempt || 0) + 1} of 3)...
             </p>
           </div>
         )}
