@@ -434,23 +434,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (clerkLoaded && clerkSignedIn && clerkUser) {
           if (mounted) {
             // Sync Clerk token with Supabase to enable RLS
-            // Note: This is optional - Clerk auth works via SECURITY DEFINER functions
-            // that bypass RLS. The setSession call often fails with AuthSessionMissingError
-            // which is expected behavior with Clerk auth.
+            // This is CRITICAL for RLS policies to work (e.g. medical_centers insert)
             try {
               const token = await getToken({ template: 'supabase' });
-              if (token) {
+              if (!token) {
+                console.warn("Clerk 'supabase' token is missing. Check Clerk Dashboard > JWT Templates.");
+              } else {
+                // We use the access token for both fields because we disabled auto-refresh in the client
+                // This tricks the client into accepting the session for the duration of the token
                 const { error } = await supabase.auth.setSession({
                   access_token: token,
-                  refresh_token: '', // Clerk handles refresh
+                  refresh_token: token, 
                 });
-                // Only log unexpected errors (not AuthSessionMissingError which is expected)
-                if (error && !error.message?.includes('Auth session missing')) {
-                  console.error("Supabase auth sync failed:", error);
+                
+                if (error) {
+                  console.error("Supabase auth setSession failed:", error);
+                  // If specific 'AuthSessionMissingError', it might be benign in some versions,
+                  // but generally for RLS we need this to succeed.
+                } else {
+                  console.log("Supabase session synced with Clerk token successfully.");
                 }
               }
             } catch (e) {
-              // Silently ignore token errors - Clerk auth works via RPC functions
+              console.error("Error during Clerk-Supabase token sync:", e);
             }
 
             // Create a user object
