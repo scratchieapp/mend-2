@@ -393,11 +393,15 @@ serve(async (req: Request) => {
       classification: classification,
       treatment_provided: extracted_data.treatment_received || extracted_data.treatment_provided || null,
       incident_status: 'Voice Agent', // Special status for voice agent-created incidents
-      case_notes: `${callerInfo}\n\nIncident reported via AI voice agent (Call ID: ${call_id}).\n\nTranscript:\n${transcript}`,
-      notifying_person_name: extracted_data.caller_name || extracted_data.worker_name || null,
+      case_notes: `${callerInfo}\n\nIncident reported via AI voice agent (Call ID: ${call_id}).`,
+      notifying_person_name: extracted_data.caller_name || null,  // Use caller name, not injured worker
       notifying_person_telephone: extracted_data.caller_phone || extracted_data.worker_phone || null,
       // Use caller_position (from user profile) if available, otherwise caller_role (from call)
       notifying_person_position: extracted_data.caller_position || extracted_data.caller_role || null,
+      // Witness info - if caller was witness, use caller name; otherwise use provided witness name
+      witness: extracted_data.caller_was_witness 
+        ? extracted_data.caller_name 
+        : (extracted_data.witness_name || null),
       // Weather conditions at incident location/time
       weather_data: weatherData,
     };
@@ -415,10 +419,29 @@ serve(async (req: Request) => {
 
     console.log('Created incident:', incident.incident_id);
 
-    // Note: incident_activities table doesn't exist yet, skipping activity creation
-    // TODO: Create incident_activities table or use alternative logging
+    // Step 5: Create "Initial Report Made" activity log entry
+    try {
+      await supabase
+        .from('incident_activity_log')
+        .insert({
+          incident_id: incident.incident_id,
+          action_type: 'voice_agent',
+          summary: 'Initial Report Made',
+          details: `Incident reported via phone call by ${extracted_data.caller_name || 'caller'}. Call ID: ${call_id}`,
+          actor_name: 'AI Voice Agent (Lucy)',
+          metadata: {
+            call_id: call_id,
+            caller_name: extracted_data.caller_name || null,
+            caller_role: extracted_data.caller_role || null,
+          },
+        });
+      console.log('Activity log entry created for initial report');
+    } catch (activityError) {
+      console.log('Could not create activity log entry:', activityError);
+      // Non-fatal - continue even if activity log fails
+    }
 
-    // Step 5: Update voice_logs with incident_id
+    // Step 6: Update voice_logs with incident_id
     await supabase
       .from('voice_logs')
       .update({ incident_id: incident.incident_id })

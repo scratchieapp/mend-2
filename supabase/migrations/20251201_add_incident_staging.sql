@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS incident_staging (
   date_of_injury DATE,
   time_of_injury TIME,
   treatment_received TEXT,
+  witness_name TEXT,
+  caller_was_witness BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   processed_at TIMESTAMPTZ  -- Set when incident is created from this data
 );

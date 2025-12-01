@@ -36,6 +36,10 @@ interface SubmitIncidentRequest {
   time_of_injury?: string;
   treatment_received?: string;
   
+  // Witness info
+  witness_name?: string;
+  caller_was_witness?: boolean;  // true if caller witnessed the incident
+  
   // Retell call context
   call_id?: string;
 }
@@ -96,6 +100,8 @@ serve(async (req: Request) => {
         date_of_injury: vars.date_of_injury,
         time_of_injury: vars.time_of_injury,
         treatment_received: vars.treatment_received,
+        witness_name: vars.witness_name,
+        caller_was_witness: vars.caller_was_witness === 'true' || vars.caller_was_witness === true,
       };
       
       console.log('Extracted from Retell call object:', JSON.stringify(data, null, 2));

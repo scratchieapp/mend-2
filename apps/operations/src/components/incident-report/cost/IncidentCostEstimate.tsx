@@ -776,14 +776,23 @@ export default function IncidentCostEstimate({
           </>
         )}
 
-        {/* Data source footer */}
-        <div className="text-xs text-muted-foreground pt-2 border-t">
-          <p>
-            Based on: {estimate.inputFactors.injuryType} ({estimate.inputFactors.bodyRegion}), 
-            {estimate.inputFactors.severity} severity, {estimate.inputFactors.roleCategory} role, 
-            {estimate.inputFactors.state} scheme.
-          </p>
-          <p className="mt-0.5">{estimate.dataSource}. Last updated: November 2024.</p>
+        {/* Estimation Basis - Made prominent */}
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 mt-2">
+          <div className="flex items-start gap-2">
+            <Info className="h-4 w-4 text-slate-600 mt-0.5 flex-shrink-0" />
+            <div className="text-sm">
+              <p className="font-medium text-slate-700 mb-1">Estimate Based On:</p>
+              <ul className="text-slate-600 space-y-0.5 text-xs">
+                <li>• <strong>Injury:</strong> {estimate.inputFactors.injuryType} to {estimate.inputFactors.bodyRegion}</li>
+                <li>• <strong>Severity:</strong> {estimate.inputFactors.severity}</li>
+                <li>• <strong>Worker Type:</strong> {estimate.inputFactors.roleCategory}</li>
+                <li>• <strong>Jurisdiction:</strong> {estimate.inputFactors.state} workers compensation scheme</li>
+              </ul>
+              <p className="text-slate-500 mt-2 text-xs">
+                <strong>Data source:</strong> {estimate.dataSource}. Updated November 2024.
+              </p>
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>

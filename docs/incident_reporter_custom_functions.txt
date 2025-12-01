@@ -186,7 +186,15 @@ Schema:
     "severity": { "type": "string", "description": "minor, moderate, or severe" },
     "date_of_injury": { "type": "string" },
     "time_of_injury": { "type": "string" },
-    "treatment_received": { "type": "string" }
+    "treatment_received": { "type": "string" },
+    "witness_name": { 
+      "type": "string",
+      "description": "Name of a witness to the incident (if caller knows one)"
+    },
+    "caller_was_witness": { 
+      "type": "boolean",
+      "description": "Set to true if the caller personally witnessed the incident"
+    }
   },
   "required": ["call_id", "employer_id", "employer_name", "injury_description", "injury_type"]
 }
@@ -199,6 +207,14 @@ IMPORTANT FIELDS TO INCLUDE:
 - injury_type: ALWAYS specify (Fracture, Sprain/strain, etc.)
 - body_side: Specify left, right, both, or not_applicable
 - caller_position: Include if known from dynamic variables
+- witness_name: Ask caller if they know of any witnesses
+- caller_was_witness: Set to true if caller says they witnessed the incident
+
+WITNESS QUESTION FLOW:
+Agent should ask: "Did you witness this incident yourself, or do you know anyone who did?"
+- If caller says YES they witnessed it → set caller_was_witness: true
+- If caller names someone else → set witness_name to that person's name
+- If caller says NO/unknown → leave both fields empty
 
 URL: https://<project>.supabase.co/functions/v1/submit-incident
 

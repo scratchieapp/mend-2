@@ -28,8 +28,11 @@ import { BookMedicalAppointmentDialog } from "@/components/incidents/BookMedical
 import { UpcomingAppointments } from "@/components/incidents/UpcomingAppointments";
 import { CallLogSummaryCard } from "@/components/incidents/CallLogSummaryCard";
 import { VoiceCallLogModal } from "@/components/incidents/VoiceCallLogModal";
+import { VoiceCallTranscripts } from "@/components/incidents/VoiceCallTranscripts";
 import { BookingWorkflowTimeline } from "@/components/incidents/BookingWorkflowTimeline";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown } from "lucide-react";
 
 // Type for the incident with all joined relations
 type IncidentWithRelations = Tables<'incidents'> & {
@@ -435,7 +438,13 @@ const IncidentDetailsPage = () => {
                 <Clock className="h-4 w-4 text-green-600" />
                 <div>
                   <p className="text-xs text-muted-foreground">Days Lost</p>
-                  <p className="text-sm font-medium">{incident?.total_days_lost ? `${incident.total_days_lost} days` : 'No lost time'}</p>
+                  <p className="text-sm font-medium">
+                    {incident?.total_days_lost 
+                      ? `${incident.total_days_lost} days` 
+                      : incident?.incident_status === 'Voice Agent' 
+                        ? 'Unknown' 
+                        : 'No lost time'}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -518,8 +527,16 @@ const IncidentDetailsPage = () => {
                     <p className="text-sm font-medium mt-1">{incident?.body_part?.body_part_name || 'Not specified'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Injury Type</p>
-                    <p className="text-sm font-medium mt-1">{incident?.injury_type || 'Not specified'}</p>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Classification of Injury</p>
+                    <p className="text-sm font-medium mt-1">
+                      {incident?.classification ? (
+                        <Badge className={getClassificationColor(incident.classification)}>
+                          {incident.classification}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground italic">Pending manager review</span>
+                      )}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Time of Injury</p>
@@ -605,6 +622,11 @@ const IncidentDetailsPage = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Voice Call Transcript - Expandable */}
+            {incident?.incident_id && (
+              <VoiceCallTranscripts incidentId={incident.incident_id} />
+            )}
           </div>
 
           {/* Right Column - Appointments, Cost & Activity Log */}
