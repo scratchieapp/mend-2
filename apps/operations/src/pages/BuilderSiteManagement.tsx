@@ -1447,15 +1447,15 @@ export default function BuilderSiteManagement() {
                     <Label className="text-base font-medium">Site Status</Label>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {editingSite && (
+                    {selectedSite && (
                       <>
-                        {(editingSite.status === 'paused' || editingSite.status === 'finished') && (
+                        {(selectedSite.status === 'paused' || selectedSite.status === 'finished') && (
                           <Button 
                             type="button" 
                             variant="outline"
                             className="gap-2"
                             onClick={() => {
-                              updateSiteStatusMutation.mutate({ siteId: editingSite.site_id, status: 'working' });
+                              updateSiteStatusMutation.mutate({ siteId: selectedSite.site_id, status: 'working' });
                               setIsEditDialogOpen(false);
                             }}
                           >
@@ -1463,14 +1463,14 @@ export default function BuilderSiteManagement() {
                             Reactivate Site
                           </Button>
                         )}
-                        {(!editingSite.status || editingSite.status === 'working') && (
+                        {(!selectedSite.status || selectedSite.status === 'working') && (
                           <>
                             <Button 
                               type="button" 
                               variant="outline"
                               className="gap-2"
                               onClick={() => {
-                                updateSiteStatusMutation.mutate({ siteId: editingSite.site_id, status: 'paused' });
+                                updateSiteStatusMutation.mutate({ siteId: selectedSite.site_id, status: 'paused' });
                                 setIsEditDialogOpen(false);
                               }}
                             >
@@ -1482,7 +1482,7 @@ export default function BuilderSiteManagement() {
                               variant="outline"
                               className="gap-2"
                               onClick={() => {
-                                updateSiteStatusMutation.mutate({ siteId: editingSite.site_id, status: 'finished' });
+                                updateSiteStatusMutation.mutate({ siteId: selectedSite.site_id, status: 'finished' });
                                 setIsEditDialogOpen(false);
                               }}
                             >
@@ -1491,13 +1491,13 @@ export default function BuilderSiteManagement() {
                             </Button>
                           </>
                         )}
-                        {editingSite.status === 'paused' && (
+                        {selectedSite.status === 'paused' && (
                           <Button 
                             type="button" 
                             variant="outline"
                             className="gap-2"
                             onClick={() => {
-                              updateSiteStatusMutation.mutate({ siteId: editingSite.site_id, status: 'finished' });
+                              updateSiteStatusMutation.mutate({ siteId: selectedSite.site_id, status: 'finished' });
                               setIsEditDialogOpen(false);
                             }}
                           >
@@ -1514,15 +1514,15 @@ export default function BuilderSiteManagement() {
                 </div>
 
                 {/* Delete Site */}
-                {editingSite && editingSite.incident_count === 0 && (
+                {selectedSite && selectedSite.incident_count === 0 && (
                   <div className="col-span-2 border-t pt-4 mt-2">
                     <Button 
                       type="button" 
                       variant="destructive"
                       className="gap-2"
                       onClick={() => {
-                        if (confirm(`Are you sure you want to delete ${editingSite.site_name}? This action cannot be undone.`)) {
-                          deleteSiteMutation.mutate(editingSite.site_id);
+                        if (confirm(`Are you sure you want to delete ${selectedSite.site_name}? This action cannot be undone.`)) {
+                          deleteSiteMutation.mutate(selectedSite.site_id);
                           setIsEditDialogOpen(false);
                         }
                       }}
