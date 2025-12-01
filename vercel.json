@@ -165,6 +165,14 @@
       "destination": "/operations/index.html"
     },
     {
+      "source": "/reports/(.*)",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/reports",
+      "destination": "/operations/index.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/marketing/$1"
     }
