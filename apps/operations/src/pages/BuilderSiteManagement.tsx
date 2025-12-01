@@ -152,6 +152,7 @@ export default function BuilderSiteManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isNewSupervisorDialogOpen, setIsNewSupervisorDialogOpen] = useState(false);
   const [isNewMedicalCenterDialogOpen, setIsNewMedicalCenterDialogOpen] = useState(false);
+  const [pendingMedicalCenterPriority, setPendingMedicalCenterPriority] = useState<number | null>(null);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [showMap, setShowMap] = useState(true);
   const [newMedicalCenterData, setNewMedicalCenterData] = useState({
@@ -491,9 +492,10 @@ export default function BuilderSiteManagement() {
       queryClient.invalidateQueries({ queryKey: ['medical-centers'] });
       toast({ title: "Success", description: "Medical center added successfully." });
       setIsNewMedicalCenterDialogOpen(false);
-      // Auto-select the new medical center as primary if none selected
-      if (result?.id && getSelectedMedicalCenter(1) === 'none') {
-        updateMedicalCenterSelection(1, result.id);
+      // Auto-select the new medical center in the dropdown that triggered the creation
+      if (result?.id && pendingMedicalCenterPriority) {
+        updateMedicalCenterSelection(pendingMedicalCenterPriority, result.id);
+        setPendingMedicalCenterPriority(null);
       }
       setNewMedicalCenterData({ name: "", phone_number: "", address: "", suburb: "", postcode: "", state: "" });
     },
@@ -890,6 +892,7 @@ export default function BuilderSiteManagement() {
                         value={getSelectedMedicalCenter(1)}
                         onValueChange={(value) => {
                           if (value === 'new') {
+                            setPendingMedicalCenterPriority(1);
                             setIsNewMedicalCenterDialogOpen(true);
                           } else {
                             updateMedicalCenterSelection(1, value);
@@ -939,6 +942,7 @@ export default function BuilderSiteManagement() {
                         value={getSelectedMedicalCenter(2)}
                         onValueChange={(value) => {
                           if (value === 'new') {
+                            setPendingMedicalCenterPriority(2);
                             setIsNewMedicalCenterDialogOpen(true);
                           } else {
                             updateMedicalCenterSelection(2, value);
@@ -982,6 +986,7 @@ export default function BuilderSiteManagement() {
                         value={getSelectedMedicalCenter(3)}
                         onValueChange={(value) => {
                           if (value === 'new') {
+                            setPendingMedicalCenterPriority(3);
                             setIsNewMedicalCenterDialogOpen(true);
                           } else {
                             updateMedicalCenterSelection(3, value);
@@ -1311,6 +1316,7 @@ export default function BuilderSiteManagement() {
                       value={getSelectedMedicalCenter(1)}
                       onValueChange={(value) => {
                         if (value === 'new') {
+                          setPendingMedicalCenterPriority(1);
                           setIsNewMedicalCenterDialogOpen(true);
                         } else {
                           updateMedicalCenterSelection(1, value);
@@ -1360,6 +1366,7 @@ export default function BuilderSiteManagement() {
                       value={getSelectedMedicalCenter(2)}
                       onValueChange={(value) => {
                         if (value === 'new') {
+                          setPendingMedicalCenterPriority(2);
                           setIsNewMedicalCenterDialogOpen(true);
                         } else {
                           updateMedicalCenterSelection(2, value);
@@ -1403,6 +1410,7 @@ export default function BuilderSiteManagement() {
                       value={getSelectedMedicalCenter(3)}
                       onValueChange={(value) => {
                         if (value === 'new') {
+                          setPendingMedicalCenterPriority(3);
                           setIsNewMedicalCenterDialogOpen(true);
                         } else {
                           updateMedicalCenterSelection(3, value);

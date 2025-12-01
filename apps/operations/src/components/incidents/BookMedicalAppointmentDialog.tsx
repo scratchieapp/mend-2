@@ -138,7 +138,8 @@ export function BookMedicalAppointmentDialog({
     }
   }, [open, siteMedicalCenters, selectedMedicalCenterId]);
 
-  // Fetch worker preparation status if not provided
+  // Always fetch worker preparation status when dialog is open
+  // This ensures we get fresh data after the preparation mutation
   const { data: workerPrepStatus } = useQuery({
     queryKey: ['worker-preparation', workerId],
     queryFn: async () => {
@@ -149,11 +150,11 @@ export function BookMedicalAppointmentDialog({
       if (error) throw error;
       return data;
     },
-    enabled: open && !!workerId && !workerPreparationStatus,
+    enabled: open && !!workerId,
   });
 
-  // Use provided status or fetched status
-  const effectiveWorkerPrepStatus = workerPreparationStatus || workerPrepStatus;
+  // Prefer fetched status over prop (so it updates after mutation)
+  const effectiveWorkerPrepStatus = workerPrepStatus || workerPreparationStatus;
   const isWorkerPrepared = effectiveWorkerPrepStatus?.ai_calls_prepared === true;
 
   // Fetch doctors for selected medical center

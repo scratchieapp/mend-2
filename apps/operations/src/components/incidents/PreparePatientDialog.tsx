@@ -99,8 +99,11 @@ export function PreparePatientDialog({
         title: 'Patient Prepared',
         description: `${workerName} has been briefed and is ready for AI voice calls.`,
       });
+      // Invalidate all relevant queries to ensure UI updates
       queryClient.invalidateQueries({ queryKey: ['worker'] });
+      queryClient.invalidateQueries({ queryKey: ['worker-preparation'] });
       queryClient.invalidateQueries({ queryKey: ['incident'] });
+      queryClient.invalidateQueries({ queryKey: ['incidents'] });
       onOpenChange(false);
       resetForm();
       onSuccess?.();
