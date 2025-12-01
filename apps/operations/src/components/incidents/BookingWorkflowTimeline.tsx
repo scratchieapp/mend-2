@@ -116,6 +116,7 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
         .from('booking_workflows')
         .select('*, retry_attempt, medical_center_attempt, call_count')
         .eq('incident_id', incidentId)
+        .not('status', 'in', '("cancelled","completed","failed")') // Only get active workflows
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -151,7 +152,16 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
         worker: null // Worker phone not needed - medical center is primary
       } as BookingWorkflow;
     },
-    refetchInterval: 10000, // Poll every 10 seconds for updates
+    // Only poll when we might have an active workflow, and less frequently (30s)
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      // Stop polling if no workflow or workflow is in terminal state
+      if (!data || ['cancelled', 'completed', 'failed'].includes(data.status)) {
+        return false;
+      }
+      return 30000; // Poll every 30 seconds when active
+    },
+    staleTime: 10000, // Consider data fresh for 10 seconds
   });
 
   const queryClient = useQueryClient();
