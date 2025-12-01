@@ -449,8 +449,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 
                 if (error) {
                   console.error("Supabase auth setSession failed:", error);
-                  // If specific 'AuthSessionMissingError', it might be benign in some versions,
-                  // but generally for RLS we need this to succeed.
+                  // Handle specific 'invalid claim: sub claim must be a UUID' error
+                  // This happens because Clerk uses string IDs (e.g. user_2q...) but Supabase expects UUIDs for 'sub'
+                  // We fallback to injecting the Authorization header manually for PostgREST
+                  if (error.message && error.message.includes('sub claim must be a UUID')) {
+                    console.warn("Applying header injection workaround for non-UUID subject...");
+                    // Manually inject the Authorization header for the REST client
+                    // @ts-ignore - Accessing internal property to set global headers
+                    if (supabase.rest && supabase.rest.headers) {
+                        // @ts-ignore
+                        supabase.rest.headers['Authorization'] = `Bearer ${token}`;
+                    }
+                    // Also set for Realtime if needed
+                    if (supabase.realtime) {
+                        supabase.realtime.setAuth(token);
+                    }
+                    console.log("Authorization header injected successfully.");
+                  }
                 } else {
                   console.log("Supabase session synced with Clerk token successfully.");
                 }
