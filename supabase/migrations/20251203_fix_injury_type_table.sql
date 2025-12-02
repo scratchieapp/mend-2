@@ -14,39 +14,7 @@ WHERE UPPER(injury_type_name) IN ('LTI', 'MTI', 'FAI', 'LOST TIME INJURY', 'MEDI
 -- =====================================================
 -- Step 2: Insert proper injury types if they don't exist
 -- =====================================================
-INSERT INTO injury_type (injury_type_name) 
-SELECT unnest(ARRAY[
-  'Fracture',
-  'Sprain',
-  'Strain',
-  'Laceration',
-  'Contusion',
-  'Abrasion',
-  'Burn',
-  'Puncture',
-  'Dislocation',
-  'Crush Injury',
-  'Amputation',
-  'Foreign Body',
-  'Electric Shock',
-  'Chemical Exposure',
-  'Heat Stress',
-  'Cold Stress',
-  'Hearing Loss',
-  'Eye Injury',
-  'Respiratory Issue',
-  'Skin Condition',
-  'Musculoskeletal',
-  'Internal Injury',
-  'Poisoning',
-  'Infection',
-  'Other'
-])
-WHERE NOT EXISTS (
-  SELECT 1 FROM injury_type WHERE injury_type_name = unnest
-);
-
--- Alternative approach - UPSERT each value individually
+-- Using individual INSERT statements with ON CONFLICT for safety
 INSERT INTO injury_type (injury_type_name) VALUES ('Fracture') ON CONFLICT DO NOTHING;
 INSERT INTO injury_type (injury_type_name) VALUES ('Sprain') ON CONFLICT DO NOTHING;
 INSERT INTO injury_type (injury_type_name) VALUES ('Strain') ON CONFLICT DO NOTHING;

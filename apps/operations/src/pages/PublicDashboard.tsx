@@ -156,20 +156,24 @@ const LazyWeatherDisplay = ({ lat, lng }: { lat?: number; lng?: number }) => {
   );
 };
 
-// Classification badge helper
+// Classification badge helper with color coding
 const getClassificationBadge = (classification?: string) => {
-  switch (classification?.toLowerCase()) {
-    case 'first aid':
-      return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">First Aid</Badge>;
-    case 'medical treatment':
-      return <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Medical</Badge>;
-    case 'lost time':
-      return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">Lost Time</Badge>;
-    case 'serious':
-    case 'notifiable':
-      return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Serious</Badge>;
+  const upperClass = classification?.toUpperCase();
+  switch (upperClass) {
+    case 'FAI':
+    case 'FIRST AID':
+    case 'FIRST AID INJURY':
+      return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">FAI</Badge>;
+    case 'MTI':
+    case 'MEDICAL TREATMENT':
+    case 'MEDICAL TREATMENT INJURY':
+      return <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">MTI</Badge>;
+    case 'LTI':
+    case 'LOST TIME':
+    case 'LOST TIME INJURY':
+      return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">LTI</Badge>;
     default:
-      return <Badge variant="secondary">{classification || 'Pending'}</Badge>;
+      return <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100">Pending</Badge>;
   }
 };
 
@@ -305,21 +309,22 @@ export default function PublicDashboard() {
       <div className="flex-1 overflow-y-auto">
         <div className="container mx-auto p-4 md:p-6 space-y-6 max-w-7xl">
 
-          {/* Quick Actions Bar */}
+          {/* Quick Actions Bar - Two clear options */}
           <div className="flex flex-wrap gap-3 justify-center md:justify-start">
+            {/* Option 1: Report directly by typing */}
             <Button 
               size="lg"
               className="gap-2"
               onClick={() => handleReportIncident()}
             >
-              <AlertTriangle className="h-5 w-5" />
+              <ClipboardList className="h-5 w-5" />
               Report Incident
             </Button>
             
-            {/* Voice Call Button - Shows voice chat option for logged-in users */}
+            {/* Option 2: Call Mend to report by voice */}
             {isAuthenticated ? (
               <RetellVoiceCall 
-                buttonText={`Call Mend - ${EMERGENCY_PHONE}`}
+                buttonText="Call Mend"
                 buttonVariant="outline"
                 phoneNumber={EMERGENCY_PHONE}
                 showPhoneOption={true}
@@ -327,11 +332,8 @@ export default function PublicDashboard() {
                 userContext={{
                   employer_id: userData?.employer_id || undefined,
                   employer_name: employerName || undefined,
-                  // Use display_name (should be full name) or custom_display_name
                   caller_name: userData?.display_name || userData?.custom_display_name || undefined,
-                  // Role name for agent greeting (e.g., "Builder Admin")
                   caller_role: userData?.role?.role_name || undefined,
-                  // Position for reporting info - use role_label which is the display name of the role
                   caller_position: userData?.role?.role_label || userData?.role?.role_name || undefined,
                   caller_phone: userData?.mobile_number || undefined,
                   is_authenticated: true,
@@ -340,21 +342,11 @@ export default function PublicDashboard() {
             ) : (
               <a href={EMERGENCY_PHONE_LINK}>
                 <Button variant="outline" size="lg" className="gap-2">
-                  <Phone className="h-5 w-5 text-red-500" />
-                  Call Mend - {EMERGENCY_PHONE}
+                  <Phone className="h-5 w-5" />
+                  Call Mend
                 </Button>
               </a>
             )}
-            
-            {/* Emergency Phone Badge - 24/7 */}
-            <a 
-              href={EMERGENCY_PHONE_LINK}
-              className="flex items-center gap-2 bg-red-50 text-red-700 px-4 py-2 rounded-full text-sm font-medium hover:bg-red-100 transition-colors"
-            >
-              <Phone className="h-4 w-4" />
-              <span className="hidden sm:inline">{EMERGENCY_PHONE}</span>
-              <Badge variant="secondary" className="text-[10px]">24/7</Badge>
-            </a>
           </div>
 
           {/* 1. RECENT INCIDENTS SECTION (only for authorized users) */}
@@ -398,6 +390,12 @@ export default function PublicDashboard() {
                             </span>
                             {getClassificationBadge(incident.classification)}
                           </div>
+                          {/* Short summary of incident */}
+                          {incident.injury_description && (
+                            <p className="text-sm text-slate-600 mb-1 line-clamp-1">
+                              {incident.injury_description}
+                            </p>
+                          )}
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <User className="h-3 w-3" />

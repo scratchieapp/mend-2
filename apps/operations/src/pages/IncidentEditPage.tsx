@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
@@ -240,6 +240,7 @@ const IncidentEditPage = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { userData } = useAuth();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("notification");
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const originalDataRef = useRef<Record<string, unknown> | null>(null);
@@ -682,6 +683,11 @@ const IncidentEditPage = () => {
       if (error) throw error;
     },
     onSuccess: () => {
+      // Invalidate all incident-related queries to refresh lists
+      queryClient.invalidateQueries({ queryKey: ['incidents'] });
+      queryClient.invalidateQueries({ queryKey: ['recent-incidents'] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-chart'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-data'] });
       toast.success('Incident archived successfully');
       navigate('/incidents');
     },
@@ -699,6 +705,10 @@ const IncidentEditPage = () => {
       if (error) throw error;
     },
     onSuccess: () => {
+      // Invalidate and refetch the current incident
+      queryClient.invalidateQueries({ queryKey: ['incident-edit', id] });
+      queryClient.invalidateQueries({ queryKey: ['incidents'] });
+      queryClient.invalidateQueries({ queryKey: ['recent-incidents'] });
       toast.success('Incident restored successfully');
     },
     onError: () => {
@@ -717,6 +727,11 @@ const IncidentEditPage = () => {
       if (error) throw error;
     },
     onSuccess: () => {
+      // Invalidate all incident-related queries to refresh lists
+      queryClient.invalidateQueries({ queryKey: ['incidents'] });
+      queryClient.invalidateQueries({ queryKey: ['recent-incidents'] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-chart'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-data'] });
       toast.success('Incident deleted successfully');
       navigate('/incidents');
     },

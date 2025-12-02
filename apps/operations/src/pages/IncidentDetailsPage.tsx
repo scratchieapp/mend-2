@@ -327,6 +327,11 @@ const IncidentDetailsPage = () => {
       if (error) throw error;
     },
     onSuccess: () => {
+      // Invalidate all incident-related queries to refresh lists
+      queryClient.invalidateQueries({ queryKey: ['incidents'] });
+      queryClient.invalidateQueries({ queryKey: ['recent-incidents'] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-chart'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-data'] });
       toast({
         title: "Incident Archived",
         description: "The incident has been archived and hidden from the default view.",
@@ -351,11 +356,14 @@ const IncidentDetailsPage = () => {
       if (error) throw error;
     },
     onSuccess: () => {
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['incident', id] });
+      queryClient.invalidateQueries({ queryKey: ['incidents'] });
+      queryClient.invalidateQueries({ queryKey: ['recent-incidents'] });
       toast({
         title: "Incident Restored",
         description: "The incident has been restored and is now visible.",
       });
-      queryClient.invalidateQueries({ queryKey: ['incident', id] });
     },
     onError: () => {
       toast({
@@ -377,6 +385,11 @@ const IncidentDetailsPage = () => {
       if (error) throw error;
     },
     onSuccess: () => {
+      // Invalidate all incident-related queries to refresh lists
+      queryClient.invalidateQueries({ queryKey: ['incidents'] });
+      queryClient.invalidateQueries({ queryKey: ['recent-incidents'] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-chart'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-data'] });
       toast({
         title: "Incident Deleted",
         description: "The incident has been deleted.",
