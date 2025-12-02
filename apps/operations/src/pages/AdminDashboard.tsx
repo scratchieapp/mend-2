@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useUser } from '@clerk/clerk-react';
 import { supabase } from '@/integrations/supabase/client';
-import { isSuperAdmin, isBuilderAdmin, isMendDataEntry } from '@/lib/auth/roles';
+import { isSuperAdmin, isBuilderAdmin, isMendAdmin, isMendDataEntry } from '@/lib/auth/roles';
 import { DashboardHeader } from '@/components/layout/DashboardHeader';
 import { DashboardMap } from '@/components/dashboard/DashboardMap';
+import { Badge } from '@/components/ui/badge';
 import { 
   Database, 
   Users, 
@@ -17,12 +18,14 @@ import {
   UserCog,
   HardDrive,
   Activity,
-  Upload,
   Shield,
   Building,
   DollarSign,
   Calculator,
-  MapPin
+  MapPin,
+  AlertTriangle,
+  FileText,
+  ChevronRight
 } from 'lucide-react';
 
 interface AdminCardProps {
@@ -30,7 +33,7 @@ interface AdminCardProps {
   description: string;
   icon: React.ReactNode;
   link: string;
-  requiredRole?: 'super' | 'builder' | 'admin';
+  requiredRole: 'super' | 'mend' | 'builder' | 'all';
   userRoleId?: number;
 }
 
@@ -39,23 +42,30 @@ function AdminCard({ title, description, icon, link, requiredRole, userRoleId }:
   if (requiredRole === 'super' && !isSuperAdmin(userRoleId)) {
     return null;
   }
-  if (requiredRole === 'builder' && !isBuilderAdmin(userRoleId) && !isSuperAdmin(userRoleId)) {
+  // 'mend' = Mend staff only (roles 1-4)
+  if (requiredRole === 'mend' && !isMendAdmin(userRoleId)) {
     return null;
   }
+  // 'builder' = Builder Admin and above (roles 1-5)
+  if (requiredRole === 'builder' && !isBuilderAdmin(userRoleId) && !isMendAdmin(userRoleId)) {
+    return null;
+  }
+  // 'all' = anyone with admin access
   
   return (
     <Link to={link}>
-      <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
+      <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full group">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 group-hover:text-primary transition-colors">
             {icon}
             <span>{title}</span>
           </CardTitle>
           <CardDescription>{description}</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button variant="outline" className="w-full">
+          <Button variant="outline" className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
             Access {title}
+            <ChevronRight className="h-4 w-4 ml-2" />
           </Button>
         </CardContent>
       </Card>
@@ -65,6 +75,7 @@ function AdminCard({ title, description, icon, link, requiredRole, userRoleId }:
 
 export default function AdminDashboard() {
   const { user, isLoaded } = useUser();
+  const navigate = useNavigate();
   const [userRoleId, setUserRoleId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -102,23 +113,30 @@ export default function AdminDashboard() {
 
   // Check if user has any admin role
   const hasAdminAccess = userRoleId && (
-    isSuperAdmin(userRoleId) || 
-    isBuilderAdmin(userRoleId) || 
-    isMendDataEntry(userRoleId)
+    isMendAdmin(userRoleId) || 
+    isBuilderAdmin(userRoleId)
   );
 
   if (!hasAdminAccess) {
     return <Navigate to="/unauthorized" replace />;
   }
 
-  const adminSections = [
-    {
-      title: 'Worker Management',
-      description: 'Manage your workforce and employee records',
-      icon: <Users className="h-5 w-5" />,
-      link: '/builder/workers',
-      requiredRole: 'builder' as const
-    },
+  // Determine role label for display
+  const getRoleLabel = () => {
+    if (isSuperAdmin(userRoleId)) return { label: 'Super Admin', color: 'bg-red-100 text-red-800' };
+    if (isMendAdmin(userRoleId)) return { label: 'Mend Staff', color: 'bg-blue-100 text-blue-800' };
+    if (isBuilderAdmin(userRoleId)) return { label: 'Builder Admin', color: 'bg-green-100 text-green-800' };
+    return { label: 'Admin', color: 'bg-gray-100 text-gray-800' };
+  };
+
+  const roleInfo = getRoleLabel();
+
+  // ============================================
+  // ADMIN SECTIONS - Organized by Category
+  // ============================================
+  
+  // SECTION 1: User & Company Management
+  const userManagementSection = [
     {
       title: 'Builder/Employer Management',
       description: 'Manage construction companies and builders',
@@ -127,7 +145,25 @@ export default function AdminDashboard() {
       requiredRole: 'super' as const
     },
     {
-      title: 'Site Management',
+      title: 'Super User Management',
+      description: 'Manage ALL users, roles, and company assignments',
+      icon: <Shield className="h-5 w-5" />,
+      link: '/admin/super-user-management',
+      requiredRole: 'super' as const
+    },
+    {
+      title: 'User Management',
+      description: 'Manage users within your organization',
+      icon: <Users className="h-5 w-5" />,
+      link: '/admin/user-management',
+      requiredRole: 'builder' as const
+    },
+  ];
+
+  // SECTION 2: Site & Worker Management  
+  const siteWorkerSection = [
+    {
+      title: 'All Sites',
       description: 'Manage all MEND construction sites with map view',
       icon: <MapPin className="h-5 w-5" />,
       link: '/admin/site-management',
@@ -141,25 +177,43 @@ export default function AdminDashboard() {
       requiredRole: 'builder' as const
     },
     {
-      title: 'Super User Management',
-      description: 'Manage ALL users, roles, and company assignments',
-      icon: <Shield className="h-5 w-5" />,
-      link: '/admin/super-user-management',
-      requiredRole: 'super' as const
+      title: 'Worker Management',
+      description: 'Manage your workforce and employee records',
+      icon: <Users className="h-5 w-5" />,
+      link: '/builder/workers',
+      requiredRole: 'builder' as const
     },
     {
-      title: 'User Management',
-      description: 'Manage users, roles, and permissions',
-      icon: <Users className="h-5 w-5" />,
-      link: '/admin/user-management',
-      requiredRole: 'admin' as const
+      title: 'Hours Worked',
+      description: 'Track and manage work hours by site',
+      icon: <Clock className="h-5 w-5" />,
+      link: '/hours-management',
+      requiredRole: 'builder' as const
     },
+  ];
+
+  // SECTION 3: Data & Configuration (Mend Staff Only)
+  const dataConfigSection = [
     {
       title: 'Data Management',
       description: 'Import, export, and manage data',
       icon: <Database className="h-5 w-5" />,
       link: '/admin/data',
-      requiredRole: 'admin' as const
+      requiredRole: 'mend' as const
+    },
+    {
+      title: 'Reference Tables',
+      description: 'Manage lookup tables and codes',
+      icon: <Table2 className="h-5 w-5" />,
+      link: '/admin/reference-tables',
+      requiredRole: 'mend' as const
+    },
+    {
+      title: 'Medical Professionals',
+      description: 'Manage medical professional accounts',
+      icon: <UserCog className="h-5 w-5" />,
+      link: '/admin/medical-professionals',
+      requiredRole: 'mend' as const
     },
     {
       title: 'Data Configuration',
@@ -170,18 +224,15 @@ export default function AdminDashboard() {
     },
     {
       title: 'Cost Configuration',
-      description: 'Manage incident cost assumptions and calculations',
+      description: 'Manage incident cost assumptions',
       icon: <Calculator className="h-5 w-5" />,
       link: '/admin/cost-configuration',
       requiredRole: 'super' as const
     },
-    {
-      title: 'Data Import',
-      description: 'Bulk import data from CSV/Excel files',
-      icon: <FileUp className="h-5 w-5" />,
-      link: '/admin/data-import',
-      requiredRole: 'admin' as const
-    },
+  ];
+
+  // SECTION 4: System (Super Admin Only)
+  const systemSection = [
     {
       title: 'Storage Setup',
       description: 'Configure Supabase storage buckets',
@@ -190,40 +241,12 @@ export default function AdminDashboard() {
       requiredRole: 'super' as const
     },
     {
-      title: 'Reference Tables',
-      description: 'Manage lookup tables and codes',
-      icon: <Table2 className="h-5 w-5" />,
-      link: '/admin/reference-tables',
-      requiredRole: 'admin' as const
-    },
-    {
-      title: 'Search & Verify',
-      description: 'Search and verify worker information',
-      icon: <Search className="h-5 w-5" />,
-      link: '/admin/search-verify',
-      requiredRole: 'builder' as const
-    },
-    {
-      title: 'Medical Professionals',
-      description: 'Manage medical professional accounts',
-      icon: <UserCog className="h-5 w-5" />,
-      link: '/admin/medical-professionals',
-      requiredRole: 'admin' as const
-    },
-    {
-      title: 'Hours Worked',
-      description: 'Track and manage work hours',
-      icon: <Clock className="h-5 w-5" />,
-      link: '/admin/hours-worked',
-      requiredRole: 'builder' as const
-    },
-    {
       title: 'System Logs',
       description: 'View system activity and error logs',
       icon: <Activity className="h-5 w-5" />,
       link: '/admin/system-logs',
       requiredRole: 'super' as const
-    }
+    },
   ];
 
   const breadcrumbItems = [
@@ -232,13 +255,20 @@ export default function AdminDashboard() {
   ];
 
   const customActions = (
-    <div className="flex items-center gap-2">
-      <Shield className="h-4 w-4 text-muted-foreground" />
-      <span className="text-sm text-muted-foreground">
-        Role ID: {userRoleId}
-      </span>
-    </div>
+    <Badge className={roleInfo.color}>
+      {roleInfo.label}
+    </Badge>
   );
+
+  // Check if any cards would render in a section
+  const hasCardsInSection = (section: typeof userManagementSection) => {
+    return section.some(card => {
+      if (card.requiredRole === 'super') return isSuperAdmin(userRoleId);
+      if (card.requiredRole === 'mend') return isMendAdmin(userRoleId);
+      if (card.requiredRole === 'builder') return isBuilderAdmin(userRoleId) || isMendAdmin(userRoleId);
+      return true;
+    });
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -249,48 +279,127 @@ export default function AdminDashboard() {
         customActions={customActions}
       />
       
-      <div className="container mx-auto py-8 px-4">
+      <div className="container mx-auto py-8 px-4 space-y-8">
 
-      {userRoleId && isSuperAdmin(userRoleId) && (
-        <div className="mb-8">
-          <DashboardMap height="400px" />
-        </div>
-      )}
+        {/* Map for Super Admins */}
+        {userRoleId && isSuperAdmin(userRoleId) && (
+          <div className="mb-8">
+            <DashboardMap height="400px" />
+          </div>
+        )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {adminSections.map((section) => (
-          <AdminCard
-            key={section.link}
-            {...section}
-            userRoleId={userRoleId}
-          />
-        ))}
-      </div>
+        {/* SECTION 1: User & Company Management */}
+        {hasCardsInSection(userManagementSection) && (
+          <div>
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-muted-foreground">
+              <Users className="h-5 w-5" />
+              User & Company Management
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {userManagementSection.map((section) => (
+                <AdminCard
+                  key={section.link}
+                  {...section}
+                  userRoleId={userRoleId}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
-      <div className="mt-12 p-6 bg-muted/30 rounded-lg">
-        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-          <Upload className="h-5 w-5" />
-          Quick Actions
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Link to="/incident-report?new=true">
-            <Button variant="outline" className="w-full">
+        {/* SECTION 2: Site & Worker Management */}
+        {hasCardsInSection(siteWorkerSection) && (
+          <div>
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-muted-foreground">
+              <MapPin className="h-5 w-5" />
+              Site & Worker Management
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {siteWorkerSection.map((section) => (
+                <AdminCard
+                  key={section.link}
+                  {...section}
+                  userRoleId={userRoleId}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* SECTION 3: Data & Configuration (Mend Staff Only) */}
+        {hasCardsInSection(dataConfigSection) && (
+          <div>
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-muted-foreground">
+              <Database className="h-5 w-5" />
+              Data & Configuration
+              <Badge variant="outline" className="ml-2 text-xs">Mend Staff</Badge>
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {dataConfigSection.map((section) => (
+                <AdminCard
+                  key={section.link}
+                  {...section}
+                  userRoleId={userRoleId}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* SECTION 4: System Administration (Super Admin Only) */}
+        {hasCardsInSection(systemSection) && (
+          <div>
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-muted-foreground">
+              <Shield className="h-5 w-5" />
+              System Administration
+              <Badge variant="outline" className="ml-2 text-xs">Super Admin</Badge>
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {systemSection.map((section) => (
+                <AdminCard
+                  key={section.link}
+                  {...section}
+                  userRoleId={userRoleId}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Quick Actions */}
+        <div className="mt-8 p-6 bg-muted/30 rounded-lg">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5" />
+            Quick Actions
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start"
+              onClick={() => navigate('/incident-report?new=true')}
+            >
+              <FileText className="h-4 w-4 mr-2" />
               New Incident Report
             </Button>
-          </Link>
-          <Link to="/builder/workers">
-            <Button variant="outline" className="w-full">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start"
+              onClick={() => navigate('/builder/workers')}
+            >
+              <Users className="h-4 w-4 mr-2" />
               Manage Workers
             </Button>
-          </Link>
-          <Link to="/admin/data-import">
-            <Button variant="outline" className="w-full">
-              Import Data
+            <Button 
+              variant="outline" 
+              className="w-full justify-start"
+              onClick={() => navigate('/reports')}
+            >
+              <FileUp className="h-4 w-4 mr-2" />
+              Safety Reports
             </Button>
-          </Link>
+          </div>
         </div>
       </div>
-    </div>
     </div>
   );
 }

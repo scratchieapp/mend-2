@@ -119,6 +119,30 @@ export const isMendDataEntry = (roleIdOrUserData?: number | UserData | null): bo
 };
 
 /**
+ * Check if user is a Mend Admin (roles 1-4: Super Admin, Account Manager, Data Entry, Analyst)
+ * These are internal Mend staff who manage the platform
+ */
+export const isMendAdmin = (roleIdOrUserData?: number | UserData | null): boolean => {
+  const mendAdminRoles = [
+    ROLES.MEND_SUPER_ADMIN,
+    ROLES.MEND_ACCOUNT_MANAGER,
+    ROLES.MEND_DATA_ENTRY,
+    ROLES.MEND_ANALYST
+  ];
+  
+  if (typeof roleIdOrUserData === 'number') {
+    return mendAdminRoles.includes(roleIdOrUserData);
+  }
+  if (roleIdOrUserData?.role?.role_id !== undefined) {
+    return mendAdminRoles.includes(roleIdOrUserData.role.role_id);
+  }
+  if (roleIdOrUserData && 'role_id' in roleIdOrUserData) {
+    return mendAdminRoles.includes((roleIdOrUserData as UserData & { role_id: number }).role_id);
+  }
+  return false;
+};
+
+/**
  * Check if user has site admin role
  */
 export const isSiteAdmin = (userData?: UserData | null): boolean => {
