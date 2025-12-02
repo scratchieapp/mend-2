@@ -59,6 +59,32 @@ interface VoiceTask {
   booking_workflow_id?: string;
 }
 
+// Helper function to format Australian phone numbers
+// Handles: spaces, dashes, parentheses, with/without country code
+function formatAustralianPhone(phone: string): string {
+  // Remove all non-digit characters except leading +
+  const hasPlus = phone.startsWith('+');
+  let cleaned = phone.replace(/[^\d]/g, '');
+  
+  // If already has +61, return formatted
+  if (hasPlus && cleaned.startsWith('61')) {
+    return '+' + cleaned;
+  }
+  
+  // If starts with 61 (without +), add +
+  if (cleaned.startsWith('61') && cleaned.length >= 11) {
+    return '+' + cleaned;
+  }
+  
+  // If starts with 0, replace with +61
+  if (cleaned.startsWith('0')) {
+    return '+61' + cleaned.substring(1);
+  }
+  
+  // Otherwise assume it's a local number, add +61
+  return '+61' + cleaned;
+}
+
 interface BookingWorkflow {
   id: string;
   incident_id: number;
@@ -537,6 +563,17 @@ async function processBookingWorkflowCall(
   // Handle based on task type
   switch (voiceTask.task_type) {
     case 'booking_get_times': {
+      // Record call end for medical center call
+      const mcCallOutcome = callSuccessful && customData.available_times?.length > 0 ? 'completed' : 'failed';
+      await supabase.rpc('record_booking_call_end', {
+        p_workflow_id: workflowId,
+        p_retell_call_id: call.call_id,
+        p_outcome: mcCallOutcome,
+        p_call_successful: callSuccessful && customData.available_times?.length > 0,
+        p_extracted_data: customData,
+        p_failure_reason: customData.failure_reason || null,
+      });
+
       // First call to medical center - get available times
       if (callSuccessful && customData.available_times?.length > 0) {
         // Update workflow with available times
@@ -639,6 +676,20 @@ async function processBookingWorkflowCall(
     }
 
     case 'booking_patient_confirm': {
+      // Record call end with outcome
+      const patientCallOutcome = callSuccessful ? 'completed' : 
+        (call.disconnection_reason === 'no_answer' ? 'no_answer' :
+         call.disconnection_reason === 'voicemail_reached' ? 'voicemail' : 'failed');
+      
+      await supabase.rpc('record_booking_call_end', {
+        p_workflow_id: workflowId,
+        p_retell_call_id: call.call_id,
+        p_outcome: patientCallOutcome,
+        p_call_successful: callSuccessful,
+        p_extracted_data: customData,
+        p_failure_reason: customData.failure_reason || call.disconnection_reason || null,
+      });
+
       // Second call to patient - confirm preferred time
       if (callSuccessful && customData.patient_confirmed_time) {
         // Update workflow with patient's choice
@@ -701,31 +752,94 @@ async function processBookingWorkflowCall(
           incident,
           medicalCenter,
           [],
-          null,
-          null,
+          undefined,
+          undefined,
           customData.patient_availability_notes
         );
       } else {
-        // Failed to confirm with patient
-        await supabase.rpc('update_booking_workflow_v2', {
-          p_workflow_id: workflowId,
-          p_status: 'failed',
-          p_failure_reason: customData.failure_reason || 'Unable to confirm with patient',
-        });
+        // Patient call was not successful - check if we should retry
+        // Common cases: no_answer, voicemail, busy, call_failed
+        const shouldRetryPatient = ['no_answer', 'voicemail', 'busy'].includes(patientCallOutcome) ||
+          call.disconnection_reason === 'no_answer' ||
+          call.disconnection_reason === 'voicemail_reached';
+        
+        if (shouldRetryPatient) {
+          // Schedule a retry call (up to 3 attempts, 30 min apart)
+          const failureReason = patientCallOutcome === 'voicemail' 
+            ? 'Left voicemail' 
+            : (patientCallOutcome === 'no_answer' ? 'No answer' : `Call outcome: ${patientCallOutcome}`);
+          
+          const { data: retryResult } = await supabase.rpc('schedule_patient_call_retry', {
+            p_workflow_id: workflowId,
+            p_delay_minutes: 30,
+            p_failure_reason: failureReason,
+          });
+          
+          if (retryResult?.max_attempts_reached) {
+            // All retries exhausted
+            await supabase.from('incident_activity_log').insert({
+              incident_id: workflow.incident_id,
+              action_type: 'voice_agent',
+              summary: 'Unable to reach patient after multiple attempts',
+              details: `AI agent tried to reach ${workerName} ${retryResult.attempts} times without success. Please contact them manually.`,
+              actor_name: 'AI Booking Agent',
+              metadata: { workflow_id: workflowId, call_id: call.call_id, attempts: retryResult.attempts },
+            });
+          } else {
+            // Retry scheduled
+            const nextRetryTime = retryResult?.next_retry_at 
+              ? new Date(retryResult.next_retry_at).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' })
+              : 'soon';
+            
+            await supabase.from('incident_activity_log').insert({
+              incident_id: workflow.incident_id,
+              action_type: 'voice_agent',
+              summary: `Patient unavailable - retry scheduled for ${nextRetryTime}`,
+              details: `${workerName} was ${failureReason.toLowerCase()}. Will try again at ${nextRetryTime}. Attempt ${(retryResult?.current_attempts || 0) + 1} of 3.`,
+              actor_name: 'AI Booking Agent',
+              metadata: { 
+                workflow_id: workflowId, 
+                call_id: call.call_id, 
+                next_retry_at: retryResult?.next_retry_at,
+                attempt: (retryResult?.current_attempts || 0) + 1,
+              },
+            });
+            
+            console.log(`Patient call retry scheduled for ${retryResult?.next_retry_at}`);
+          }
+        } else {
+          // Call failed for other reason - mark as failed
+          await supabase.rpc('update_booking_workflow_v2', {
+            p_workflow_id: workflowId,
+            p_status: 'failed',
+            p_failure_reason: customData.failure_reason || 'Unable to confirm with patient',
+          });
 
-        await supabase.from('incident_activity_log').insert({
-          incident_id: workflow.incident_id,
-          action_type: 'voice_agent',
-          summary: 'Patient confirmation call failed',
-          details: `AI agent was unable to confirm appointment time with ${workerName}`,
-          actor_name: 'AI Booking Agent',
-          metadata: { workflow_id: workflowId, call_id: call.call_id },
-        });
+          await supabase.from('incident_activity_log').insert({
+            incident_id: workflow.incident_id,
+            action_type: 'voice_agent',
+            summary: 'Patient confirmation call failed',
+            details: `AI agent was unable to confirm appointment time with ${workerName}. Reason: ${customData.failure_reason || call.disconnection_reason || 'Unknown'}`,
+            actor_name: 'AI Booking Agent',
+            metadata: { workflow_id: workflowId, call_id: call.call_id },
+          });
+        }
       }
       break;
     }
 
     case 'booking_final_confirm': {
+      // Record call end for final confirmation call
+      const confirmCallOutcome = callSuccessful && customData.booking_confirmed ? 'completed' : 'failed';
+      await supabase.rpc('record_booking_call_end', {
+        p_workflow_id: workflowId,
+        p_retell_call_id: call.call_id,
+        p_outcome: confirmCallOutcome,
+        p_call_successful: callSuccessful && customData.booking_confirmed,
+        p_extracted_data: customData,
+        p_failure_reason: customData.failure_reason || null,
+      });
+
       // Final call to medical center - confirm the booking
       if (callSuccessful && customData.booking_confirmed) {
         // Create appointment record
@@ -827,6 +941,49 @@ async function initiateNextBookingCall(
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+  // Check if within calling hours (7am-9:30pm AEST)
+  const { data: withinHours } = await supabase.rpc('is_within_calling_hours', { 
+    p_timezone: 'Australia/Sydney' 
+  });
+  
+  if (!withinHours) {
+    // Outside calling hours - schedule for next valid time
+    const { data: nextValidTime } = await supabase.rpc('get_next_valid_call_time', {
+      p_base_time: new Date().toISOString(),
+      p_delay_minutes: 0,
+      p_timezone: 'Australia/Sydney',
+    });
+    
+    console.log(`Outside calling hours (7am-9:30pm AEST). Call will be scheduled for ${nextValidTime}`);
+    
+    // Update workflow to indicate waiting
+    const statusMessage = taskType === 'booking_patient_confirm' 
+      ? 'awaiting_patient_retry' 
+      : 'initiated';
+    
+    await supabase.rpc('update_booking_workflow_v2', {
+      p_workflow_id: workflowId,
+      p_status: statusMessage,
+      p_patient_next_retry_at: taskType === 'booking_patient_confirm' ? nextValidTime : null,
+    });
+    
+    // Log that we're waiting for calling hours
+    await supabase.from('incident_activity_log').insert({
+      incident_id: workflow.incident_id,
+      action_type: 'voice_agent',
+      summary: 'Call scheduled for business hours',
+      details: `AI agent will call at ${new Date(nextValidTime).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Sydney' })} AEST (calls only made between 7am-9:30pm)`,
+      actor_name: 'AI Booking Agent',
+      metadata: { 
+        workflow_id: workflowId, 
+        task_type: taskType,
+        scheduled_for: nextValidTime 
+      },
+    });
+    
+    return;
+  }
+
   // Determine target phone and build dynamic variables
   let targetPhone: string;
   let targetName: string;
@@ -852,12 +1009,8 @@ async function initiateNextBookingCall(
     return;
   }
 
-  // Format phone number
-  if (targetPhone.startsWith('0') && targetPhone.length === 10) {
-    targetPhone = '+61' + targetPhone.substring(1);
-  } else if (!targetPhone.startsWith('+')) {
-    targetPhone = '+61' + targetPhone;
-  }
+  // Format Australian phone number - handle spaces, dashes, parentheses
+  targetPhone = formatAustralianPhone(targetPhone);
 
   // Build dynamic variables for the agent
   const dynamicVariables: Record<string, string> = {
@@ -1180,6 +1333,23 @@ serve(async (req: Request) => {
             updated_at: new Date().toISOString(),
           })
           .eq('id', call.metadata.task_id);
+        
+        // Record call start for booking workflow calls
+        if (call.metadata?.workflow_id && call.metadata?.task_type) {
+          const callTarget = call.metadata.task_type === 'booking_patient_confirm' ? 'patient' : 'medical_center';
+          
+          await supabase.rpc('record_booking_call_start', {
+            p_workflow_id: call.metadata.workflow_id,
+            p_retell_call_id: call.call_id,
+            p_call_target: callTarget,
+            p_target_phone: call.to_number || null,
+            p_target_name: null, // Will be filled from task context if needed
+            p_task_type: call.metadata.task_type,
+            p_voice_task_id: call.metadata.task_id,
+          });
+          
+          console.log(`Booking call start recorded: ${call.call_id} (${callTarget})`);
+        }
       }
     }
 

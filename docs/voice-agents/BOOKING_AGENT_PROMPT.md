@@ -675,13 +675,13 @@ Ensure these are set in your Supabase Edge Function environment:
 ```
 RETELL_BOOKING_AGENT_ID=agent_xxxxxxxxx
 RETELL_API_KEY=your_retell_api_key
-RETELL_PHONE_NUMBER=+61XXXXXXXXX
+RETELL_PHONE_NUMBER=10284766
 ```
 
 ## Testing Checklist
 
 - [ ] Agent can navigate basic IVR menus
-- [ ] Agent correctly identifies as Sophie from Mend
+- [ ] Agent correctly identifies as Emma from Mend
 - [ ] Agent collects at least 2 appointment options
 - [ ] Agent handles "no availability" gracefully
 - [ ] Agent successfully presents options to patient
@@ -690,4 +690,96 @@ RETELL_PHONE_NUMBER=+61XXXXXXXXX
 - [ ] All webhook calls are received and processed
 - [ ] Activity log shows all call activities
 - [ ] Appointment record created on successful booking
+- [ ] Call history shows start/end times for each call
+- [ ] Patient retry scheduling works (30 min intervals)
+- [ ] Calls are not made outside 7am-9:30pm AEST
+
+---
+
+## Enhanced Call Tracking
+
+The booking workflow now includes detailed call tracking with:
+
+### Call History Table
+Every call attempt is logged with:
+- Start and end times
+- Duration
+- Outcome (completed, no_answer, voicemail, busy, failed)
+- Target (medical_center or patient)
+- Extracted data from the call
+
+### Patient Retry Logic
+When a patient call fails (no answer, voicemail, busy):
+1. System schedules a retry for 30 minutes later
+2. Up to 3 attempts total
+3. Respects calling hours (7am-9:30pm AEST)
+4. Shows retry status in the UI with countdown
+
+### Calling Hours
+All outbound calls are restricted to:
+- **Start:** 7:00 AM AEST
+- **End:** 9:30 PM AEST
+
+If a call needs to be made outside these hours, it will be automatically scheduled for the next valid time.
+
+### Database Functions
+
+| Function | Purpose |
+|----------|---------|
+| `record_booking_call_start` | Log when a call starts |
+| `record_booking_call_end` | Log when a call ends with outcome |
+| `schedule_patient_call_retry` | Schedule a patient retry (30 min) |
+| `is_within_calling_hours` | Check if current time is valid |
+| `get_next_valid_call_time` | Calculate next valid calling time |
+| `get_booking_workflow_with_history` | Get workflow with full call history |
+| `get_workflows_pending_patient_retry` | Find workflows ready for retry |
+
+---
+
+## Cron Job Setup
+
+To automatically process patient retries, set up a cron job that calls the `process-patient-retries` Edge Function every 5-10 minutes:
+
+### Using pg_cron (Supabase)
+
+```sql
+-- Run every 5 minutes during calling hours
+SELECT cron.schedule(
+  'process-patient-retries',
+  '*/5 7-21 * * *',  -- Every 5 min between 7am-9pm
+  $$
+  SELECT net.http_post(
+    url := 'https://rkzcybthcszeusrohbtc.supabase.co/functions/v1/process-patient-retries',
+    headers := '{"Content-Type": "application/json", "Authorization": "Bearer ' || current_setting('supabase.service_role_key') || '"}'::jsonb,
+    body := '{}'::jsonb
+  );
+  $$
+);
+```
+
+### Alternative: External Cron (e.g., cron-job.org, GitHub Actions)
+
+```bash
+curl -X POST \
+  https://rkzcybthcszeusrohbtc.supabase.co/functions/v1/process-patient-retries \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_SERVICE_ROLE_KEY"
+```
+
+---
+
+## Workflow Status Reference
+
+| Status | Description |
+|--------|-------------|
+| `initiated` | Workflow just created |
+| `calling_medical_center` | First call to medical center in progress |
+| `times_collected` | Available times received |
+| `calling_patient` | Calling patient to confirm |
+| `awaiting_patient_retry` | Patient unreachable, waiting for scheduled retry |
+| `patient_confirmed` | Patient confirmed a time |
+| `confirming_booking` | Final confirmation call in progress |
+| `completed` | Booking successfully completed |
+| `failed` | All retries exhausted |
+| `cancelled` | User cancelled the workflow |
 

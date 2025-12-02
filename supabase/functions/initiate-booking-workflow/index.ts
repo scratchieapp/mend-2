@@ -46,6 +46,32 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info',
 };
 
+// Helper function to format Australian phone numbers
+// Handles: spaces, dashes, parentheses, with/without country code
+function formatAustralianPhone(phone: string): string {
+  // Remove all non-digit characters except leading +
+  const hasPlus = phone.startsWith('+');
+  let cleaned = phone.replace(/[^\d]/g, '');
+  
+  // If already has +61, return formatted
+  if (hasPlus && cleaned.startsWith('61')) {
+    return '+' + cleaned;
+  }
+  
+  // If starts with 61 (without +), add +
+  if (cleaned.startsWith('61') && cleaned.length >= 11) {
+    return '+' + cleaned;
+  }
+  
+  // If starts with 0, replace with +61
+  if (cleaned.startsWith('0')) {
+    return '+61' + cleaned.substring(1);
+  }
+  
+  // Otherwise assume it's a local number, add +61
+  return '+61' + cleaned;
+}
+
 serve(async (req: Request) => {
   // CORS preflight
   if (req.method === 'OPTIONS') {
@@ -193,13 +219,8 @@ serve(async (req: Request) => {
       preferredDoctor = doctor;
     }
 
-    // 5. Prepare phone number (E.164 format)
-    let phoneNumber = medicalCenter.phone_number;
-    if (phoneNumber.startsWith('0') && phoneNumber.length === 10) {
-      phoneNumber = '+61' + phoneNumber.substring(1);
-    } else if (!phoneNumber.startsWith('+')) {
-      phoneNumber = '+61' + phoneNumber;
-    }
+    // 5. Prepare phone number (E.164 format) - handles spaces, dashes, etc.
+    const phoneNumber = formatAustralianPhone(medicalCenter.phone_number);
 
     // 6. Build dynamic variables for Retell agent
     const workerName = `${incident.workers?.given_name || ''} ${incident.workers?.family_name || ''}`.trim();

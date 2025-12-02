@@ -1,8 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { 
   Phone, 
+  PhoneCall,
+  PhoneOff,
+  PhoneMissed,
   UserCheck, 
   CalendarCheck, 
   CheckCircle2, 
@@ -10,14 +13,30 @@ import {
   XCircle,
   Bot,
   Loader2,
-  Square
+  Square,
+  History,
+  Timer
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface BookingWorkflowTimelineProps {
   incidentId: number;
+}
+
+interface CallHistoryItem {
+  id: string;
+  call_sequence: number;
+  call_target: 'medical_center' | 'patient';
+  target_name: string | null;
+  task_type: string;
+  started_at: string | null;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  outcome: 'completed' | 'no_answer' | 'voicemail' | 'busy' | 'failed' | 'cancelled' | 'in_progress' | null;
+  call_successful: boolean;
 }
 
 interface BookingWorkflow {
@@ -25,12 +44,17 @@ interface BookingWorkflow {
   incident_id: number;
   status: string;
   last_call_type: string | null;
+  last_call_outcome: string | null;
   available_times: unknown[];
   confirmed_datetime: string | null;
   failure_reason: string | null;
   retry_attempt: number;
   medical_center_attempt: number;
   call_count: number;
+  patient_call_attempts: number;
+  patient_next_retry_at: string | null;
+  current_call_started_at: string | null;
+  current_call_ended_at: string | null;
   created_at: string;
   updated_at: string;
   medical_center?: {
@@ -41,6 +65,8 @@ interface BookingWorkflow {
     name: string;
     phone: string | null;
   };
+  call_history?: CallHistoryItem[];
+  is_call_active?: boolean;
 }
 
 // Define the workflow steps
@@ -57,14 +83,14 @@ const WORKFLOW_STEPS = [
     label: 'Getting Times',
     description: 'Calling medical center',
     icon: Phone,
-    statuses: ['calling_medical_center', 'awaiting_times'],
+    statuses: ['calling_medical_center', 'awaiting_times', 'times_collected'],
   },
   {
     id: 'confirming_patient',
     label: 'Patient Confirmation',
     description: 'Confirming with patient',
     icon: UserCheck,
-    statuses: ['times_received', 'calling_patient', 'awaiting_patient_confirmation'],
+    statuses: ['times_collected', 'calling_patient', 'awaiting_patient_confirmation', 'awaiting_patient_retry'],
   },
   {
     id: 'finalizing',
@@ -81,6 +107,26 @@ const WORKFLOW_STEPS = [
     statuses: ['completed', 'confirmed'],
   },
 ];
+
+// Helper to get call outcome icon and color
+function getCallOutcomeDisplay(outcome: string | null): { icon: React.ComponentType<any>; color: string; label: string } {
+  switch (outcome) {
+    case 'completed':
+      return { icon: CheckCircle2, color: 'text-emerald-500', label: 'Connected' };
+    case 'no_answer':
+      return { icon: PhoneMissed, color: 'text-amber-500', label: 'No answer' };
+    case 'voicemail':
+      return { icon: PhoneOff, color: 'text-amber-500', label: 'Voicemail' };
+    case 'busy':
+      return { icon: PhoneOff, color: 'text-amber-500', label: 'Busy' };
+    case 'failed':
+      return { icon: XCircle, color: 'text-red-500', label: 'Failed' };
+    case 'in_progress':
+      return { icon: PhoneCall, color: 'text-blue-500', label: 'In progress' };
+    default:
+      return { icon: Phone, color: 'text-gray-400', label: 'Unknown' };
+  }
+}
 
 function getStepStatus(workflow: BookingWorkflow, stepStatuses: string[]) {
   const workflowStatus = workflow.status.toLowerCase();
@@ -111,57 +157,72 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
   const { data: workflow, isLoading } = useQuery({
     queryKey: ['booking-workflow-timeline', incidentId],
     queryFn: async () => {
-      // First get the workflow with retry tracking fields
-      const { data: workflowData, error } = await supabase
-        .from('booking_workflows')
-        .select('*, retry_attempt, medical_center_attempt, call_count')
-        .eq('incident_id', incidentId)
-        .not('status', 'in', '("cancelled","completed","failed")') // Only get active workflows
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Use the new RPC that includes call history
+      const { data: result, error } = await supabase.rpc('get_booking_workflow_with_history', {
+        p_incident_id: incidentId,
+      });
 
       if (error) {
-        console.error('Error fetching booking workflow:', error);
-        return null;
-      }
-      
-      if (!workflowData) {
-        return null;
+        console.error('Error fetching booking workflow with history:', error);
+        // Fallback to direct query
+        const { data: workflowData, error: fallbackError } = await supabase
+          .from('booking_workflows')
+          .select('*, retry_attempt, medical_center_attempt, call_count, patient_call_attempts, patient_next_retry_at, current_call_started_at, current_call_ended_at, last_call_outcome')
+          .eq('incident_id', incidentId)
+          .not('status', 'in', '("cancelled","completed","failed")')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (fallbackError || !workflowData) return null;
+
+        let medicalCenterInfo = null;
+        if (workflowData.medical_center_id) {
+          const { data: mcData } = await supabase
+            .from('medical_centers')
+            .select('name, phone_number')
+            .eq('id', workflowData.medical_center_id)
+            .single();
+          if (mcData) {
+            medicalCenterInfo = { name: mcData.name, phone_number: mcData.phone_number };
+          }
+        }
+
+        return {
+          ...workflowData,
+          medical_center: medicalCenterInfo,
+          worker: null,
+          call_history: [],
+          is_call_active: workflowData.current_call_started_at && !workflowData.current_call_ended_at,
+        } as BookingWorkflow;
       }
 
-      // Get the medical center info if we have an ID
-      let medicalCenterInfo = null;
-      if (workflowData.medical_center_id) {
-        const { data: mcData } = await supabase
-          .from('medical_centers')
-          .select('name, phone_number')
-          .eq('id', workflowData.medical_center_id)
-          .single();
-        if (mcData) {
-          medicalCenterInfo = { 
-            name: mcData.name, 
-            phone_number: mcData.phone_number 
-          };
-        }
+      if (!result?.found) {
+        return null;
       }
 
       return {
-        ...workflowData,
-        medical_center: medicalCenterInfo,
-        worker: null // Worker phone not needed - medical center is primary
+        ...result.workflow,
+        medical_center: result.medical_center,
+        worker: null,
+        call_history: result.call_history || [],
+        is_call_active: result.is_call_active,
       } as BookingWorkflow;
     },
-    // Only poll when we might have an active workflow, and less frequently (30s)
+    // Poll more frequently when a call is active (5s), otherwise every 30s
     refetchInterval: (query) => {
       const data = query.state.data;
       // Stop polling if no workflow or workflow is in terminal state
       if (!data || ['cancelled', 'completed', 'failed'].includes(data.status)) {
         return false;
       }
-      return 30000; // Poll every 30 seconds when active
+      // Poll faster when a call is in progress
+      if (data.is_call_active) {
+        return 5000; // Poll every 5 seconds during active call
+      }
+      return 15000; // Poll every 15 seconds when active but no call in progress
     },
-    staleTime: 10000, // Consider data fresh for 10 seconds
+    staleTime: 5000, // Consider data fresh for 5 seconds
   });
 
   const queryClient = useQueryClient();
@@ -405,6 +466,51 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
           </div>
         )}
 
+        {/* Active Call Indicator */}
+        {workflow?.is_call_active && (
+          <div className="mt-3 pt-3 border-t border-blue-200">
+            <div className="flex items-center gap-2 text-blue-700">
+              <div className="relative">
+                <PhoneCall className="h-4 w-4 animate-pulse" />
+                <span className="absolute -top-1 -right-1 h-2 w-2 bg-blue-500 rounded-full animate-ping" />
+              </div>
+              <span className="text-xs font-medium">
+                Call in progress
+                {workflow.last_call_type === 'patient' && ' (calling patient)'}
+                {workflow.last_call_type === 'medical_center' && ' (calling medical center)'}
+              </span>
+              {workflow.current_call_started_at && (
+                <span className="text-xs text-blue-500 ml-auto">
+                  {formatDistanceToNow(new Date(workflow.current_call_started_at), { addSuffix: false })}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Awaiting Patient Retry */}
+        {workflow?.status === 'awaiting_patient_retry' && (
+          <div className="mt-3 pt-3 border-t border-amber-200">
+            <div className="flex items-center gap-2 text-amber-700">
+              <Timer className="h-4 w-4" />
+              <div className="flex-1">
+                <p className="text-xs font-medium">
+                  Patient unavailable - retry scheduled
+                </p>
+                {workflow.patient_next_retry_at && (
+                  <p className="text-[10px] text-amber-600">
+                    Next attempt at {format(new Date(workflow.patient_next_retry_at), 'h:mm a')}
+                    {' '}({formatDistanceToNow(new Date(workflow.patient_next_retry_at), { addSuffix: true })})
+                  </p>
+                )}
+              </div>
+              <span className="text-xs text-amber-600">
+                Attempt {(workflow.patient_call_attempts || 0)} of 3
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Retrying State */}
         {workflow?.status === 'retrying' && (
           <div className="mt-3 pt-3 border-t border-amber-200">
@@ -415,8 +521,50 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
           </div>
         )}
 
+        {/* Call History (when there are multiple calls) */}
+        {workflow?.call_history && workflow.call_history.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-emerald-200/50">
+            <div className="flex items-center gap-1 mb-2">
+              <History className="h-3 w-3 text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground font-medium">Call History</span>
+            </div>
+            <div className="space-y-1">
+              {workflow.call_history.slice(-3).map((call) => {
+                const outcomeDisplay = getCallOutcomeDisplay(call.outcome);
+                const OutcomeIcon = outcomeDisplay.icon;
+                return (
+                  <div key={call.id} className="flex items-center gap-2 text-[10px]">
+                    <span className="w-4 text-center text-muted-foreground">#{call.call_sequence}</span>
+                    <span className="text-muted-foreground">
+                      {call.call_target === 'patient' ? 'Patient' : 'Clinic'}
+                    </span>
+                    {call.started_at && (
+                      <span className="text-muted-foreground">
+                        {format(new Date(call.started_at), 'h:mm a')}
+                      </span>
+                    )}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className={cn("flex items-center gap-1 ml-auto", outcomeDisplay.color)}>
+                          <OutcomeIcon className="h-3 w-3" />
+                          <span>{outcomeDisplay.label}</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {call.duration_seconds && (
+                          <p>Duration: {Math.floor(call.duration_seconds / 60)}:{(call.duration_seconds % 60).toString().padStart(2, '0')}</p>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Medical Center Info */}
-        {workflow?.medical_center?.name && !isFailed && (
+        {workflow?.medical_center?.name && !isFailed && !workflow?.call_history?.length && (
           <div className="mt-3 pt-3 border-t border-emerald-200/50">
             <p className="text-xs text-emerald-700">
               <span className="font-medium">Medical Center:</span> {workflow.medical_center.name}
