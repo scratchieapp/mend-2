@@ -141,9 +141,9 @@ export function IncidentHeatMap({
 
   // Fetch site incident data
   const { data: siteData = [], isLoading } = useQuery({
-    queryKey: ['site-incident-heatmap', employerId, isMendStaff],
+    queryKey: ['site-incident-heatmap', employerId, isMendStaff, userRoleId],
     queryFn: async () => {
-      // Build query for sites with incident counts
+      // Build query for sites
       let query = supabase
         .from('sites')
         .select(`
@@ -154,6 +154,7 @@ export function IncidentHeatMap({
           post_code,
           latitude,
           longitude,
+          employer_id,
           employer:employers!inner(employer_name)
         `);
 
@@ -164,28 +165,28 @@ export function IncidentHeatMap({
       const { data: sites, error: sitesError } = await query;
       if (sitesError) throw sitesError;
 
-      // Fetch incident counts grouped by site and classification
-      // Only get incidents that have a site_id
-      let incidentQuery = supabase
-        .from('incidents')
-        .select('site_id, classification')
-        .is('deleted_at', null)
-        .is('archived_at', null)
-        .not('site_id', 'is', null);
+      // Use the same RPC as IncidentsChart to get incidents (respects RBAC)
+      const { data: dashboardData, error: incError } = await supabase.rpc('get_dashboard_data', {
+        page_size: 10000, // Get all incidents
+        page_offset: 0,
+        filter_employer_id: employerId,
+        filter_worker_id: null,
+        filter_start_date: null, // No date filter - get all time
+        filter_end_date: null,
+        user_role_id: userRoleId || 5,
+        user_employer_id: employerId,
+        filter_archive_status: 'active'
+      });
 
-      if (employerId) {
-        incidentQuery = incidentQuery.eq('employer_id', employerId);
-      }
-
-      const { data: incidents, error: incError } = await incidentQuery;
       if (incError) throw incError;
 
-      console.log('[IncidentHeatMap] Fetched incidents:', incidents?.length, 'for employer:', employerId);
+      const incidents = dashboardData?.incidents || [];
+      console.log('[IncidentHeatMap] Fetched incidents via RPC:', incidents.length, 'for employer:', employerId);
 
       // Aggregate incidents by site
       const incidentCounts: Record<number, { lti: number; mti: number; fai: number; total: number }> = {};
       
-      incidents?.forEach((inc) => {
+      incidents.forEach((inc: any) => {
         if (!inc.site_id) return; // Skip incidents without site_id
         
         if (!incidentCounts[inc.site_id]) {
@@ -205,6 +206,7 @@ export function IncidentHeatMap({
       });
       
       console.log('[IncidentHeatMap] Site incident counts:', incidentCounts);
+      console.log('[IncidentHeatMap] Sites with incidents:', Object.keys(incidentCounts).length);
 
       // Combine sites with incident data
       return sites?.map((site: any) => ({
@@ -377,9 +379,9 @@ export function IncidentHeatMap({
   }, [initializeMap]);
 
   // Style object - use height if provided, otherwise use aspectRatio
-  const containerStyle = height 
-    ? { height: typeof height === 'number' ? `${height}px` : height }
-    : { aspectRatio };
+  const containerStyle: React.CSSProperties = height 
+    ? { height: typeof height === 'number' ? `${height}px` : height, minHeight: '350px' }
+    : { aspectRatio, minHeight: '350px' };
 
   if (!apiKey) {
     return (

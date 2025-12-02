@@ -102,20 +102,20 @@ export default function IncidentsPage() {
 
       {/* Map and Chart - side by side for Mend staff */}
       {isMendStaff ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" style={{ minHeight: '450px' }}>
           {/* Incident Heat Map */}
-          <Card>
+          <Card className="flex flex-col">
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-medium flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-muted-foreground" />
                 Site Incident Map
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent className="pt-0 flex-1">
               <IncidentHeatMap
                 employerId={effectiveEmployerId}
                 userRoleId={userRoleId}
-                aspectRatio="1/1"
+                height="100%"
               />
             </CardContent>
           </Card>
@@ -132,7 +132,7 @@ export default function IncidentsPage() {
               <IncidentsChart 
                 employerId={effectiveEmployerId} 
                 userRoleId={userRoleId}
-                height={350}
+                height={380}
                 hideCard
               />
             </CardContent>
