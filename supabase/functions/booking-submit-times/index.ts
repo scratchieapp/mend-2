@@ -17,14 +17,24 @@ interface AvailableTime {
 }
 
 interface SubmitTimesRequest {
-  // Direct args
+  // Direct args - array format
   available_times?: AvailableTime[];
   clinic_notes?: string;
+  
+  // Individual time slot format (from Retell schema)
+  time_slot_1?: string;
+  time_slot_2?: string;
+  time_slot_3?: string;
+  
   // Nested formats from Retell
   args?: {
     available_times?: AvailableTime[];
     clinic_notes?: string;
+    time_slot_1?: string;
+    time_slot_2?: string;
+    time_slot_3?: string;
   };
+  
   // Call metadata from Retell
   call?: {
     call_id?: string;
@@ -33,6 +43,7 @@ interface SubmitTimesRequest {
       incident_id?: number;
     };
   };
+  
   // Or workflow_id passed directly
   workflow_id?: string;
 }
@@ -69,13 +80,39 @@ serve(async (req: Request) => {
     const rawData: SubmitTimesRequest = await req.json();
     console.log('booking-submit-times received:', JSON.stringify(rawData));
 
-    // Extract args from various possible locations
-    let available_times = rawData.available_times || rawData.args?.available_times;
+    // Extract clinic notes from various locations
     let clinic_notes = rawData.clinic_notes || rawData.args?.clinic_notes;
     let workflow_id = rawData.workflow_id || rawData.call?.metadata?.workflow_id;
 
+    // Extract available times - handle both array format and individual time_slot fields
+    let available_times: AvailableTime[] = [];
+    
+    // First check for array format
+    if (rawData.available_times && rawData.available_times.length > 0) {
+      available_times = rawData.available_times;
+    } else if (rawData.args?.available_times && rawData.args.available_times.length > 0) {
+      available_times = rawData.args.available_times;
+    } else {
+      // Check for individual time_slot fields (from Retell schema)
+      const slot1 = rawData.time_slot_1 || rawData.args?.time_slot_1;
+      const slot2 = rawData.time_slot_2 || rawData.args?.time_slot_2;
+      const slot3 = rawData.time_slot_3 || rawData.args?.time_slot_3;
+      
+      if (slot1) {
+        available_times.push({ datetime: slot1 });
+      }
+      if (slot2) {
+        available_times.push({ datetime: slot2 });
+      }
+      if (slot3) {
+        available_times.push({ datetime: slot3 });
+      }
+      
+      console.log(`Converted time slots to array: ${available_times.length} times`);
+    }
+
     // Validate
-    if (!available_times || available_times.length === 0) {
+    if (available_times.length === 0) {
       console.log('No available times provided');
       return new Response(
         JSON.stringify({
