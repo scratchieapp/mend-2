@@ -1305,6 +1305,7 @@ serve(async (req: Request) => {
           extracted_data: extractedData,
           intent_detected: voiceTask?.task_type || null,
           user_sentiment: call.call_analysis?.user_sentiment || null,
+          call_summary: call.call_analysis?.call_summary || null, // Save the AI-generated call summary
           call_successful: callWasSuccessful,
           recording_consent_obtained: true, // Assumes agent discloses recording
         })
