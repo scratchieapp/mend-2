@@ -245,6 +245,8 @@ export function BookMedicalAppointmentDialog({
         description: `AI agent is now calling the medical center to book an appointment for ${workerName}.`,
       });
       queryClient.invalidateQueries({ queryKey: ['booking-workflow', incidentId] });
+      queryClient.invalidateQueries({ queryKey: ['booking-workflow-timeline', incidentId] });
+      queryClient.invalidateQueries({ queryKey: ['incident-booking-workflow', incidentId] });
       queryClient.invalidateQueries({ queryKey: ['incident-activity', String(incidentId)] });
       queryClient.invalidateQueries({ queryKey: ['upcoming-appointments', incidentId] });
       queryClient.invalidateQueries({ queryKey: ['voice-summary', incidentId] });
