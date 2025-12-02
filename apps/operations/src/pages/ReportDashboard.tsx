@@ -41,7 +41,8 @@ const ReportDashboard = () => {
   const [selectedSiteId, setSelectedSiteId] = useState<string>("");
 
   // Get the employer name - for roles 5,6,7 it comes from userData, for Mend staff from selection
-  const userEmployerId = userData?.employer_id;
+  // Ensure employer_id is always a number for database queries
+  const userEmployerId = userData?.employer_id ? Number(userData.employer_id) : null;
   const effectiveEmployerId = selectedEmployerId || userEmployerId;
   
   // Find employer name from employers list OR from userData
@@ -78,23 +79,38 @@ const ReportDashboard = () => {
   const { data: quickStats, isLoading: isLoadingStats } = useQuery({
     queryKey: ['quick-stats', effectiveEmployerId, selectedMonth],
     queryFn: async () => {
-      if (!effectiveEmployerId) return null;
+      if (!effectiveEmployerId) {
+        console.log('[ReportDashboard] No effectiveEmployerId, skipping stats query');
+        return null;
+      }
       
       const monthStart = `${selectedMonth}-01`;
       const monthEnd = new Date(Number(selectedMonth.split('-')[0]), Number(selectedMonth.split('-')[1]), 0);
       const monthEndStr = format(monthEnd, 'yyyy-MM-dd');
       
+      console.log('[ReportDashboard] Fetching stats for:', {
+        effectiveEmployerId,
+        selectedMonth,
+        monthStart,
+        monthEndStr,
+        effectiveEmployerIdType: typeof effectiveEmployerId
+      });
+      
       // Fetch incidents for the month (excluding archived/deleted)
       const { data: incidents, error: incError } = await supabase
         .from('incidents')
-        .select('classification')
+        .select('incident_id, classification, date_of_injury, employer_id')
         .eq('employer_id', effectiveEmployerId)
         .gte('date_of_injury', monthStart)
         .lte('date_of_injury', monthEndStr)
         .is('archived_at', null)
         .is('deleted_at', null);
       
-      if (incError) console.error('Error fetching incidents:', incError);
+      if (incError) {
+        console.error('[ReportDashboard] Error fetching incidents:', incError);
+      } else {
+        console.log('[ReportDashboard] Incidents found:', incidents?.length, incidents);
+      }
       
       // Fetch hours worked for the month
       const { data: hours, error: hoursError } = await supabase
@@ -103,7 +119,11 @@ const ReportDashboard = () => {
         .eq('employer_id', effectiveEmployerId)
         .eq('month', monthStart);
       
-      if (hoursError) console.error('Error fetching hours:', hoursError);
+      if (hoursError) {
+        console.error('[ReportDashboard] Error fetching hours:', hoursError);
+      } else {
+        console.log('[ReportDashboard] Hours found:', hours);
+      }
       
       const totalHours = hours?.reduce((sum, h) => 
         sum + Number(h.employer_hours || 0) + Number(h.subcontractor_hours || 0), 0) || 0;
@@ -128,6 +148,8 @@ const ReportDashboard = () => {
       // LTIFR = (Number of LTIs / Total Hours Worked) × 1,000,000
       const ltifr = totalHours > 0 ? ((ltiCount / totalHours) * 1000000) : 0;
       
+      console.log('[ReportDashboard] Stats calculated:', { totalIncidents, ltiCount, mtiCount, totalHours, ltifr });
+      
       return {
         totalIncidents,
         ltiCount,
@@ -143,13 +165,18 @@ const ReportDashboard = () => {
   const { data: hoursStatus } = useQuery({
     queryKey: ['hours-status', effectiveEmployerId, sites],
     queryFn: async () => {
-      if (!effectiveEmployerId || sites.length === 0) return { complete: false, missing: 0, total: 0 };
+      if (!effectiveEmployerId || sites.length === 0) {
+        console.log('[ReportDashboard] No employer or sites for hours status check');
+        return { complete: false, missing: 0, total: 0 };
+      }
       
       // Last 3 completed months (not including current)
       const completedMonths = Array.from({ length: 3 }, (_, i) => {
         const date = subMonths(new Date(), i + 1);
         return format(date, 'yyyy-MM') + '-01';
       });
+      
+      console.log('[ReportDashboard] Checking hours for months:', completedMonths, 'employer:', effectiveEmployerId);
       
       // Fetch hours with actual values (employer_hours > 0 OR subcontractor_hours > 0)
       const { data: hours, error } = await supabase
@@ -159,31 +186,41 @@ const ReportDashboard = () => {
         .in('month', completedMonths);
       
       if (error) {
-        console.error('Error checking hours status:', error);
+        console.error('[ReportDashboard] Error checking hours status:', error);
         return { complete: false, missing: 0, total: 0 };
       }
+      
+      console.log('[ReportDashboard] Hours data returned:', hours);
       
       // Only count entries that have actual hours > 0
       const validEntries = hours?.filter(h => 
         (Number(h.employer_hours) > 0 || Number(h.subcontractor_hours) > 0)
       ) || [];
       
+      console.log('[ReportDashboard] Valid entries with hours > 0:', validEntries);
+      
       // Create a Set of "siteId-month" to check coverage
       const coveredSiteMonths = new Set(
         validEntries.map(h => `${h.site_id}-${h.month}`)
       );
       
+      console.log('[ReportDashboard] Covered site-months:', Array.from(coveredSiteMonths));
+      
       // Count how many site-months have valid data
       const siteIds = sites.map(s => s.site_id);
       let missingCount = 0;
+      const missingSiteMonths: string[] = [];
       
       for (const month of completedMonths) {
         for (const siteId of siteIds) {
           if (!coveredSiteMonths.has(`${siteId}-${month}`)) {
             missingCount++;
+            missingSiteMonths.push(`${siteId}-${month}`);
           }
         }
       }
+      
+      console.log('[ReportDashboard] Missing site-months:', missingSiteMonths);
       
       const expectedEntries = sites.length * 3; // 3 months × sites
       
