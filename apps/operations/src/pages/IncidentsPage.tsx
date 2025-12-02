@@ -115,24 +115,25 @@ export default function IncidentsPage() {
               <IncidentHeatMap
                 employerId={effectiveEmployerId}
                 userRoleId={userRoleId}
-                height="320px"
+                aspectRatio="1/1"
               />
             </CardContent>
           </Card>
 
           {/* Incidents Chart */}
-          <Card>
+          <Card className="flex flex-col">
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-medium flex items-center gap-2">
                 <BarChart3 className="h-4 w-4 text-muted-foreground" />
                 Incidents Over Time
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent className="pt-0 flex-1 flex flex-col justify-center">
               <IncidentsChart 
                 employerId={effectiveEmployerId} 
                 userRoleId={userRoleId}
-                height={320}
+                height={350}
+                hideCard
               />
             </CardContent>
           </Card>

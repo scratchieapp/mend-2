@@ -25,6 +25,7 @@ interface IncidentHeatMapProps {
   userRoleId: number | null;
   className?: string;
   height?: string | number;
+  aspectRatio?: string; // e.g., "1/1" for square
 }
 
 // Australian city coordinates for geocoding fallback
@@ -125,7 +126,8 @@ export function IncidentHeatMap({
   employerId, 
   userRoleId,
   className = "", 
-  height = "350px",
+  height,
+  aspectRatio = "1/1", // Default to square
 }: IncidentHeatMapProps) {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const { isLoaded: mapLoaded } = useGoogleMaps();
@@ -163,11 +165,13 @@ export function IncidentHeatMap({
       if (sitesError) throw sitesError;
 
       // Fetch incident counts grouped by site and classification
+      // Only get incidents that have a site_id
       let incidentQuery = supabase
         .from('incidents')
         .select('site_id, classification')
         .is('deleted_at', null)
-        .is('archived_at', null);
+        .is('archived_at', null)
+        .not('site_id', 'is', null);
 
       if (employerId) {
         incidentQuery = incidentQuery.eq('employer_id', employerId);
@@ -176,10 +180,14 @@ export function IncidentHeatMap({
       const { data: incidents, error: incError } = await incidentQuery;
       if (incError) throw incError;
 
+      console.log('[IncidentHeatMap] Fetched incidents:', incidents?.length, 'for employer:', employerId);
+
       // Aggregate incidents by site
       const incidentCounts: Record<number, { lti: number; mti: number; fai: number; total: number }> = {};
       
       incidents?.forEach((inc) => {
+        if (!inc.site_id) return; // Skip incidents without site_id
+        
         if (!incidentCounts[inc.site_id]) {
           incidentCounts[inc.site_id] = { lti: 0, mti: 0, fai: 0, total: 0 };
         }
@@ -192,8 +200,11 @@ export function IncidentHeatMap({
         } else if (classification === 'FAI' || classification === 'FIRST AID' || classification === 'FIRST AID INJURY') {
           incidentCounts[inc.site_id].fai++;
         }
+        // Always increment total
         incidentCounts[inc.site_id].total++;
       });
+      
+      console.log('[IncidentHeatMap] Site incident counts:', incidentCounts);
 
       // Combine sites with incident data
       return sites?.map((site: any) => ({
@@ -365,9 +376,14 @@ export function IncidentHeatMap({
     return () => clearTimeout(timer);
   }, [initializeMap]);
 
+  // Style object - use height if provided, otherwise use aspectRatio
+  const containerStyle = height 
+    ? { height: typeof height === 'number' ? `${height}px` : height }
+    : { aspectRatio };
+
   if (!apiKey) {
     return (
-      <div className={`w-full flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg border ${className}`} style={{ height }}>
+      <div className={`w-full flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg border ${className}`} style={containerStyle}>
         <div className="text-center p-4">
           <MapIcon className="h-10 w-10 text-slate-400 mx-auto mb-2" />
           <p className="text-sm text-muted-foreground">Map requires Google Maps API key</p>
@@ -377,12 +393,12 @@ export function IncidentHeatMap({
   }
 
   if (isLoading) {
-    return <Skeleton className={`w-full rounded-lg ${className}`} style={{ height }} />;
+    return <Skeleton className={`w-full rounded-lg ${className}`} style={containerStyle} />;
   }
 
   if (siteData.length === 0) {
     return (
-      <div className={`w-full flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg border ${className}`} style={{ height }}>
+      <div className={`w-full flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg border ${className}`} style={containerStyle}>
         <div className="text-center p-4">
           <AlertTriangle className="h-10 w-10 text-slate-400 mx-auto mb-2" />
           <p className="text-sm text-muted-foreground">No site data available</p>
@@ -392,7 +408,7 @@ export function IncidentHeatMap({
   }
 
   return (
-    <div className="relative" style={{ height }}>
+    <div className="relative" style={containerStyle}>
       <div 
         ref={mapRef} 
         className={`w-full h-full rounded-lg border bg-slate-100 ${className}`}
