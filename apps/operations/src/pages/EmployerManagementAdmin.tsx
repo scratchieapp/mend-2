@@ -392,7 +392,16 @@ export default function EmployerManagementAdmin() {
                     Add New Builder
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-2xl">
+                <DialogContent 
+                  className="max-w-2xl"
+                  onInteractOutside={(e) => {
+                    // Prevent dialog from closing when clicking on Google Places autocomplete
+                    const target = e.target as HTMLElement;
+                    if (target.closest('.pac-container') || target.closest('.pac-item')) {
+                      e.preventDefault();
+                    }
+                  }}
+                >
                   <DialogHeader>
                     <DialogTitle>Create New Builder/Employer</DialogTitle>
                     <DialogDescription>
@@ -627,7 +636,16 @@ export default function EmployerManagementAdmin() {
 
         {/* Edit Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent 
+            className="max-w-2xl"
+            onInteractOutside={(e) => {
+              // Prevent dialog from closing when clicking on Google Places autocomplete
+              const target = e.target as HTMLElement;
+              if (target.closest('.pac-container') || target.closest('.pac-item')) {
+                e.preventDefault();
+              }
+            }}
+          >
             <DialogHeader>
               <DialogTitle>Edit Employer</DialogTitle>
               <DialogDescription>
