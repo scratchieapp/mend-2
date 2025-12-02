@@ -3,6 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { 
   Map as MapIcon, 
   Navigation, 
   Phone, 
@@ -21,7 +28,10 @@ import {
   ClipboardList,
   User,
   Calendar,
-  ArrowRight
+  ArrowRight,
+  Building2,
+  TrendingUp,
+  Activity
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -36,6 +46,25 @@ import { RetellVoiceCall } from "@/components/voice/RetellVoiceCall";
 // Emergency phone number - 24/7 incident reporting line
 const EMERGENCY_PHONE = "02 9136 2358";
 const EMERGENCY_PHONE_LINK = "tel:+61291362358";
+
+// Employer sort preference persistence key
+const EMPLOYER_SORT_KEY = 'mend-employer-sort-preference';
+
+// Employer sort options
+type EmployerSortOption = 'name' | 'most_ltis' | 'most_incidents' | 'most_sites' | 'most_recent';
+
+interface EmployerStats {
+  employer_id: number;
+  employer_name: string;
+  employer_address: string | null;
+  employer_state: string | null;
+  employer_post_code: string | null;
+  site_count: number;
+  incident_count: number;
+  lti_count: number;
+  mti_count: number;
+  last_incident_date: string | null;
+}
 
 // Weather component that loads automatically when site is selected
 const SiteWeather = ({ lat, lng, siteName }: { lat?: number; lng?: number; siteName: string }) => {
@@ -193,6 +222,26 @@ export default function PublicDashboard() {
   // Check if user can see incidents (roles 1-8, not role 9 which is public)
   const userRoleId = userData?.role_id ? parseInt(userData.role_id) : null;
   const canViewIncidents = !!(isAuthenticated && userRoleId && userRoleId < 9);
+  
+  // Super Admin (roles 1-4) can view all incidents without a specific employer
+  const isSuperAdmin = !!(userRoleId && userRoleId >= 1 && userRoleId <= 4);
+
+  // Employer sort preference (persisted to localStorage)
+  const [employerSort, setEmployerSort] = useState<EmployerSortOption>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(EMPLOYER_SORT_KEY);
+      if (saved && ['name', 'most_ltis', 'most_incidents', 'most_sites', 'most_recent'].includes(saved)) {
+        return saved as EmployerSortOption;
+      }
+    }
+    return 'most_ltis'; // Default to most LTIs for safety focus
+  });
+
+  // Update localStorage when sort preference changes
+  const handleEmployerSortChange = (value: EmployerSortOption) => {
+    setEmployerSort(value);
+    localStorage.setItem(EMPLOYER_SORT_KEY, value);
+  };
 
   useEffect(() => {
     if (isAuthenticated && userData?.employer_id) {
@@ -256,14 +305,60 @@ export default function PublicDashboard() {
     enabled: isAuthenticated && !!employerId
   });
 
+  // Fetch all employer statistics for Super Admin
+  const { data: employerStats, isLoading: employersLoading } = useQuery({
+    queryKey: ['employer-statistics', userRoleId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_employer_statistics', {
+        p_user_role_id: userRoleId
+      });
+      
+      if (error) {
+        console.error('Error fetching employer statistics:', error);
+        return [];
+      }
+      return data as EmployerStats[];
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: isSuperAdmin && !!userRoleId
+  });
+
+  // Sort employers based on selected option
+  const sortedEmployers = employerStats ? [...employerStats].sort((a, b) => {
+    switch (employerSort) {
+      case 'most_ltis':
+        return (b.lti_count || 0) - (a.lti_count || 0);
+      case 'most_incidents':
+        return (b.incident_count || 0) - (a.incident_count || 0);
+      case 'most_sites':
+        return (b.site_count || 0) - (a.site_count || 0);
+      case 'most_recent':
+        if (!b.last_incident_date) return -1;
+        if (!a.last_incident_date) return 1;
+        return new Date(b.last_incident_date).getTime() - new Date(a.last_incident_date).getTime();
+      case 'name':
+      default:
+        return (a.employer_name || '').localeCompare(b.employer_name || '');
+    }
+  }) : [];
+
   // Create head office data for the map
-  const headOffices: HeadOffice[] = employer ? [{
-    employer_id: employer.employer_id,
-    employer_name: employer.employer_name,
-    employer_address: employer.employer_address || undefined,
-    employer_state: employer.employer_state || undefined,
-    employer_post_code: employer.employer_post_code || undefined,
-  }] : [];
+  // For Super Admin, show all employer head offices as red squares
+  const headOffices: HeadOffice[] = isSuperAdmin && sortedEmployers.length > 0
+    ? sortedEmployers.map(e => ({
+        employer_id: e.employer_id,
+        employer_name: e.employer_name,
+        employer_address: e.employer_address || undefined,
+        employer_state: e.employer_state || undefined,
+        employer_post_code: e.employer_post_code || undefined,
+      }))
+    : employer ? [{
+        employer_id: employer.employer_id,
+        employer_name: employer.employer_name,
+        employer_address: employer.employer_address || undefined,
+        employer_state: employer.employer_state || undefined,
+        employer_post_code: employer.employer_post_code || undefined,
+      }] : [];
 
   // Get employer name from query or from first site as fallback
   const employerName = employer?.employer_name || sites?.[0]?.employer_name;
@@ -271,7 +366,7 @@ export default function PublicDashboard() {
   // Fetch recent incidents (only for authorized users)
   // Uses get_dashboard_data which properly filters archived/deleted incidents
   const { data: recentIncidents, isLoading: incidentsLoading } = useQuery({
-    queryKey: ['recent-incidents', employerId, userData?.role_id],
+    queryKey: ['recent-incidents', isSuperAdmin ? 'all' : employerId, userData?.role_id],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_dashboard_data', {
         page_size: 5,
@@ -326,7 +421,9 @@ export default function PublicDashboard() {
       return incidents;
     },
     staleTime: 60 * 1000, // 1 minute
-    enabled: canViewIncidents && employerId !== null
+    // Super Admin can query without employerId (will see all incidents)
+    // Other roles need a specific employerId
+    enabled: canViewIncidents && (isSuperAdmin || employerId !== null)
   });
 
   const handleReportIncident = (siteId?: number) => {
@@ -490,8 +587,13 @@ export default function PublicDashboard() {
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <MapIcon className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Site Locations</CardTitle>
+                <CardTitle className="text-lg">{isSuperAdmin ? 'All Site Locations' : 'Site Locations'}</CardTitle>
                 {sites && <Badge variant="secondary" className="ml-2">{sites.length} sites</Badge>}
+                {isSuperAdmin && headOffices.length > 0 && (
+                  <Badge variant="outline" className="ml-1 text-red-600 border-red-200">
+                    {headOffices.length} head offices
+                  </Badge>
+                )}
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -570,12 +672,104 @@ export default function PublicDashboard() {
             </CardContent>
           </Card>
 
-          {/* 3. SITES LIST SECTION */}
+          {/* 3. EMPLOYERS SECTION (Super Admin only) */}
+          {isSuperAdmin && (
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-lg">Employers</CardTitle>
+                    {sortedEmployers.length > 0 && (
+                      <Badge variant="secondary">{sortedEmployers.length} clients</Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Sort by:</span>
+                    <Select value={employerSort} onValueChange={(v) => handleEmployerSortChange(v as EmployerSortOption)}>
+                      <SelectTrigger className="w-[160px] h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="most_ltis">Most LTIs</SelectItem>
+                        <SelectItem value="most_incidents">Most Incidents</SelectItem>
+                        <SelectItem value="most_sites">Most Sites</SelectItem>
+                        <SelectItem value="most_recent">Most Recent</SelectItem>
+                        <SelectItem value="name">Name (A-Z)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <CardDescription>Click on an employer to view their details</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {employersLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Loading employers...
+                  </div>
+                ) : sortedEmployers.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {sortedEmployers.map(emp => (
+                      <Card 
+                        key={emp.employer_id}
+                        className="transition-all duration-200 cursor-pointer hover:shadow-md border-l-4 border-l-red-500 hover:border-l-red-600"
+                        onClick={() => navigate(`/admin/employer-management?employer_id=${emp.employer_id}`)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="font-semibold text-sm">{emp.employer_name}</h4>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                          </div>
+                          <p className="text-xs text-muted-foreground mb-3 flex items-start gap-1">
+                            <MapIcon className="h-3 w-3 mt-0.5 shrink-0" />
+                            <span>{emp.employer_address ? `${emp.employer_address}, ` : ''}{emp.employer_state || 'No address'}</span>
+                          </p>
+                          
+                          {/* Statistics row */}
+                          <div className="flex items-center gap-3 text-xs">
+                            <div className="flex items-center gap-1" title="Lost Time Injuries">
+                              <div className={`w-2 h-2 rounded-full ${emp.lti_count > 0 ? 'bg-red-500' : 'bg-slate-300'}`} />
+                              <span className={emp.lti_count > 0 ? 'font-semibold text-red-600' : 'text-muted-foreground'}>
+                                {emp.lti_count} LTI
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1" title="Total Incidents">
+                              <Activity className="h-3 w-3 text-amber-500" />
+                              <span className="text-muted-foreground">{emp.incident_count}</span>
+                            </div>
+                            <div className="flex items-center gap-1" title="Sites">
+                              <MapIcon className="h-3 w-3 text-blue-500" />
+                              <span className="text-muted-foreground">{emp.site_count}</span>
+                            </div>
+                          </div>
+                          
+                          {/* Last incident date */}
+                          {emp.last_incident_date && (
+                            <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Last incident: {format(new Date(emp.last_incident_date), 'dd MMM yyyy')}
+                            </p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Building2 className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+                    <p className="text-muted-foreground">No employers found</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 4. SITES LIST SECTION */}
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <MapIcon className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Your Work Sites</CardTitle>
+                <CardTitle className="text-lg">{isSuperAdmin ? 'All Work Sites' : 'Your Work Sites'}</CardTitle>
               </div>
               <CardDescription>Click on a site to view on map</CardDescription>
             </CardHeader>
