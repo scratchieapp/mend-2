@@ -1,5 +1,161 @@
 # CLAUDE.md - Mend-2 Workplace Safety Platform
 
+## 🎨 UX CLEANUP & BUILDER ADMIN IMPROVEMENTS (2025-12-02)
+
+### Overview
+Major UX improvements focused on the Builder Admin (role 5) experience, with changes applicable to other roles. Cleaned up navigation, fixed data integrity issues, and improved reporting accuracy.
+
+### ✅ Navigation & Routing Changes
+
+1. **Builder Admin Landing Page**
+   - Role 5 now redirects to `/public-dashboard` on login (was: generic dashboard)
+   - Files: `DashboardRouter.tsx`, `ClerkLogin.tsx`
+
+2. **New `/incidents` Page**
+   - Comprehensive incidents list with chart and filtering
+   - Stacked bar chart showing 6-month incident breakdown by classification
+   - Filter by site and classification type
+   - "Record New Incident" button
+   - File: `/apps/operations/src/pages/IncidentsPage.tsx`
+
+3. **Top Navigation Updates**
+   - "Incident Report" → renamed to "Incidents" (links to `/incidents`)
+   - Removed redundant "Dashboard" button from `/public-dashboard`
+   - "Mend Platform" logo serves as home button
+   - File: `MendNavigationLinks.tsx`
+
+4. **Vercel Routing Fixes**
+   - Added rewrites for `/incidents` and `/hours-management` to prevent 404 on refresh
+   - File: `vercel.json`
+
+### ✅ Data Integrity: Injury Type vs Classification
+
+**Problem**: Confusion between `injury_type` and `classification` fields
+- `injury_type` should be WHAT happened (Fracture, Sprain, Laceration)
+- `classification` should be SEVERITY (LTI, MTI, FAI)
+
+**Fixes Applied:**
+1. **UI Clarification**: Table headers changed from "Injury Type" to "What Happened" and "Classification" to "Severity"
+2. **Warning Icons**: Amber warning shown when `injury_type` contains a classification value
+3. **Tooltips**: Hover tooltips explain LTI/MTI/FAI meanings
+4. **Normalization**: Helper function converts variations ("Lost Time Injury" → "LTI")
+5. **Form Updates**: Added separate "Classification" dropdown to injury details form
+6. **Database Migrations**:
+   - `20251203_fix_injury_type_classification.sql` - Fixes existing incident data
+   - `20251203_fix_injury_type_table.sql` - Populates injury_type table with actual injury types
+
+**Files Modified:**
+- `IncidentsList.tsx` - Warning icons, tooltips, normalization
+- `InjuryDetailsSection.tsx` - Added Classification dropdown
+- `IncidentEditPage.tsx` - Classification field in form data
+- `lib/validations/incident.ts` - Added classification to schemas
+
+### ✅ Reports Page Fixes
+
+1. **Zero Incidents Bug**
+   - Changed from direct table query to `get_dashboard_data` RPC (bypasses RLS)
+   - Classification normalization for accurate LTI/MTI counts
+   - File: `ReportDashboard.tsx`
+
+2. **Hours Entry Status Card**
+   - Now shows green checkmark when all sites have hours for last 3 months
+   - Shows amber warning with count when hours are missing
+   - Checks for actual values > 0, not just record existence
+
+3. **Report Period Dropdown**
+   - Excludes current incomplete month
+   - Only shows completed months for selection
+
+### ✅ Hours Management Improvements
+
+1. **Month Navigation**
+   - Added "Older Months" / "Newer Months" buttons
+   - Can view/edit hours going back 24 months
+   - Current incomplete month excluded
+   - File: `HoursManagementPage.tsx`
+
+2. **Status Icons on Collapsed Sites**
+   - Green checkmark: Hours entered
+   - Amber question mark: Hours estimated
+   - Red alert: Hours missing
+   - Shows icon for each of the 3 displayed months
+   - File: `SiteHoursList.tsx`
+
+### ✅ Public Dashboard Enhancements
+
+1. **Call Summary Display**
+   - Recent incidents now show AI call summary from voice agent
+   - Fallback to `injury_description` if no call summary
+   - Fetches from `voice_logs.call_summary`
+
+2. **Call Mend Button**
+   - Now displays phone number: "Call Mend - +61 2 9136 2358"
+
+3. **Incident Cards**
+   - Color-coded left border based on classification (red=LTI, amber=MTI, green=FAI)
+   - Improved layout with summary description
+
+### ✅ Incident Details Page
+
+1. **Reporting Info Section**
+   - Added reporter's phone number
+   - Shows "Reported to Site" date
+   - Displays witness name (from voice agent capture)
+
+### ✅ Edge Function Fixes
+
+1. **generate-safety-report CORS Fix**
+   - Added missing headers: `apikey`, `x-client-info`, `x-supabase-api-version`
+   - Changed OPTIONS response status to 204
+   - Function now callable from browser (was failing with CORS error)
+
+2. **retell-webhook-handler Update**
+   - Now saves `call_summary` from Retell's call analysis to `voice_logs`
+
+### ✅ Voice Agent Improvements (Planned)
+
+1. **Pronunciation**: "RIX" should be pronounced "Ricks" (add to prompt)
+2. **Injury Type Inference**: Infer from keywords (broke → Fracture, cut → Laceration)
+3. **Severity Capture**: Always record "severe" if caller states it
+4. **Witness Capture**: Ask for and record witness details
+
+### ✅ Body Injury Diagram
+
+- Fixed anatomical orientation for front view (was mirrored)
+- Added "R ← → L" labels for clarity
+- File: `BodyInjuryViewer.tsx`
+
+### Key Files Modified
+
+| File | Changes |
+|------|---------|
+| `DashboardRouter.tsx` | Role 5 → `/public-dashboard` |
+| `ClerkLogin.tsx` | Role 5 → `/public-dashboard` |
+| `IncidentsPage.tsx` | NEW - Full incidents page with chart |
+| `IncidentsChart.tsx` | NEW - 6-month stacked bar chart |
+| `PublicDashboard.tsx` | Removed Dashboard button, added call summaries |
+| `MendNavigationLinks.tsx` | "Incidents" nav item |
+| `IncidentsList.tsx` | Injury type warnings, tooltips |
+| `ReportDashboard.tsx` | RPC for incidents, hours status |
+| `HoursManagementPage.tsx` | Month navigation |
+| `SiteHoursList.tsx` | Status icons |
+| `IncidentDetailsPage.tsx` | Reporter phone, witness |
+| `IncidentEditPage.tsx` | Classification field |
+| `vercel.json` | Route rewrites |
+| `generate-safety-report/index.ts` | CORS headers fix |
+| `retell-webhook-handler/index.ts` | Save call_summary |
+
+### Database Migrations Created
+
+```sql
+-- Fix injury_type vs classification confusion
+20251203_fix_injury_type_classification.sql
+20251203_fix_injury_type_table.sql
+20251203_fix_employer_statistics.sql
+```
+
+---
+
 ## 🤖 VOICE AGENT INTEGRATION (IN PROGRESS - 2025-11-26)
 
 ### Strategic Goal
@@ -1215,6 +1371,6 @@ The reporting system emphasizes learning over compliance:
 
 ---
 
-**Last Updated**: December 1, 2025
-**Version**: 4.16.0
-**Status**: ✅ PRODUCTION READY | ✅ Incident Submission - WORKING | ✅ Voice Agent - Fully Operational | ✅ Medical Booking Agent "Emma" - Configured | ✅ RLS + Clerk Auth - Fixed | ✅ Site Management Redesign - Complete | ✅ Sites RBAC - Fixed | ✅ Cost Estimator - Complete | ✅ Safety Reporting System - Complete
+**Last Updated**: December 2, 2025
+**Version**: 4.17.0
+**Status**: ✅ PRODUCTION READY | ✅ UX Cleanup - Complete | ✅ Builder Admin Flow - Improved | ✅ Incident Submission - WORKING | ✅ Voice Agent - Fully Operational | ✅ Medical Booking Agent "Emma" - Configured | ✅ RLS + Clerk Auth - Fixed | ✅ Site Management Redesign - Complete | ✅ Sites RBAC - Fixed | ✅ Cost Estimator - Complete | ✅ Safety Reporting System - Complete
