@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEmployerContext } from "@/hooks/useEmployerContext";
@@ -30,24 +31,66 @@ interface Site {
   site_id: number;
   site_name: string;
   state: string | null;
+  employer_id?: number;
+}
+
+interface Employer {
+  employer_id: number;
+  employer_name: string;
 }
 
 const ReportDashboard = () => {
   const navigate = useNavigate();
   const { userData } = useAuth();
-  const { selectedEmployerId, employers, statistics } = useEmployerContext();
+  const { selectedEmployerId: contextEmployerId, employers: contextEmployers } = useEmployerContext();
+  
   // Default to last completed month (not current month since it's incomplete)
   const [selectedMonth, setSelectedMonth] = useState<string>(format(subMonths(new Date(), 1), "yyyy-MM"));
   const [selectedSiteId, setSelectedSiteId] = useState<string>("");
+  
+  // For Mend staff: local state for employer selection on this page
+  const [localSelectedEmployerId, setLocalSelectedEmployerId] = useState<string>("");
+  
+  // Check if user is Mend staff (roles 1-4)
+  const userRoleId = userData?.role_id ? parseInt(userData.role_id) : null;
+  const isMendUser = !!(userRoleId && userRoleId >= 1 && userRoleId <= 4);
+
+  // Fetch all employers for Mend staff dropdown
+  const { data: allEmployers = [], isLoading: isLoadingEmployers } = useQuery({
+    queryKey: ['all-employers-for-reports'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('employers')
+        .select('employer_id, employer_name')
+        .order('employer_name');
+      
+      if (error) throw error;
+      return data as Employer[];
+    },
+    enabled: isMendUser,
+  });
 
   // Get the employer name - for roles 5,6,7 it comes from userData, for Mend staff from selection
   // Ensure employer_id is always a number for database queries
   const userEmployerId = userData?.employer_id ? Number(userData.employer_id) : null;
-  const effectiveEmployerId = selectedEmployerId || userEmployerId;
+  
+  // Effective employer ID: Mend staff uses local selection, others use context/userData
+  const effectiveEmployerId = isMendUser 
+    ? (localSelectedEmployerId ? parseInt(localSelectedEmployerId) : null)
+    : (contextEmployerId || userEmployerId);
   
   // Find employer name from employers list OR from userData
-  const selectedEmployer = employers?.find(e => e.employer_id === effectiveEmployerId);
-  const employerName = selectedEmployer?.employer_name || userData?.employer_name || 'Your Company';
+  const selectedEmployerFromAll = allEmployers?.find(e => e.employer_id === effectiveEmployerId);
+  const selectedEmployerFromContext = contextEmployers?.find(e => e.employer_id === effectiveEmployerId);
+  const employerName = selectedEmployerFromAll?.employer_name || selectedEmployerFromContext?.employer_name || userData?.employer_name || 'Your Company';
+
+  // Convert employers to searchable options
+  const employerOptions: SearchableSelectOption[] = useMemo(() => {
+    return allEmployers.map(emp => ({
+      value: emp.employer_id.toString(),
+      label: emp.employer_name,
+    }));
+  }, [allEmployers]);
 
   // Get last 12 COMPLETED months for selection (exclude current incomplete month)
   const months = Array.from({ length: 12 }, (_, i) => {
@@ -58,22 +101,45 @@ const ReportDashboard = () => {
     };
   });
 
-  // Fetch sites for the effective employer (user's employer for roles 5,6,7)
+  // Fetch sites - for Mend staff get ALL sites when no employer selected, or filter by employer
   const { data: sites = [], isLoading: isLoadingSites } = useQuery({
-    queryKey: ['sites-for-reports', effectiveEmployerId],
+    queryKey: ['sites-for-reports', effectiveEmployerId, isMendUser],
     queryFn: async () => {
-      if (!effectiveEmployerId) return [];
-      const { data, error } = await supabase
+      let query = supabase
         .from('sites')
-        .select('site_id, site_name, state')
-        .eq('employer_id', effectiveEmployerId)
+        .select('site_id, site_name, state, employer_id')
         .order('site_name');
       
+      // If employer is selected, filter by it
+      if (effectiveEmployerId) {
+        query = query.eq('employer_id', effectiveEmployerId);
+      } else if (!isMendUser) {
+        // Non-Mend staff must have an employer
+        return [];
+      }
+      // For Mend staff with no employer selected, get all sites
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data as Site[];
     },
-    enabled: !!effectiveEmployerId,
+    enabled: isMendUser || !!effectiveEmployerId,
   });
+
+  // Convert sites to searchable options
+  const siteOptions: SearchableSelectOption[] = useMemo(() => {
+    return sites.map(site => ({
+      value: site.site_id.toString(),
+      label: site.site_name,
+      description: site.state || undefined,
+    }));
+  }, [sites]);
+
+  // Reset site selection when employer changes
+  const handleEmployerChange = (value: string) => {
+    setLocalSelectedEmployerId(value);
+    setSelectedSiteId(""); // Reset site when employer changes
+  };
 
   // Fetch quick stats for the selected month using the RBAC-aware RPC (same as IncidentsChart)
   const { data: quickStats, isLoading: isLoadingStats } = useQuery({
@@ -296,30 +362,54 @@ const ReportDashboard = () => {
               </div>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Select Site</label>
-                {isLoadingSites ? (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading sites...
+              <div className="space-y-4">
+                {/* Employer Selection for Mend Staff */}
+                {isMendUser && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Select Company</label>
+                    {isLoadingEmployers ? (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading companies...
+                      </div>
+                    ) : (
+                      <SearchableSelect
+                        options={employerOptions}
+                        value={localSelectedEmployerId}
+                        onValueChange={handleEmployerChange}
+                        placeholder="Search for a company..."
+                        searchPlaceholder="Type to search companies..."
+                        emptyMessage="No company found."
+                        icon={<Building2 className="h-4 w-4 text-muted-foreground" />}
+                      />
+                    )}
                   </div>
-                ) : sites.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No sites found for {employerName}</p>
-                ) : (
-                  <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose a site" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sites.map((site) => (
-                        <SelectItem key={site.site_id} value={site.site_id.toString()}>
-                          {site.site_name}
-                          {site.state && <span className="text-muted-foreground ml-2">({site.state})</span>}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 )}
+                
+                {/* Site Selection */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Select Site</label>
+                  {isLoadingSites ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading sites...
+                    </div>
+                  ) : isMendUser && !localSelectedEmployerId ? (
+                    <p className="text-sm text-muted-foreground">Select a company first</p>
+                  ) : sites.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No sites found for {employerName}</p>
+                  ) : (
+                    <SearchableSelect
+                      options={siteOptions}
+                      value={selectedSiteId}
+                      onValueChange={setSelectedSiteId}
+                      placeholder="Search for a site..."
+                      searchPlaceholder="Type to search sites..."
+                      emptyMessage="No site found."
+                      icon={<MapPin className="h-4 w-4 text-muted-foreground" />}
+                    />
+                  )}
+                </div>
               </div>
 
               <div className="pt-4 space-y-3">
@@ -370,15 +460,41 @@ const ReportDashboard = () => {
             </CardHeader>
             <CardContent className="flex-1 flex flex-col">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Selected Company</label>
-                <div className="p-3 bg-secondary rounded-lg">
-                  <p className="font-medium">
-                    {employerName}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {sites.length} site{sites.length !== 1 ? 's' : ''} included
-                  </p>
-                </div>
+                <label className="text-sm font-medium">Select Company</label>
+                {isMendUser ? (
+                  isLoadingEmployers ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading companies...
+                    </div>
+                  ) : (
+                    <>
+                      <SearchableSelect
+                        options={employerOptions}
+                        value={localSelectedEmployerId}
+                        onValueChange={handleEmployerChange}
+                        placeholder="Search for a company..."
+                        searchPlaceholder="Type to search companies..."
+                        emptyMessage="No company found."
+                        icon={<Building2 className="h-4 w-4 text-muted-foreground" />}
+                      />
+                      {effectiveEmployerId && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {sites.length} site{sites.length !== 1 ? 's' : ''} included
+                        </p>
+                      )}
+                    </>
+                  )
+                ) : (
+                  <div className="p-3 bg-secondary rounded-lg">
+                    <p className="font-medium">
+                      {employerName}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {sites.length} site{sites.length !== 1 ? 's' : ''} included
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 space-y-3">
