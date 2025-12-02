@@ -438,15 +438,15 @@ ${dataQuality.hasEstimatedHours ? 'Note: Some hours data is estimated. Frequency
 }
 
 serve(async (req: Request) => {
-  // CORS headers
+  // CORS headers - must include all headers sent by Supabase JS client
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-api-version',
   };
 
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   if (req.method !== 'POST') {
