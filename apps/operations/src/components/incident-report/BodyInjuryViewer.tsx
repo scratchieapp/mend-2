@@ -60,6 +60,9 @@ export function BodyInjuryViewer({
   };
 
   // Professional anatomical body SVG
+  // IMPORTANT: Anatomical orientation
+  // - Front view: Person's LEFT arm appears on VIEWER'S RIGHT (mirrored, like looking at someone)
+  // - Back view: Person's LEFT arm appears on VIEWER'S LEFT (same side, looking at their back)
   const BodyDiagram = ({ view }: { view: 'front' | 'back' }) => {
     const isInjured = (regionId: string) => selectedRegions.includes(`${view}-${regionId}`);
     
@@ -77,6 +80,20 @@ export function BodyInjuryViewer({
         strokeWidth: 1,
       };
     };
+
+    // For front view, swap left/right positions (anatomical perspective - facing the viewer)
+    // For back view, keep as is (viewer sees their back, left is on viewer's left)
+    const isFront = view === 'front';
+    
+    // Position constants - viewer's left side vs viewer's right side
+    const viewerLeft = { shoulder: 58, arm: 44, thigh: 78, knee: 86, leg: 78, foot: 86 };
+    const viewerRight = { shoulder: 142, arm: 140, thigh: 107, knee: 114, leg: 106, foot: 114 };
+    
+    // Anatomical mapping: person's left/right to viewer positions
+    // Front view: person's left → viewer's right (mirrored)
+    // Back view: person's left → viewer's left (not mirrored)
+    const leftSide = isFront ? viewerRight : viewerLeft;
+    const rightSide = isFront ? viewerLeft : viewerRight;
 
     return (
       <svg viewBox="0 0 200 400" className="w-full h-auto max-h-[280px]">
@@ -112,22 +129,19 @@ export function BodyInjuryViewer({
             {...getRegionStyle('neck')}
           />
           
-          {/* Shoulders */}
+          {/* Shoulders - position based on anatomical side */}
           <ellipse 
-            cx="58" cy="85" rx="14" ry="12"
+            cx={leftSide.shoulder} cy="85" rx="14" ry="12"
             {...getRegionStyle('shoulder-left')}
           />
           <ellipse 
-            cx="142" cy="85" rx="14" ry="12"
+            cx={rightSide.shoulder} cy="85" rx="14" ry="12"
             {...getRegionStyle('shoulder-right')}
           />
           
           {/* Torso */}
           <path 
-            d={view === 'front' 
-              ? "M70 75 Q100 70 130 75 L135 140 Q100 145 65 140 Z"
-              : "M70 75 Q100 70 130 75 L135 140 Q100 145 65 140 Z"
-            }
+            d="M70 75 Q100 70 130 75 L135 140 Q100 145 65 140 Z"
             {...getRegionStyle(view === 'front' ? 'chest' : 'upperback')}
           />
           
@@ -143,71 +157,83 @@ export function BodyInjuryViewer({
             {...getRegionStyle(view === 'front' ? 'pelvis' : 'glutes')}
           />
           
-          {/* Upper Arms */}
+          {/* Upper Arms - position based on anatomical side */}
           <rect 
-            x="44" y="92" width="16" height="50" rx="8"
+            x={leftSide.arm} y="92" width="16" height="50" rx="8"
             {...getRegionStyle('upperarm-left')}
           />
           <rect 
-            x="140" y="92" width="16" height="50" rx="8"
+            x={rightSide.arm} y="92" width="16" height="50" rx="8"
             {...getRegionStyle('upperarm-right')}
           />
           
-          {/* Forearms & Hands */}
+          {/* Forearms & Hands - position based on anatomical side */}
           <path 
-            d="M44 140 Q52 145 52 180 L52 210 Q52 218 48 218 L44 218 Q40 218 40 210 L40 145 Q40 140 44 140"
+            d={isFront
+              ? "M156 140 Q148 145 148 180 L148 210 Q148 218 152 218 L156 218 Q160 218 160 210 L160 145 Q160 140 156 140"
+              : "M44 140 Q52 145 52 180 L52 210 Q52 218 48 218 L44 218 Q40 218 40 210 L40 145 Q40 140 44 140"
+            }
             {...getRegionStyle('forearmhand-left')}
           />
           <path 
-            d="M156 140 Q148 145 148 180 L148 210 Q148 218 152 218 L156 218 Q160 218 160 210 L160 145 Q160 140 156 140"
+            d={isFront
+              ? "M44 140 Q52 145 52 180 L52 210 Q52 218 48 218 L44 218 Q40 218 40 210 L40 145 Q40 140 44 140"
+              : "M156 140 Q148 145 148 180 L148 210 Q148 218 152 218 L156 218 Q160 218 160 210 L160 145 Q160 140 156 140"
+            }
             {...getRegionStyle('forearmhand-right')}
           />
           
-          {/* Thighs */}
+          {/* Thighs - position based on anatomical side */}
           <path 
-            d="M78 223 Q88 225 93 223 L95 295 Q88 300 78 295 Z"
+            d={`M${leftSide.thigh} 223 Q${leftSide.thigh + 10} 225 ${leftSide.thigh + 15} 223 L${leftSide.thigh + 17} 295 Q${leftSide.thigh + 10} 300 ${leftSide.thigh} 295 Z`}
             {...getRegionStyle('thigh-left')}
           />
           <path 
-            d="M107 223 Q117 225 122 223 L122 295 Q115 300 105 295 Z"
+            d={`M${rightSide.thigh} 223 Q${rightSide.thigh + 10} 225 ${rightSide.thigh + 15} 223 L${rightSide.thigh + 15} 295 Q${rightSide.thigh + 8} 300 ${rightSide.thigh - 2} 295 Z`}
             {...getRegionStyle('thigh-right')}
           />
           
-          {/* Knees */}
+          {/* Knees - position based on anatomical side */}
           <ellipse 
-            cx="86" cy="305" rx="10" ry="12"
+            cx={leftSide.knee} cy="305" rx="10" ry="12"
             {...getRegionStyle('knee-left')}
           />
           <ellipse 
-            cx="114" cy="305" rx="10" ry="12"
+            cx={rightSide.knee} cy="305" rx="10" ry="12"
             {...getRegionStyle('knee-right')}
           />
           
-          {/* Lower Legs */}
+          {/* Lower Legs - position based on anatomical side */}
           <path 
-            d={view === 'front'
-              ? "M78 315 Q86 318 94 315 L92 365 Q86 370 80 365 Z"
-              : "M78 315 Q86 318 94 315 L92 365 Q86 370 80 365 Z"
-            }
+            d={`M${leftSide.leg} 315 Q${leftSide.knee} 318 ${leftSide.leg + 16} 315 L${leftSide.leg + 14} 365 Q${leftSide.knee} 370 ${leftSide.leg + 2} 365 Z`}
             {...getRegionStyle(view === 'front' ? 'shin-left' : 'calf-left')}
           />
           <path 
-            d={view === 'front'
-              ? "M106 315 Q114 318 122 315 L120 365 Q114 370 108 365 Z"
-              : "M106 315 Q114 318 122 315 L120 365 Q114 370 108 365 Z"
-            }
+            d={`M${rightSide.leg} 315 Q${rightSide.knee} 318 ${rightSide.leg + 16} 315 L${rightSide.leg + 14} 365 Q${rightSide.knee} 370 ${rightSide.leg + 2} 365 Z`}
             {...getRegionStyle(view === 'front' ? 'shin-right' : 'calf-right')}
           />
           
-          {/* Feet */}
+          {/* Feet - position based on anatomical side */}
           <ellipse 
-            cx="86" cy="378" rx="12" ry="16"
+            cx={leftSide.foot} cy="378" rx="12" ry="16"
             {...getRegionStyle('foot-left')}
           />
           <ellipse 
-            cx="114" cy="378" rx="12" ry="16"
+            cx={rightSide.foot} cy="378" rx="12" ry="16"
             {...getRegionStyle('foot-right')}
           />
+          
+          {/* Visual indicator for orientation */}
+          {isFront && (
+            <text x="100" y="20" textAnchor="middle" className="text-[8px] fill-slate-400">
+              R ←  → L
+            </text>
+          )}
+          {!isFront && (
+            <text x="100" y="20" textAnchor="middle" className="text-[8px] fill-slate-400">
+              L ←  → R
+            </text>
+          )}
         </g>
         
         {/* Injury pulse animation overlay */}
