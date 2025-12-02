@@ -148,6 +148,7 @@ export const incidentReportSchema = z.object({
   date_of_injury: z.string().min(1, 'Date of injury is required'),
   time_of_injury: z.string().optional().default(''), // No strict time format
   injury_type: z.string().min(1, 'Injury type is required'),
+  classification: z.enum(['LTI', 'MTI', 'FAI', 'Unclassified']).optional().default('Unclassified'),
   body_part: z.string().optional().default(''),
   body_side: z.string().optional().default('not_applicable'),
   body_regions: z.array(z.string()).optional().default([]),
@@ -202,6 +203,7 @@ export const incidentEditSchema = z.object({
   date_of_injury: z.string().optional().nullable().default(''),
   time_of_injury: z.string().optional().nullable().default(''),
   injury_type: z.string().optional().nullable().default(''),
+  classification: z.enum(['LTI', 'MTI', 'FAI', 'Unclassified']).optional().nullable().default('Unclassified'),
   body_part: z.string().optional().nullable().default(''),
   body_side: z.string().optional().nullable(),
   body_regions: z.array(z.string()).optional().nullable().default([]),

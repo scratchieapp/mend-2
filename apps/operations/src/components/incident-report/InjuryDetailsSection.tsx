@@ -222,7 +222,7 @@ export function InjuryDetailsSection({ form }: InjuryDetailsSectionProps) {
               <Label>Type of Injury</Label>
               <Select onValueChange={field.onChange} value={field.value || ''}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select injury type" />
+                  <SelectValue placeholder="Select injury type (e.g., Fracture, Sprain)" />
                 </SelectTrigger>
                 <SelectContent>
                   {injuryTypes.map((type) => (
@@ -230,6 +230,27 @@ export function InjuryDetailsSection({ form }: InjuryDetailsSectionProps) {
                       {type.type_name}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="classification"
+          render={({ field }) => (
+            <FormItem>
+              <Label>Classification</Label>
+              <Select onValueChange={field.onChange} value={field.value || 'Unclassified'}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select classification" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="LTI">LTI - Lost Time Injury</SelectItem>
+                  <SelectItem value="MTI">MTI - Medical Treatment Injury</SelectItem>
+                  <SelectItem value="FAI">FAI - First Aid Injury</SelectItem>
+                  <SelectItem value="Unclassified">Unclassified</SelectItem>
                 </SelectContent>
               </Select>
             </FormItem>

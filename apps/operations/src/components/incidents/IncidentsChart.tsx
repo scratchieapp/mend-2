@@ -85,7 +85,7 @@ export function IncidentsChart({ employerId }: IncidentsChartProps) {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch incidents for the chart
+  // Fetch incidents for the chart using RBAC-aware RPC
   const { data: incidents = [], isLoading } = useQuery({
     queryKey: ['incidents-chart', employerId, months[0]?.value, months[5]?.value],
     queryFn: async () => {
@@ -94,21 +94,33 @@ export function IncidentsChart({ employerId }: IncidentsChartProps) {
       const startDate = format(months[0].start, 'yyyy-MM-dd');
       const endDate = format(months[5].end, 'yyyy-MM-dd');
       
-      const { data, error } = await supabase
-        .from('incidents')
-        .select('incident_id, date_of_injury, classification, site_id')
-        .eq('employer_id', employerId)
-        .gte('date_of_injury', startDate)
-        .lte('date_of_injury', endDate)
-        .is('deleted_at', null)
-        .is('archived_at', null);
+      // Use the get_dashboard_data RPC which respects RBAC
+      const { data, error } = await supabase.rpc('get_dashboard_data', {
+        page_size: 1000,
+        page_offset: 0,
+        filter_employer_id: employerId,
+        filter_worker_id: null,
+        filter_start_date: startDate,
+        filter_end_date: endDate,
+        user_role_id: 5, // Builder Admin
+        user_employer_id: employerId,
+        filter_archive_status: 'active'
+      });
       
       if (error) {
         console.error('Error fetching incidents for chart:', error);
         return [];
       }
       
-      return data || [];
+      // The RPC returns { incidents: [...], totalCount: N }
+      const incidentsData = data?.incidents || [];
+      
+      return incidentsData.map((incident: any) => ({
+        incident_id: incident.incident_id,
+        date_of_injury: incident.date_of_injury,
+        classification: incident.classification,
+        site_id: incident.site_id
+      }));
     },
     enabled: !!employerId,
     staleTime: 60 * 1000,

@@ -302,6 +302,7 @@ const IncidentEditPage = () => {
       date_of_injury: "",
       time_of_injury: "",
       injury_type: "",
+      classification: "Unclassified",
       body_part: "",
       body_side: "not_applicable",
       body_regions: [],
@@ -392,6 +393,7 @@ const IncidentEditPage = () => {
       time_of_injury: incidentData.time_of_injury ? 
         incidentData.time_of_injury.substring(0, 5) : "", // Extract HH:MM from time
       injury_type: incidentData.injury_type || "",
+      classification: (incidentData.classification as 'LTI' | 'MTI' | 'FAI' | 'Unclassified') || "Unclassified",
       body_part: incidentData.body_part_id?.toString() || "", // Use body_part_id
       body_side: incidentData.body_side_id?.toString() || "", // Store as ID string for dropdown
       body_regions: derivedBodyRegions, // Derived from body_part_name
@@ -507,6 +509,7 @@ const IncidentEditPage = () => {
       if (data.date_of_injury) updateData.date_of_injury = data.date_of_injury;
       if (data.time_of_injury) updateData.time_of_injury = data.time_of_injury;
       if (data.injury_type) updateData.injury_type = data.injury_type;
+      if (data.classification) updateData.classification = data.classification;
       if (data.body_part) updateData.body_part_id = parseInt(data.body_part) || null;
       // Body side is now stored as ID directly
       if (data.body_side) updateData.body_side_id = parseInt(data.body_side) || null;
@@ -635,6 +638,7 @@ const IncidentEditPage = () => {
       if (formData.date_of_injury) updateData.date_of_injury = formData.date_of_injury;
       if (formData.time_of_injury) updateData.time_of_injury = formData.time_of_injury;
       if (formData.injury_type) updateData.injury_type = formData.injury_type;
+      if (formData.classification) updateData.classification = formData.classification;
       if (formData.body_part) updateData.body_part_id = parseInt(formData.body_part) || null;
       // Body side is now stored as ID directly
       if (formData.body_side) updateData.body_side_id = parseInt(formData.body_side) || null;
