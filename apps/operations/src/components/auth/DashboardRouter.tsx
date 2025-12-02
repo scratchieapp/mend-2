@@ -33,12 +33,12 @@ export default function DashboardRouter() {
 
       if (error) {
         console.error('Error fetching user role:', error);
-        navigate('/dashboard'); // fallback
+        navigate('/public-dashboard'); // fallback to main dashboard
         return;
       }
 
       if (data?.role_id) {
-        const targetPath = roleIdToDashboard[data.role_id] || '/dashboard';
+        const targetPath = roleIdToDashboard[data.role_id] || '/public-dashboard';
         
         // Only navigate if we're at root or not already at the target
         if (location.pathname === '/' || location.pathname !== targetPath) {
