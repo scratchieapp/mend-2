@@ -530,32 +530,33 @@ const EmployerComplianceRow = ({
               />
               
               {!isComplete && !hasNoSites && (
-                <>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSendReminder();
-                    }}
-                    className="gap-1"
-                  >
-                    <Send className="h-3 w-3" />
-                    Remind
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEnterHours();
-                    }}
-                    className="gap-1"
-                  >
-                    <Clock className="h-3 w-3" />
-                    Enter Hours
-                  </Button>
-                </>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSendReminder();
+                  }}
+                  className="gap-1"
+                >
+                  <Send className="h-3 w-3" />
+                  Remind
+                </Button>
+              )}
+              
+              {!hasNoSites && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEnterHours();
+                  }}
+                  className="gap-1"
+                >
+                  <Clock className="h-3 w-3" />
+                  {isComplete ? "View Hours" : "Enter Hours"}
+                </Button>
               )}
             </div>
           </div>
