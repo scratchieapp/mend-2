@@ -269,14 +269,20 @@ export default function PublicDashboard() {
   const employerName = employer?.employer_name || sites?.[0]?.employer_name;
 
   // Fetch recent incidents (only for authorized users)
+  // Uses get_dashboard_data which properly filters archived/deleted incidents
   const { data: recentIncidents, isLoading: incidentsLoading } = useQuery({
     queryKey: ['recent-incidents', employerId, userData?.role_id],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_incidents_with_details_rbac', {
+      const { data, error } = await supabase.rpc('get_dashboard_data', {
         page_size: 5,
         page_offset: 0,
+        filter_employer_id: employerId,
+        filter_worker_id: null,
+        filter_start_date: null,
+        filter_end_date: null,
         user_role_id: userRoleId,
-        user_employer_id: employerId
+        user_employer_id: employerId,
+        filter_archive_status: 'active' // Only show active incidents, not deleted/archived
       });
       
       if (error) {
@@ -284,7 +290,8 @@ export default function PublicDashboard() {
         return [];
       }
       
-      return data || [];
+      // get_dashboard_data returns { incidents: [...], totalCount: N }
+      return data?.incidents || [];
     },
     staleTime: 60 * 1000, // 1 minute
     enabled: canViewIncidents && employerId !== null
@@ -324,7 +331,7 @@ export default function PublicDashboard() {
             {/* Option 2: Call Mend to report by voice */}
             {isAuthenticated ? (
               <RetellVoiceCall 
-                buttonText="Call Mend"
+                buttonText={`Call Mend - ${EMERGENCY_PHONE}`}
                 buttonVariant="outline"
                 phoneNumber={EMERGENCY_PHONE}
                 showPhoneOption={true}
@@ -343,7 +350,7 @@ export default function PublicDashboard() {
               <a href={EMERGENCY_PHONE_LINK}>
                 <Button variant="outline" size="lg" className="gap-2">
                   <Phone className="h-5 w-5" />
-                  Call Mend
+                  Call Mend - {EMERGENCY_PHONE}
                 </Button>
               </a>
             )}
@@ -376,46 +383,64 @@ export default function PublicDashboard() {
                     Loading incidents...
                   </div>
                 ) : recentIncidents && recentIncidents.length > 0 ? (
-                  <div className="space-y-2">
-                    {recentIncidents.map((incident: any) => (
-                      <div 
-                        key={incident.incident_id}
-                        className="flex items-center gap-4 p-3 rounded-lg border hover:bg-slate-50 cursor-pointer transition-colors"
-                        onClick={() => navigate(`/incident/${incident.incident_id}`)}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium text-sm">
-                              {incident.incident_number || `INC-${incident.incident_id}`}
-                            </span>
-                            {getClassificationBadge(incident.classification)}
-                          </div>
-                          {/* Short summary of incident */}
-                          {incident.injury_description && (
-                            <p className="text-sm text-slate-600 mb-1 line-clamp-1">
-                              {incident.injury_description}
+                  <div className="space-y-3">
+                    {recentIncidents.map((incident: any) => {
+                      // Get border color based on classification
+                      const getBorderColor = (classification?: string) => {
+                        const upper = classification?.toUpperCase();
+                        if (upper === 'LTI' || upper === 'LOST TIME INJURY') return 'border-l-red-500';
+                        if (upper === 'MTI' || upper === 'MEDICAL TREATMENT INJURY') return 'border-l-amber-500';
+                        if (upper === 'FAI' || upper === 'FIRST AID INJURY') return 'border-l-green-500';
+                        return 'border-l-slate-300';
+                      };
+                      
+                      return (
+                        <div 
+                          key={incident.incident_id}
+                          className={`flex items-start gap-4 p-4 rounded-lg border border-l-4 ${getBorderColor(incident.classification)} bg-white hover:bg-slate-50 cursor-pointer transition-all hover:shadow-sm`}
+                          onClick={() => navigate(`/incident/${incident.incident_id}`)}
+                        >
+                          <div className="flex-1 min-w-0">
+                            {/* Header row: incident number, classification, date */}
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-sm text-slate-900">
+                                  {incident.incident_number || `INC-${incident.incident_id}`}
+                                </span>
+                                {getClassificationBadge(incident.classification)}
+                              </div>
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                {incident.date_of_injury 
+                                  ? format(new Date(incident.date_of_injury), 'dd MMM yyyy')
+                                  : 'No date'}
+                              </span>
+                            </div>
+                            
+                            {/* Summary description */}
+                            <p className="text-sm text-slate-700 mb-2 line-clamp-2">
+                              {incident.injury_description || 
+                                (incident.injury_type && incident.injury_type !== 'Not specified' 
+                                  ? `${incident.injury_type} injury reported`
+                                  : 'No description available')}
                             </p>
-                          )}
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              {incident.worker_name || 'Unknown Worker'}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <MapIcon className="h-3 w-3" />
-                              {incident.site_name || 'Unknown Site'}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {incident.date_of_injury 
-                                ? format(new Date(incident.date_of_injury), 'dd MMM yyyy')
-                                : 'No date'}
-                            </span>
+                            
+                            {/* Footer: worker and site info */}
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1.5">
+                                <User className="h-3.5 w-3.5" />
+                                <span className="font-medium">{incident.worker_name || 'Unknown Worker'}</span>
+                              </span>
+                              <span className="flex items-center gap-1.5">
+                                <MapIcon className="h-3.5 w-3.5" />
+                                {incident.site_name || 'Unknown Site'}
+                              </span>
+                            </div>
                           </div>
+                          <ChevronRight className="h-5 w-5 text-slate-400 shrink-0 mt-1" />
                         </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-8">

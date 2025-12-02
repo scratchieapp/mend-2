@@ -81,13 +81,15 @@ const ReportDashboard = () => {
       const monthEnd = new Date(Number(selectedMonth.split('-')[0]), Number(selectedMonth.split('-')[1]), 0);
       const monthEndStr = format(monthEnd, 'yyyy-MM-dd');
       
-      // Fetch incidents for the month
+      // Fetch incidents for the month (excluding archived/deleted)
       const { data: incidents, error: incError } = await supabase
         .from('incidents')
         .select('classification')
         .eq('employer_id', effectiveEmployerId)
         .gte('date_of_injury', monthStart)
-        .lte('date_of_injury', monthEndStr);
+        .lte('date_of_injury', monthEndStr)
+        .is('archived_at', null)
+        .is('deleted_at', null);
       
       if (incError) console.error('Error fetching incidents:', incError);
       
