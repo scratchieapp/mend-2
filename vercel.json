@@ -189,6 +189,14 @@
       "destination": "/operations/index.html"
     },
     {
+      "source": "/hours-compliance/(.*)",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/hours-compliance",
+      "destination": "/operations/index.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/marketing/$1"
     }
