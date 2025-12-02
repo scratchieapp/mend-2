@@ -140,10 +140,12 @@ export function IncidentHeatMap({
   const isMendStaff = !!(userRoleId && userRoleId >= 1 && userRoleId <= 4);
 
   // Fetch site incident data
-  const { data: siteData = [], isLoading } = useQuery({
+  const { data: siteData = [], isLoading, error: queryError } = useQuery({
     queryKey: ['site-incident-heatmap', employerId, isMendStaff, userRoleId],
     queryFn: async () => {
-      // Build query for sites
+      console.log('[IncidentHeatMap] Starting fetch for employerId:', employerId, 'userRoleId:', userRoleId);
+      
+      // Build query for sites - use left join so we get sites even without employer details
       let query = supabase
         .from('sites')
         .select(`
@@ -155,7 +157,7 @@ export function IncidentHeatMap({
           latitude,
           longitude,
           employer_id,
-          employer:employers!inner(employer_name)
+          employer:employers(employer_name)
         `);
 
       if (employerId) {
@@ -163,7 +165,18 @@ export function IncidentHeatMap({
       }
 
       const { data: sites, error: sitesError } = await query;
-      if (sitesError) throw sitesError;
+      
+      console.log('[IncidentHeatMap] Sites query result:', sites?.length, 'sites, error:', sitesError);
+      
+      if (sitesError) {
+        console.error('[IncidentHeatMap] Sites query error:', sitesError);
+        throw sitesError;
+      }
+
+      if (!sites || sites.length === 0) {
+        console.log('[IncidentHeatMap] No sites found for employer:', employerId);
+        return [];
+      }
 
       // Use the same RPC as IncidentsChart to get incidents (respects RBAC)
       const { data: dashboardData, error: incError } = await supabase.rpc('get_dashboard_data', {
@@ -178,7 +191,10 @@ export function IncidentHeatMap({
         filter_archive_status: 'active'
       });
 
-      if (incError) throw incError;
+      if (incError) {
+        console.error('[IncidentHeatMap] Incidents RPC error:', incError);
+        throw incError;
+      }
 
       const incidents = dashboardData?.incidents || [];
       console.log('[IncidentHeatMap] Fetched incidents via RPC:', incidents.length, 'for employer:', employerId);
@@ -408,12 +424,27 @@ export function IncidentHeatMap({
     return <Skeleton className={`w-full rounded-lg ${className}`} style={containerStyle} />;
   }
 
+  if (queryError) {
+    console.error('[IncidentHeatMap] Query error:', queryError);
+    return (
+      <div className={`w-full flex items-center justify-center bg-gradient-to-br from-red-50 to-red-100 rounded-lg border border-red-200 ${className}`} style={containerStyle}>
+        <div className="text-center p-4">
+          <AlertTriangle className="h-10 w-10 text-red-400 mx-auto mb-2" />
+          <p className="text-sm text-red-600">Error loading map data</p>
+          <p className="text-xs text-red-500 mt-1">Check console for details</p>
+        </div>
+      </div>
+    );
+  }
+
   if (siteData.length === 0) {
     return (
       <div className={`w-full flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg border ${className}`} style={containerStyle}>
         <div className="text-center p-4">
-          <AlertTriangle className="h-10 w-10 text-slate-400 mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">No site data available</p>
+          <MapIcon className="h-10 w-10 text-slate-400 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">
+            {employerId ? 'No sites found for this employer' : 'No site data available'}
+          </p>
         </div>
       </div>
     );
