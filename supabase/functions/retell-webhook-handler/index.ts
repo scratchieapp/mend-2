@@ -237,8 +237,11 @@ async function processInboundIncident(
       severity: mergedData.severity || 'unknown',
       // Caller/reporter info - use full name if available
       caller_name: mergedData.caller_name,
-      caller_role: mergedData.caller_role,
+      caller_role: mergedData.caller_role || extractFromTranscript(transcript, 'caller_role'),
       caller_phone: mergedData.caller_phone,
+      // Witness info - check if caller was a witness
+      witness_name: mergedData.witness_name || null,
+      caller_was_witness: mergedData.caller_was_witness || extractFromTranscript(transcript, 'caller_was_witness') === 'true',
       // User profile info for authenticated web callers
       caller_position: mergedData.caller_position || null,
       is_authenticated: mergedData.is_authenticated || call.metadata?.is_authenticated || false,
@@ -352,10 +355,23 @@ function extractFromTranscript(transcript: string, field: string): string | null
     }
 
     case 'body_part': {
-      // Look for body part mentions
+      // Look for body part mentions - handle multiple body parts
+      const bodyPartWords = ['arm', 'leg', 'back', 'head', 'hand', 'foot', 'knee', 'shoulder', 'neck', 'wrist', 'ankle', 'finger', 'toe', 'hip', 'elbow', 'chest', 'rib', 'ribs'];
+      
+      // First try to find "broken X and Y" or "hurt X and Y" patterns
+      const multiPartPattern = /(?:broke|broken|hurt|injured|pain in)\s+(?:my|his|her|their)?\s*(\w+)\s+and\s+(\w+)/i;
+      const multiMatch = cleanTranscript.match(multiPartPattern);
+      if (multiMatch) {
+        const parts = [];
+        if (bodyPartWords.includes(multiMatch[1].toLowerCase())) parts.push(multiMatch[1].toLowerCase());
+        if (bodyPartWords.includes(multiMatch[2].toLowerCase())) parts.push(multiMatch[2].toLowerCase());
+        if (parts.length > 0) return parts.join(' and ');
+      }
+      
+      // Then look for single body part mentions
       const bodyPatterns = [
-        /(?:hurt|injured|pain in)\s+(?:her|his|their|my)?\s*(arm|leg|back|head|hand|foot|knee|shoulder|neck|wrist|ankle)/i,
-        /(?:arm|leg|back|head|hand|foot|knee|shoulder|neck|wrist|ankle)\s+(?:was\s+)?(?:injured|hurt)/i,
+        /(?:broke|broken|hurt|injured|pain in)\s+(?:her|his|their|my)?\s*(arm|leg|back|head|hand|foot|knee|shoulder|neck|wrist|ankle|finger|hip|elbow|chest|rib)/i,
+        /(?:arm|leg|back|head|hand|foot|knee|shoulder|neck|wrist|ankle|finger|hip|elbow|chest|rib)\s+(?:is\s+)?(?:broken|fractured|injured|hurt)/i,
       ];
       for (const pattern of bodyPatterns) {
         const match = cleanTranscript.match(pattern);
@@ -378,10 +394,19 @@ function extractFromTranscript(transcript: string, field: string): string | null
     }
 
     case 'caller_role': {
-      // Look for role mentions
-      if (/witness/i.test(cleanTranscript)) return 'witness';
-      if (/supervisor/i.test(cleanTranscript)) return 'supervisor';
-      if (/injured worker|I was injured|I hurt/i.test(cleanTranscript)) return 'injured_worker';
+      // Look for role mentions - check more specific patterns first
+      if (/I\s+(?:was\s+)?(?:a\s+)?witness|I\s+witnessed|I\s+saw\s+(?:it|the\s+incident|what\s+happened)/i.test(cleanTranscript)) return 'witness';
+      if (/witness(?:ed)?|saw\s+(?:it|the\s+incident|what\s+happened)/i.test(cleanTranscript)) return 'witness';
+      if (/supervisor|manager|foreman|boss/i.test(cleanTranscript)) return 'supervisor';
+      if (/injured\s+worker|I\s+was\s+injured|I\s+hurt\s+my|I\s+(?:broke|cut|sprained)/i.test(cleanTranscript)) return 'injured_worker';
+      return null;
+    }
+    
+    case 'caller_was_witness': {
+      // Check if caller explicitly says they witnessed the incident
+      if (/I\s+(?:was\s+)?(?:a\s+)?witness|I\s+witnessed|I\s+saw\s+(?:it|the\s+incident|what\s+happened)|yes.*witness/i.test(cleanTranscript)) {
+        return 'true';
+      }
       return null;
     }
 
@@ -1213,9 +1238,14 @@ serve(async (req: Request) => {
         }
       }
 
-      // Also handle call_analyzed for any additional data extraction
+      // Log recording URL availability for debugging
+      if (event === 'call_analyzed' && call.recording_url) {
+        console.log('Recording URL available in call_analyzed:', call.recording_url);
+      }
+
+      // Handle additional incident updates from call_analyzed custom data
       if (isIncidentReporterCall && event === 'call_analyzed' && call.call_analysis?.custom_analysis_data) {
-        console.log('Received call_analyzed with custom data, updating incident...');
+        console.log('Received call_analyzed with custom data for incident update');
         // Could update the incident with additional extracted data here if needed
       }
 
@@ -1245,11 +1275,11 @@ serve(async (req: Request) => {
         sentimentScore = sentimentMap[call.call_analysis.user_sentiment] || 0.0;
       }
 
-      // Insert voice log
+      // Handle voice log - only insert on call_ended, update on call_analyzed
       // Use inboundIncidentId for inbound incident calls, otherwise use voiceTask.incident_id
       const incidentIdForLog = inboundIncidentId || voiceTask?.incident_id || null;
 
-      console.log('Attempting to insert voice log for call:', call.call_id);
+      console.log('Processing voice log for call:', call.call_id, 'Event:', event);
       console.log('Supabase URL:', supabaseUrl);
       console.log('Service key present:', !!supabaseServiceKey);
 
@@ -1267,68 +1297,92 @@ serve(async (req: Request) => {
       const isNormalDisconnection = normalDisconnectionReasons.includes(call.disconnection_reason || '');
       const callWasSuccessful = call.call_analysis?.call_successful ?? isNormalDisconnection;
 
-      const voiceLogData = {
-        task_id: voiceTask?.id || null,
-        incident_id: incidentIdForLog,
-        retell_call_id: call.call_id,
-        retell_agent_id: call.agent_id,
-        call_type: call.call_type || call.direction, // 'web', 'phone', or 'inbound'/'outbound'
-        direction: call.direction,
-        phone_number: phoneNumber, // Required NOT NULL field
-        duration_seconds: durationSeconds,
-        call_status: callWasSuccessful ? 'completed' : 'failed',
-        disconnect_reason: call.disconnection_reason || null,
-        transcript: call.transcript || null,
-        transcript_object: call.transcript_object || null,
-        recording_url: call.recording_url || null,
-      };
-
-      console.log('Voice log data:', JSON.stringify(voiceLogData, null, 2));
-
-      const { data: voiceLog, error: logError } = await supabase
+      // Check if voice log already exists for this call
+      const { data: existingVoiceLog } = await supabase
         .from('voice_logs')
-        .insert({
-          task_id: voiceTask?.id || null,
-          incident_id: incidentIdForLog,
-          retell_call_id: call.call_id,
-          retell_agent_id: call.agent_id,
-          call_type: call.call_type || call.direction, // 'web', 'phone', or 'inbound'/'outbound'
-          direction: call.direction,
-          phone_number: phoneNumber, // Required NOT NULL field
-          duration_seconds: durationSeconds,
-          call_status: callWasSuccessful ? 'completed' : 'failed',
-          disconnect_reason: call.disconnection_reason || null,
-          transcript: call.transcript || null,
-          transcript_object: call.transcript_object || null,
-          recording_url: call.recording_url || null,
-          sentiment_score: sentimentScore,
-          extracted_data: extractedData,
-          intent_detected: voiceTask?.task_type || null,
-          user_sentiment: call.call_analysis?.user_sentiment || null,
-          call_summary: call.call_analysis?.call_summary || null, // Save the AI-generated call summary
-          call_successful: callWasSuccessful,
-          recording_consent_obtained: true, // Assumes agent discloses recording
-        })
-        .select()
+        .select('id')
+        .eq('retell_call_id', call.call_id)
         .single();
 
+      let voiceLog: any = null;
+      let logError: any = null;
+
+      if (existingVoiceLog) {
+        // Voice log exists - update it (typically call_analyzed event with recording_url)
+        console.log('Voice log already exists, updating with latest data...');
+        const { data: updatedLog, error: updateError } = await supabase
+          .from('voice_logs')
+          .update({
+            transcript: call.transcript || undefined,
+            transcript_object: call.transcript_object || undefined,
+            recording_url: call.recording_url || undefined,
+            sentiment_score: sentimentScore || undefined,
+            user_sentiment: call.call_analysis?.user_sentiment || undefined,
+            call_summary: call.call_analysis?.call_summary || undefined,
+            call_successful: callWasSuccessful,
+            extracted_data: extractedData || undefined,
+          })
+          .eq('retell_call_id', call.call_id)
+          .select()
+          .single();
+        
+        voiceLog = updatedLog;
+        logError = updateError;
+        if (!updateError) {
+          console.log(`Voice log updated: ${voiceLog?.id}`);
+        }
+      } else {
+        // No existing voice log - insert new one (typically call_ended event)
+        console.log('Creating new voice log...');
+        const { data: newLog, error: insertError } = await supabase
+          .from('voice_logs')
+          .insert({
+            task_id: voiceTask?.id || null,
+            incident_id: incidentIdForLog,
+            retell_call_id: call.call_id,
+            retell_agent_id: call.agent_id,
+            call_type: call.call_type || call.direction,
+            direction: call.direction,
+            phone_number: phoneNumber,
+            duration_seconds: durationSeconds,
+            call_status: callWasSuccessful ? 'completed' : 'failed',
+            disconnect_reason: call.disconnection_reason || null,
+            transcript: call.transcript || null,
+            transcript_object: call.transcript_object || null,
+            recording_url: call.recording_url || null,
+            sentiment_score: sentimentScore,
+            extracted_data: extractedData,
+            intent_detected: voiceTask?.task_type || null,
+            user_sentiment: call.call_analysis?.user_sentiment || null,
+            call_summary: call.call_analysis?.call_summary || null,
+            call_successful: callWasSuccessful,
+            recording_consent_obtained: true,
+          })
+          .select()
+          .single();
+
+        voiceLog = newLog;
+        logError = insertError;
+        if (!insertError) {
+          console.log(`Voice log created: ${voiceLog?.id}`);
+        }
+      }
+
       if (logError) {
-        console.error('Error inserting voice log:', JSON.stringify(logError, null, 2));
+        console.error('Error with voice log:', JSON.stringify(logError, null, 2));
         console.error('Error code:', logError.code);
         console.error('Error message:', logError.message);
         console.error('Error details:', logError.details);
         console.error('Error hint:', logError.hint);
-        // Return error in response for debugging
-        return new Response(JSON.stringify({
-          success: false,
-          error: 'Failed to insert voice log',
-          details: logError,
-        }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      } else {
-        console.log(`Voice log created: ${voiceLog?.id}`);
+        // Don't return error - continue processing to not block other operations
+        // return new Response(JSON.stringify({
+        //   success: false,
+        //   error: 'Failed to insert/update voice log',
+        //   details: logError,
+        // }), {
+        //   status: 500,
+        //   headers: { 'Content-Type': 'application/json' },
+        // });
       }
 
       // Note: incident_activities table doesn't exist yet

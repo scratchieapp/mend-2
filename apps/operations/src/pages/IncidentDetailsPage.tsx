@@ -806,6 +806,7 @@ const IncidentDetailsPage = () => {
               bodyPartId={incident?.body_part_id}
               bodyPartName={incident?.body_part?.body_part_name || undefined}
               injuryType={incident?.injury_type || undefined}
+              severity={incident?.severity || undefined}
               state={incident?.site?.state || undefined}
               isFatality={incident?.fatality || false}
               readOnly={true}

@@ -379,6 +379,15 @@ serve(async (req: Request) => {
       classification = severityToClassification[extracted_data.severity.toLowerCase()] || null;
     }
 
+    // Normalize severity value
+    let severity: string | null = null;
+    if (extracted_data.severity) {
+      const normalizedSeverity = extracted_data.severity.toLowerCase().trim();
+      if (['minor', 'moderate', 'severe'].includes(normalizedSeverity)) {
+        severity = normalizedSeverity;
+      }
+    }
+
     const incidentData = {
       incident_number: incidentNumber,
       worker_id: workerId,
@@ -391,6 +400,7 @@ serve(async (req: Request) => {
       body_part_id: bodyPartId,
       body_side_id: bodySideId,
       classification: classification,
+      severity: severity, // Store caller-reported severity for cost estimation
       treatment_provided: extracted_data.treatment_received || extracted_data.treatment_provided || null,
       incident_status: 'Voice Agent', // Special status for voice agent-created incidents
       case_notes: `${callerInfo}\n\nIncident reported via AI voice agent (Call ID: ${call_id}).`,
