@@ -18,6 +18,19 @@ export interface ActivityLogEntry {
   metadata?: Record<string, string>;
 }
 
+// Keywords that indicate a milestone/success in activity summaries
+const MILESTONE_KEYWORDS = [
+  'booked successfully',
+  'confirmed',
+  'completed',
+  'times collected',
+  'appointment booked',
+  'patient confirmed',
+  'booking confirmed',
+  'established',
+  'scheduled',
+];
+
 interface IncidentActivityLogProps {
   activities: ActivityLogEntry[];
 }
@@ -37,6 +50,19 @@ const activityColors: Record<ActivityLogEntry['type'], string> = {
   voice_agent: 'bg-violet-100 text-violet-700 border-violet-200',
   edit: 'bg-gray-100 text-gray-700 border-gray-200',
 };
+
+// Milestone activities get special highlighting
+const milestoneColors = 'bg-emerald-100 text-emerald-700 border-emerald-300 ring-1 ring-emerald-200';
+
+// Check if an activity is a milestone (success indicator)
+function isMilestoneActivity(activity: ActivityLogEntry): boolean {
+  const titleLower = activity.title.toLowerCase();
+  const descLower = (activity.description || '').toLowerCase();
+  
+  return MILESTONE_KEYWORDS.some(keyword => 
+    titleLower.includes(keyword) || descLower.includes(keyword)
+  );
+}
 
 const activityLabels: Record<ActivityLogEntry['type'], string> = {
   call: 'Call',
@@ -60,7 +86,11 @@ export function IncidentActivityLog({ activities }: IncidentActivityLogProps) {
   return (
     <ScrollArea className="h-[300px] pr-4">
       <div className="space-y-3">
-        {activities.map((activity, index) => (
+        {activities.map((activity, index) => {
+          const isMilestone = isMilestoneActivity(activity);
+          const colorClass = isMilestone ? milestoneColors : activityColors[activity.type];
+          
+          return (
           <div 
             key={activity.id}
             className={cn(
@@ -68,10 +98,11 @@ export function IncidentActivityLog({ activities }: IncidentActivityLogProps) {
               index !== activities.length - 1 && "border-l-2 border-muted ml-2"
             )}
           >
-            {/* Timeline dot */}
+            {/* Timeline dot - larger and highlighted for milestones */}
             <div className={cn(
-              "absolute left-0 -translate-x-1/2 w-5 h-5 rounded-full border-2 flex items-center justify-center",
-              activityColors[activity.type]
+              "absolute left-0 -translate-x-1/2 rounded-full border-2 flex items-center justify-center",
+              isMilestone ? "w-6 h-6" : "w-5 h-5",
+              colorClass
             )}>
               {activityIcons[activity.type]}
             </div>
@@ -81,16 +112,16 @@ export function IncidentActivityLog({ activities }: IncidentActivityLogProps) {
               <div className="flex items-center gap-2 mb-1">
                 <Badge 
                   variant="outline" 
-                  className={cn("text-xs px-1.5 py-0", activityColors[activity.type])}
+                  className={cn("text-xs px-1.5 py-0", colorClass)}
                 >
-                  {activityLabels[activity.type]}
+                  {isMilestone ? '✓ Milestone' : activityLabels[activity.type]}
                 </Badge>
                 <span className="text-xs text-muted-foreground">
                   {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })}
                 </span>
               </div>
               
-              <p className="text-sm font-medium">{activity.title}</p>
+              <p className={cn("text-sm font-medium", isMilestone && "text-emerald-700")}>{activity.title}</p>
               
               {activity.description && (
                 <p className="text-xs text-muted-foreground mt-1 line-clamp-2">

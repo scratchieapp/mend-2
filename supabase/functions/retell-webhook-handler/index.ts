@@ -563,24 +563,50 @@ async function processBookingWorkflowCall(
   // Handle based on task type
   switch (voiceTask.task_type) {
     case 'booking_get_times': {
+      // Parse available times - Retell sends individual time_slot_X or available_time_X fields
+      // We need to convert these to an array
+      const availableTimes: string[] = [];
+      
+      // Check for time_slot_X format (from booking-submit-times tool)
+      if (customData.time_slot_1 || customData.time_slot_2 || customData.time_slot_3) {
+        if (customData.time_slot_1) availableTimes.push(customData.time_slot_1);
+        if (customData.time_slot_2) availableTimes.push(customData.time_slot_2);
+        if (customData.time_slot_3) availableTimes.push(customData.time_slot_3);
+      }
+      // Check for available_time_X format (from post-call analysis)
+      else if (customData.available_time_1 || customData.available_time_2 || customData.available_time_3) {
+        if (customData.available_time_1) availableTimes.push(customData.available_time_1);
+        if (customData.available_time_2) availableTimes.push(customData.available_time_2);
+        if (customData.available_time_3) availableTimes.push(customData.available_time_3);
+      }
+      // Use available_times array if already provided
+      else if (customData.available_times && Array.isArray(customData.available_times)) {
+        availableTimes.push(...customData.available_times);
+      }
+      
+      // Also check times_collected flag from post-call analysis
+      const timesCollected = customData.times_collected === true || availableTimes.length > 0;
+      
+      console.log(`Booking get_times: callSuccessful=${callSuccessful}, timesCollected=${timesCollected}, times=${JSON.stringify(availableTimes)}`);
+      
       // Record call end for medical center call
-      const mcCallOutcome = callSuccessful && customData.available_times?.length > 0 ? 'completed' : 'failed';
+      const mcCallOutcome = callSuccessful && timesCollected ? 'completed' : 'failed';
       await supabase.rpc('record_booking_call_end', {
         p_workflow_id: workflowId,
         p_retell_call_id: call.call_id,
         p_outcome: mcCallOutcome,
-        p_call_successful: callSuccessful && customData.available_times?.length > 0,
+        p_call_successful: callSuccessful && timesCollected,
         p_extracted_data: customData,
         p_failure_reason: customData.failure_reason || null,
       });
 
       // First call to medical center - get available times
-      if (callSuccessful && customData.available_times?.length > 0) {
+      if (callSuccessful && timesCollected) {
         // Update workflow with available times
         await supabase.rpc('update_booking_workflow_v2', {
           p_workflow_id: workflowId,
           p_status: 'times_collected',
-          p_available_times: customData.available_times,
+          p_available_times: availableTimes,
         });
 
         // Log activity
@@ -588,11 +614,11 @@ async function processBookingWorkflowCall(
           incident_id: workflow.incident_id,
           action_type: 'voice_agent',
           summary: 'Available appointment times collected',
-          details: `AI agent collected ${customData.available_times.length} available times from ${medicalCenter?.name}`,
+          details: `AI agent collected ${availableTimes.length} available times from ${medicalCenter?.name}`,
           actor_name: 'AI Booking Agent',
           metadata: {
             workflow_id: workflowId,
-            available_times: customData.available_times,
+            available_times: availableTimes,
             call_id: call.call_id,
           },
         });
@@ -606,7 +632,7 @@ async function processBookingWorkflowCall(
           workflow,
           incident,
           medicalCenter,
-          customData.available_times
+          availableTimes
         );
       } else {
         // Failed to get times - check if we should retry or try next medical center
