@@ -20,7 +20,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 
 interface BookingWorkflowTimelineProps {
   incidentId: number;
@@ -543,19 +543,21 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
                         {format(new Date(call.started_at), 'h:mm a')}
                       </span>
                     )}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className={cn("flex items-center gap-1 ml-auto", outcomeDisplay.color)}>
-                          <OutcomeIcon className="h-3 w-3" />
-                          <span>{outcomeDisplay.label}</span>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {call.duration_seconds && (
-                          <p>Duration: {Math.floor(call.duration_seconds / 60)}:{(call.duration_seconds % 60).toString().padStart(2, '0')}</p>
-                        )}
-                      </TooltipContent>
-                    </Tooltip>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className={cn("flex items-center gap-1 ml-auto", outcomeDisplay.color)}>
+                            <OutcomeIcon className="h-3 w-3" />
+                            <span>{outcomeDisplay.label}</span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {call.duration_seconds && (
+                            <p>Duration: {Math.floor(call.duration_seconds / 60)}:{(call.duration_seconds % 60).toString().padStart(2, '0')}</p>
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 );
               })}
