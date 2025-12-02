@@ -304,6 +304,7 @@ const IncidentEditPage = () => {
       time_of_injury: "",
       injury_type: "",
       classification: "Unclassified",
+      severity: "Moderate",
       body_part: "",
       body_side: "not_applicable",
       body_regions: [],
@@ -311,6 +312,8 @@ const IncidentEditPage = () => {
       witness: "",
       mechanism_of_injury: "",
       bodily_location_detail: "",
+      cost_worker_role: "",
+      cost_state: "",
       type_of_first_aid: "",
       referred_to: "none",
       doctor_details: "",
@@ -395,7 +398,11 @@ const IncidentEditPage = () => {
         incidentData.time_of_injury.substring(0, 5) : "", // Extract HH:MM from time
       injury_type: incidentData.injury_type || "",
       classification: (incidentData.classification as 'LTI' | 'MTI' | 'FAI' | 'Unclassified') || "Unclassified",
+      severity: (incidentData.severity as 'Minor' | 'Moderate' | 'Severe') || "Moderate",
       body_part: incidentData.body_part_id?.toString() || "", // Use body_part_id
+      // Cost estimation override fields - use worker occupation and site state as defaults
+      cost_worker_role: incidentData.workers?.occupation || incidentData.worker?.occupation || "",
+      cost_state: incidentData.sites?.state || incidentData.site?.state || "",
       body_side: incidentData.body_side_id?.toString() || "", // Store as ID string for dropdown
       body_regions: derivedBodyRegions, // Derived from body_part_name
       injury_description: incidentData.injury_description || "",
@@ -511,6 +518,7 @@ const IncidentEditPage = () => {
       if (data.time_of_injury) updateData.time_of_injury = data.time_of_injury;
       if (data.injury_type) updateData.injury_type = data.injury_type;
       if (data.classification) updateData.classification = data.classification;
+      if (data.severity) updateData.severity = data.severity;
       if (data.body_part) updateData.body_part_id = parseInt(data.body_part) || null;
       // Body side is now stored as ID directly
       if (data.body_side) updateData.body_side_id = parseInt(data.body_side) || null;
@@ -934,10 +942,16 @@ const IncidentEditPage = () => {
                       classification={incidentData?.classification}
                       daysLost={incidentData?.total_days_lost || 0}
                       bodyPartId={incidentData?.body_part_id}
+                      bodyPartName={incidentData?.body_part?.body_part_name || undefined}
                       injuryType={incidentData?.injury_type || form.watch('injury_type') || undefined}
-                      state={incidentData?.sites?.state || undefined}
+                      severity={form.watch('severity') || incidentData?.severity || 'Moderate'}
+                      state={form.watch('cost_state') || incidentData?.sites?.state || undefined}
+                      workerRole={form.watch('cost_worker_role') || incidentData?.workers?.occupation || incidentData?.worker?.occupation || undefined}
                       isFatality={incidentData?.fatality || false}
                       readOnly={false}
+                      onSeverityChange={(value) => form.setValue('severity', value as 'Minor' | 'Moderate' | 'Severe')}
+                      onWorkerRoleChange={(value) => form.setValue('cost_worker_role', value)}
+                      onStateChange={(value) => form.setValue('cost_state', value)}
                     />
                   </TabsContent>
 

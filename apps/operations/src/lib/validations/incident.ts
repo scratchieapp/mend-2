@@ -204,6 +204,7 @@ export const incidentEditSchema = z.object({
   time_of_injury: z.string().optional().nullable().default(''),
   injury_type: z.string().optional().nullable().default(''),
   classification: z.enum(['LTI', 'MTI', 'FAI', 'Unclassified']).optional().nullable().default('Unclassified'),
+  severity: z.enum(['Minor', 'Moderate', 'Severe']).optional().nullable().default('Moderate'),
   body_part: z.string().optional().nullable().default(''),
   body_side: z.string().optional().nullable(),
   body_regions: z.array(z.string()).optional().nullable().default([]),
@@ -212,6 +213,10 @@ export const incidentEditSchema = z.object({
   // Extended injury fields (stored as IDs in database)
   mechanism_of_injury: z.string().optional().nullable().default(''), // moi_code_id
   bodily_location_detail: z.string().optional().nullable().default(''), // bl_code_id
+  
+  // Cost estimation override fields
+  cost_worker_role: z.string().optional().nullable().default(''), // Override worker role for cost estimate
+  cost_state: z.string().optional().nullable().default(''), // Override state for cost estimate
   
   // Treatment - all optional
   type_of_first_aid: z.string().optional().nullable().default(''),

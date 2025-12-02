@@ -37,8 +37,16 @@ import {
   ExternalLink,
   ArrowRight,
   TrendingUp,
-  Shield
+  Shield,
+  Pencil
 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   estimateIncidentCost, 
   formatCurrency, 
@@ -64,9 +72,18 @@ interface IncidentCostEstimateProps {
   isFatality?: boolean;
   suitableDutiesAvailable?: 'Yes' | 'No' | 'Unsure';
   onCostUpdate?: (cost: number, isOverride: boolean) => void;
+  // Callbacks for when user edits cost estimation inputs
+  onSeverityChange?: (severity: string) => void;
+  onWorkerRoleChange?: (workerRole: string) => void;
+  onStateChange?: (state: string) => void;
   readOnly?: boolean;
   compact?: boolean;
 }
+
+// Available options for editable fields
+const SEVERITY_OPTIONS = ['Minor', 'Moderate', 'Severe'] as const;
+const WORKER_ROLE_OPTIONS = ['Labourer', 'Tradesperson', 'Operator', 'Supervisor'] as const;
+const STATE_OPTIONS = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'] as const;
 
 // Cost comparison bar component
 function CostBar({ 
@@ -427,6 +444,9 @@ export default function IncidentCostEstimate({
   isFatality = false,
   suitableDutiesAvailable = 'Unsure',
   onCostUpdate,
+  onSeverityChange,
+  onWorkerRoleChange,
+  onStateChange,
   readOnly = false,
   compact = false
 }: IncidentCostEstimateProps) {
@@ -436,6 +456,41 @@ export default function IncidentCostEstimate({
   const [includePremiumImpact, setIncludePremiumImpact] = useState(false);
   const [resolvedBodyPartName, setResolvedBodyPartName] = useState<string | null>(bodyPartName || null);
   const [resolvedState, setResolvedState] = useState<string>(state || 'NSW');
+  
+  // Editable values - use internal state that syncs with props
+  const [editableSeverity, setEditableSeverity] = useState<string>(severity || 'Moderate');
+  const [editableWorkerRole, setEditableWorkerRole] = useState<string>(workerRole || 'Labourer');
+  const [editableState, setEditableState] = useState<string>(state || 'NSW');
+  
+  // Sync editable values with props when they change
+  useEffect(() => {
+    if (severity) setEditableSeverity(severity);
+  }, [severity]);
+  
+  useEffect(() => {
+    if (workerRole) setEditableWorkerRole(workerRole);
+  }, [workerRole]);
+  
+  useEffect(() => {
+    if (state) setEditableState(state);
+  }, [state]);
+  
+  // Handlers for editable fields
+  const handleSeverityChange = (value: string) => {
+    setEditableSeverity(value);
+    onSeverityChange?.(value);
+  };
+  
+  const handleWorkerRoleChange = (value: string) => {
+    setEditableWorkerRole(value);
+    onWorkerRoleChange?.(value);
+  };
+  
+  const handleStateChange = (value: string) => {
+    setEditableState(value);
+    setResolvedState(value);
+    onStateChange?.(value);
+  };
 
   // Resolve body part name from ID if not provided
   useEffect(() => {
@@ -484,6 +539,7 @@ export default function IncidentCostEstimate({
   }, [incidentId, state]);
 
   // Calculate estimate when inputs change
+  // Uses editable values which may differ from props when user edits them
   useEffect(() => {
     const calculateEstimate = async () => {
       // Need at least injury type to calculate
@@ -499,9 +555,9 @@ export default function IncidentCostEstimate({
         const input: CostEstimationInput = {
           injuryType: injuryType || classification || 'Strain',
           bodyRegion: resolvedBodyPartName || 'General',
-          severity: (severity as Severity) || 'Moderate',
-          state: resolvedState,
-          roleCategory: workerRole || 'Labourer',
+          severity: (editableSeverity as Severity) || 'Moderate',
+          state: editableState || resolvedState,
+          roleCategory: editableWorkerRole || 'Labourer',
           suitableDutiesAvailable,
           includePremiumImpact,
         };
@@ -529,9 +585,10 @@ export default function IncidentCostEstimate({
     injuryType, 
     classification, 
     resolvedBodyPartName, 
-    severity, 
+    editableSeverity, 
+    editableState,
     resolvedState, 
-    workerRole, 
+    editableWorkerRole, 
     suitableDutiesAvailable, 
     includePremiumImpact,
     onCostUpdate
@@ -776,18 +833,93 @@ export default function IncidentCostEstimate({
           </>
         )}
 
-        {/* Estimation Basis - Made prominent */}
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 mt-2">
+        {/* Estimation Basis - Editable when not readOnly */}
+        <div className={cn(
+          "rounded-lg p-3 mt-2",
+          readOnly ? "bg-slate-50 border border-slate-200" : "bg-blue-50 border border-blue-200"
+        )}>
           <div className="flex items-start gap-2">
-            <Info className="h-4 w-4 text-slate-600 mt-0.5 flex-shrink-0" />
-            <div className="text-sm">
-              <p className="font-medium text-slate-700 mb-1">Estimate Based On:</p>
-              <ul className="text-slate-600 space-y-0.5 text-xs">
-                <li>• <strong>Injury:</strong> {estimate.inputFactors.injuryType} to {estimate.inputFactors.bodyRegion}</li>
-                <li>• <strong>Severity:</strong> {estimate.inputFactors.severity}</li>
-                <li>• <strong>Worker Type:</strong> {estimate.inputFactors.roleCategory}</li>
-                <li>• <strong>Jurisdiction:</strong> {estimate.inputFactors.state} workers compensation scheme</li>
-              </ul>
+            {readOnly ? (
+              <Info className="h-4 w-4 text-slate-600 mt-0.5 flex-shrink-0" />
+            ) : (
+              <Pencil className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+            )}
+            <div className="text-sm w-full">
+              <p className={cn(
+                "font-medium mb-2",
+                readOnly ? "text-slate-700" : "text-blue-700"
+              )}>
+                {readOnly ? "Estimate Based On:" : "Edit Estimation Inputs:"}
+              </p>
+              
+              {readOnly ? (
+                // Read-only display
+                <ul className="text-slate-600 space-y-0.5 text-xs">
+                  <li>• <strong>Injury:</strong> {estimate.inputFactors.injuryType} to {estimate.inputFactors.bodyRegion}</li>
+                  <li>• <strong>Severity:</strong> {estimate.inputFactors.severity}</li>
+                  <li>• <strong>Worker Type:</strong> {estimate.inputFactors.roleCategory}</li>
+                  <li>• <strong>Jurisdiction:</strong> {estimate.inputFactors.state} workers compensation scheme</li>
+                </ul>
+              ) : (
+                // Editable form
+                <div className="space-y-3">
+                  {/* Injury - read only, comes from form */}
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-slate-500 w-20">Injury:</span>
+                    <span className="text-slate-700">{estimate.inputFactors.injuryType} to {estimate.inputFactors.bodyRegion}</span>
+                  </div>
+                  
+                  {/* Severity - editable */}
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs text-slate-500 w-20">Severity:</Label>
+                    <Select value={editableSeverity} onValueChange={handleSeverityChange}>
+                      <SelectTrigger className="h-8 text-xs flex-1 max-w-[140px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SEVERITY_OPTIONS.map(opt => (
+                          <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  {/* Worker Type - editable */}
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs text-slate-500 w-20">Worker Type:</Label>
+                    <Select value={editableWorkerRole} onValueChange={handleWorkerRoleChange}>
+                      <SelectTrigger className="h-8 text-xs flex-1 max-w-[140px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {WORKER_ROLE_OPTIONS.map(opt => (
+                          <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  {/* Jurisdiction - editable */}
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs text-slate-500 w-20">Jurisdiction:</Label>
+                    <Select value={editableState} onValueChange={handleStateChange}>
+                      <SelectTrigger className="h-8 text-xs flex-1 max-w-[140px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STATE_OPTIONS.map(opt => (
+                          <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <p className="text-blue-600 text-xs mt-2">
+                    Changes update the cost estimate automatically
+                  </p>
+                </div>
+              )}
+              
               <p className="text-slate-500 mt-2 text-xs">
                 <strong>Data source:</strong> {estimate.dataSource}. Updated November 2024.
               </p>
