@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Table, 
@@ -70,6 +71,8 @@ interface Employer {
   manager_email?: string;
   abn?: string;
   aliases?: string[];
+  latitude?: number;
+  longitude?: number;
   created_at: string;
   updated_at: string;
   user_count?: number;
@@ -87,6 +90,8 @@ interface EmployerFormData {
   manager_email: string;
   abn: string;
   aliases: string;  // Comma-separated for easy input
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export default function EmployerManagementAdmin() {
@@ -105,6 +110,8 @@ export default function EmployerManagementAdmin() {
     manager_email: "",
     abn: "",
     aliases: "",
+    latitude: null,
+    longitude: null,
   });
 
   const { toast } = useToast();
@@ -154,10 +161,15 @@ export default function EmployerManagementAdmin() {
         ? data.aliases.split(',').map(a => a.trim()).filter(a => a.length > 0)
         : [];
       
-      const { aliases, ...restData } = data;
+      const { aliases, latitude, longitude, ...restData } = data;
       const { data: newEmployer, error } = await supabase
         .from('employers')
-        .insert([{ ...restData, aliases: aliasesArray }])
+        .insert([{ 
+          ...restData, 
+          aliases: aliasesArray,
+          latitude: latitude || null,
+          longitude: longitude || null,
+        }])
         .select()
         .single();
 
@@ -190,10 +202,15 @@ export default function EmployerManagementAdmin() {
         ? data.aliases.split(',').map(a => a.trim()).filter(a => a.length > 0)
         : [];
       
-      const { aliases, ...restData } = data;
+      const { aliases, latitude, longitude, ...restData } = data;
       const { data: updatedEmployer, error } = await supabase
         .from('employers')
-        .update({ ...restData, aliases: aliasesArray })
+        .update({ 
+          ...restData, 
+          aliases: aliasesArray,
+          latitude: latitude || null,
+          longitude: longitude || null,
+        })
         .eq('employer_id', id)
         .select()
         .single();
@@ -277,6 +294,8 @@ export default function EmployerManagementAdmin() {
       manager_email: "",
       abn: "",
       aliases: "",
+      latitude: null,
+      longitude: null,
     });
   };
 
@@ -293,8 +312,30 @@ export default function EmployerManagementAdmin() {
       manager_email: employer.manager_email || "",
       abn: employer.abn || "",
       aliases: employer.aliases?.join(', ') || "",
+      latitude: employer.latitude || null,
+      longitude: employer.longitude || null,
     });
     setIsEditDialogOpen(true);
+  };
+
+  // Handle address selection from Google Places
+  const handleAddressChange = (address: {
+    streetAddress: string;
+    city: string;
+    state: string;
+    postCode: string;
+    latitude?: number;
+    longitude?: number;
+    formattedAddress: string;
+  }) => {
+    setFormData(prev => ({
+      ...prev,
+      employer_address: address.formattedAddress,
+      employer_state: address.state || prev.employer_state,
+      employer_post_code: address.postCode || prev.employer_post_code,
+      latitude: address.latitude || null,
+      longitude: address.longitude || null,
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -408,12 +449,18 @@ export default function EmployerManagementAdmin() {
                         />
                       </div>
                       <div className="col-span-2 space-y-2">
-                        <Label htmlFor="employer_address">Address</Label>
-                        <Input
+                        <Label htmlFor="employer_address">Head Office Address</Label>
+                        <AddressAutocomplete
                           id="employer_address"
                           value={formData.employer_address}
-                          onChange={(e) => setFormData({ ...formData, employer_address: e.target.value })}
+                          onChange={(value) => setFormData({ ...formData, employer_address: value })}
+                          onAddressChange={handleAddressChange}
+                          placeholder="Start typing address..."
+                          searchType="address"
                         />
+                        <p className="text-xs text-muted-foreground">
+                          Select from suggestions to auto-fill state, postcode, and map coordinates
+                        </p>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="employer_phone">Company Phone</Label>
@@ -635,12 +682,23 @@ export default function EmployerManagementAdmin() {
                   />
                 </div>
                 <div className="col-span-2 space-y-2">
-                  <Label htmlFor="edit_employer_address">Address</Label>
-                  <Input
+                  <Label htmlFor="edit_employer_address">Head Office Address</Label>
+                  <AddressAutocomplete
                     id="edit_employer_address"
                     value={formData.employer_address}
-                    onChange={(e) => setFormData({ ...formData, employer_address: e.target.value })}
+                    onChange={(value) => setFormData({ ...formData, employer_address: value })}
+                    onAddressChange={handleAddressChange}
+                    placeholder="Start typing address..."
+                    searchType="address"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Select from suggestions to auto-fill state, postcode, and map coordinates
+                    {formData.latitude && formData.longitude && (
+                      <span className="block text-green-600 mt-1">
+                        ✓ Coordinates saved: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
+                      </span>
+                    )}
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit_employer_phone">Company Phone</Label>
