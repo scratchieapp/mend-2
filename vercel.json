@@ -157,6 +157,14 @@
       "destination": "/operations/index.html"
     },
     {
+      "source": "/incidents/(.*)",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/incidents",
+      "destination": "/operations/index.html"
+    },
+    {
       "source": "/incident/(.*)",
       "destination": "/operations/index.html"
     },
@@ -170,6 +178,14 @@
     },
     {
       "source": "/reports",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/hours-management/(.*)",
+      "destination": "/operations/index.html"
+    },
+    {
+      "source": "/hours-management",
       "destination": "/operations/index.html"
     },
     {
