@@ -49,6 +49,7 @@ interface BookingWorkflow {
   confirmed_datetime: string | null;
   failure_reason: string | null;
   retry_attempt: number;
+  retry_scheduled_at: string | null;
   medical_center_attempt: number;
   call_count: number;
   patient_call_attempts: number;
@@ -506,6 +507,28 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
               </div>
               <span className="text-xs text-amber-600">
                 Attempt {(workflow.patient_call_attempts || 0)} of 3
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Awaiting Medical Center Retry */}
+        {workflow?.status === 'awaiting_medical_center_retry' && (
+          <div className="mt-3 pt-3 border-t border-amber-200">
+            <div className="flex items-center gap-2 text-amber-700">
+              <Timer className="h-4 w-4" />
+              <div className="flex-1">
+                <p className="text-xs font-medium">
+                  Medical center {workflow.last_call_outcome === 'voicemail' ? 'voicemail reached' : 'unavailable'} - retry scheduled
+                </p>
+                {workflow.retry_scheduled_at && (
+                  <p className="text-[10px] text-amber-600">
+                    Next attempt {formatDistanceToNow(new Date(workflow.retry_scheduled_at), { addSuffix: true })}
+                  </p>
+                )}
+              </div>
+              <span className="text-xs text-amber-600">
+                Attempt {(workflow.retry_attempt || 0)} of 5
               </span>
             </div>
           </div>

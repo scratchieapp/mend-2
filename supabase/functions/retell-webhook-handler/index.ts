@@ -635,66 +635,125 @@ async function processBookingWorkflowCall(
           availableTimes
         );
       } else {
-        // Failed to get times - check if we should retry or try next medical center
-        const failureReason = customData.failure_reason || 'Unable to get available appointment times';
+        // Failed to get times - determine outcome and schedule retry
+        const disconnectionReason = call.disconnection_reason || '';
+        const isVoicemail = disconnectionReason === 'voicemail_reached' || mcCallOutcome === 'voicemail';
+        const isNoAnswer = disconnectionReason === 'no_answer';
+        const currentAttempt = (workflow.retry_attempt || 0) + 1;
+        const MAX_MC_ATTEMPTS = 5;
         
-        const retryResult = await handleBookingRetryOrFallback(
-          supabase,
-          supabaseUrl,
-          supabaseServiceKey!,
-          workflowId,
-          workflow,
-          incident,
-          failureReason,
-          'booking_get_times'
-        );
-
-        if (retryResult.shouldRetry) {
-          // Get the medical center to call (either same one for retry, or new one for fallback)
-          const mcToCall = retryResult.nextMedicalCenter || medicalCenter;
+        // For voicemail or no answer, schedule a retry (cron job will pick it up)
+        if ((isVoicemail || isNoAnswer) && currentAttempt < MAX_MC_ATTEMPTS) {
+          const outcomeLabel = isVoicemail ? 'voicemail' : 'no answer';
+          const retryInMinutes = 5;
+          const nextRetryTime = new Date(Date.now() + retryInMinutes * 60 * 1000);
           
-          // Log the retry attempt
-          await supabase.from('incident_activity_log').insert({
-            incident_id: workflow.incident_id,
-            action_type: 'voice_agent',
-            summary: retryResult.nextMedicalCenter 
-              ? `Calling backup medical center: ${retryResult.nextMedicalCenter.name}`
-              : `Retrying call to ${medicalCenter?.name}`,
-            details: `Previous attempt failed: ${failureReason}. ${retryResult.nextMedicalCenter ? 'Trying next priority medical center.' : `Attempt ${(workflow.retry_attempt || 0) + 2} of ${MAX_RETRY_ATTEMPTS}.`}`,
-            actor_name: 'AI Booking Agent',
-            metadata: { workflow_id: workflowId, call_id: call.call_id },
-          });
-
-          // Initiate retry call after a short delay (10 seconds to avoid hammering)
-          // Note: For production, consider using pg_cron for 1-minute delays
-          await new Promise(resolve => setTimeout(resolve, 10000)); // 10 second delay
-          
-          await initiateNextBookingCall(
-            supabaseUrl,
-            supabaseServiceKey!,
-            workflowId,
-            'booking_get_times',
-            { ...workflow, medical_center_id: mcToCall.medical_center_id || workflow.medical_center_id },
-            incident,
-            mcToCall,
-            []
-          );
-        } else {
-          // All retries and fallbacks exhausted - mark as failed
+          // Update workflow to awaiting retry
           await supabase.rpc('update_booking_workflow_v2', {
             p_workflow_id: workflowId,
-            p_status: 'failed',
-            p_failure_reason: `All medical centers unreachable after multiple attempts. Last error: ${failureReason}`,
+            p_status: 'awaiting_medical_center_retry',
+            p_last_call_outcome: isVoicemail ? 'voicemail' : 'no_answer',
+            p_retry_attempt: currentAttempt,
+            p_retry_scheduled_at: nextRetryTime.toISOString(),
             p_increment_call_count: false,
           });
 
           await supabase.from('incident_activity_log').insert({
             incident_id: workflow.incident_id,
             action_type: 'voice_agent',
-            summary: 'Medical booking failed - all options exhausted',
-            details: `AI agent was unable to reach any available medical centers after multiple attempts. Please book manually.`,
+            summary: `Medical center ${outcomeLabel} - retry scheduled`,
+            details: `Call to ${medicalCenter?.name} reached ${outcomeLabel}. Will retry in ${retryInMinutes} minutes (attempt ${currentAttempt} of ${MAX_MC_ATTEMPTS}).`,
             actor_name: 'AI Booking Agent',
-            metadata: { workflow_id: workflowId, call_id: call.call_id },
+            metadata: { 
+              workflow_id: workflowId, 
+              call_id: call.call_id,
+              retry_attempt: currentAttempt,
+              next_retry_at: nextRetryTime.toISOString(),
+            },
+          });
+          
+          console.log(`Medical center retry scheduled for ${nextRetryTime.toISOString()} (attempt ${currentAttempt} of ${MAX_MC_ATTEMPTS})`);
+        } else if (currentAttempt >= MAX_MC_ATTEMPTS) {
+          // All retries exhausted - try fallback medical center or fail
+          const failureReason = customData.failure_reason || `Medical center unreachable after ${MAX_MC_ATTEMPTS} attempts`;
+          
+          const retryResult = await handleBookingRetryOrFallback(
+            supabase,
+            supabaseUrl,
+            supabaseServiceKey!,
+            workflowId,
+            workflow,
+            incident,
+            failureReason,
+            'booking_get_times'
+          );
+
+          if (retryResult.shouldRetry && retryResult.nextMedicalCenter) {
+            // Try next medical center
+            await supabase.from('incident_activity_log').insert({
+              incident_id: workflow.incident_id,
+              action_type: 'voice_agent',
+              summary: `Trying backup medical center: ${retryResult.nextMedicalCenter.name}`,
+              details: `Primary medical center unreachable after ${MAX_MC_ATTEMPTS} attempts. Trying next priority medical center.`,
+              actor_name: 'AI Booking Agent',
+              metadata: { workflow_id: workflowId, call_id: call.call_id },
+            });
+
+            await initiateNextBookingCall(
+              supabaseUrl,
+              supabaseServiceKey!,
+              workflowId,
+              'booking_get_times',
+              { ...workflow, medical_center_id: retryResult.nextMedicalCenter.medical_center_id },
+              incident,
+              retryResult.nextMedicalCenter,
+              []
+            );
+          } else {
+            // All options exhausted - mark as failed
+            await supabase.rpc('update_booking_workflow_v2', {
+              p_workflow_id: workflowId,
+              p_status: 'failed',
+              p_failure_reason: `All medical centers unreachable after multiple attempts. Last error: ${failureReason}`,
+              p_increment_call_count: false,
+            });
+
+            await supabase.from('incident_activity_log').insert({
+              incident_id: workflow.incident_id,
+              action_type: 'voice_agent',
+              summary: 'Medical booking failed - all options exhausted',
+              details: `AI agent was unable to reach any available medical centers after multiple attempts. Please book manually.`,
+              actor_name: 'AI Booking Agent',
+              metadata: { workflow_id: workflowId, call_id: call.call_id },
+            });
+          }
+        } else {
+          // Other failure - schedule retry
+          const failureReason = customData.failure_reason || 'Call failed';
+          const retryInMinutes = 5;
+          const nextRetryTime = new Date(Date.now() + retryInMinutes * 60 * 1000);
+          
+          await supabase.rpc('update_booking_workflow_v2', {
+            p_workflow_id: workflowId,
+            p_status: 'awaiting_medical_center_retry',
+            p_last_call_outcome: 'failed',
+            p_retry_attempt: currentAttempt,
+            p_retry_scheduled_at: nextRetryTime.toISOString(),
+            p_failure_reason: failureReason,
+            p_increment_call_count: false,
+          });
+
+          await supabase.from('incident_activity_log').insert({
+            incident_id: workflow.incident_id,
+            action_type: 'voice_agent',
+            summary: `Medical center call failed - retry scheduled`,
+            details: `Call to ${medicalCenter?.name} failed: ${failureReason}. Will retry in ${retryInMinutes} minutes.`,
+            actor_name: 'AI Booking Agent',
+            metadata: { 
+              workflow_id: workflowId, 
+              call_id: call.call_id,
+              retry_attempt: currentAttempt,
+            },
           });
         }
       }
