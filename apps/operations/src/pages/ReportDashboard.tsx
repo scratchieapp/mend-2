@@ -75,12 +75,11 @@ const ReportDashboard = () => {
     enabled: !!effectiveEmployerId,
   });
 
-  // Fetch quick stats for the selected month
+  // Fetch quick stats for the selected month using the RBAC-aware RPC (same as IncidentsChart)
   const { data: quickStats, isLoading: isLoadingStats } = useQuery({
     queryKey: ['quick-stats', effectiveEmployerId, selectedMonth],
     queryFn: async () => {
       if (!effectiveEmployerId) {
-        console.log('[ReportDashboard] No effectiveEmployerId, skipping stats query');
         return null;
       }
       
@@ -88,40 +87,24 @@ const ReportDashboard = () => {
       const monthEnd = new Date(Number(selectedMonth.split('-')[0]), Number(selectedMonth.split('-')[1]), 0);
       const monthEndStr = format(monthEnd, 'yyyy-MM-dd');
       
-      console.log('[ReportDashboard] Fetching stats for:', {
-        effectiveEmployerId,
-        selectedMonth,
-        monthStart,
-        monthEndStr,
-        effectiveEmployerIdType: typeof effectiveEmployerId
+      // Use get_dashboard_data RPC (same as IncidentsChart) - this bypasses RLS issues
+      const { data: dashboardData, error: incError } = await supabase.rpc('get_dashboard_data', {
+        page_size: 1000,
+        page_offset: 0,
+        filter_employer_id: effectiveEmployerId,
+        filter_worker_id: null,
+        filter_start_date: monthStart,
+        filter_end_date: monthEndStr,
+        user_role_id: userData?.role_id || 5,
+        user_employer_id: effectiveEmployerId,
+        filter_archive_status: 'active'
       });
       
-      // DEBUG: First check what incidents exist for this month without employer filter
-      const { data: allMonthIncidents } = await supabase
-        .from('incidents')
-        .select('incident_id, classification, date_of_injury, employer_id, site_id')
-        .gte('date_of_injury', monthStart)
-        .lte('date_of_injury', monthEndStr)
-        .is('archived_at', null)
-        .is('deleted_at', null);
-      
-      console.log('[ReportDashboard] ALL incidents in month (any employer):', allMonthIncidents);
-      
-      // Fetch incidents for the month (excluding archived/deleted)
-      const { data: incidents, error: incError } = await supabase
-        .from('incidents')
-        .select('incident_id, classification, date_of_injury, employer_id')
-        .eq('employer_id', effectiveEmployerId)
-        .gte('date_of_injury', monthStart)
-        .lte('date_of_injury', monthEndStr)
-        .is('archived_at', null)
-        .is('deleted_at', null);
-      
       if (incError) {
-        console.error('[ReportDashboard] Error fetching incidents:', incError);
-      } else {
-        console.log('[ReportDashboard] Incidents for employer', effectiveEmployerId, ':', incidents?.length, incidents);
+        console.error('[ReportDashboard] Error fetching incidents via RPC:', incError);
       }
+      
+      const incidents = dashboardData?.incidents || [];
       
       // Fetch hours worked for the month
       const { data: hours, error: hoursError } = await supabase
@@ -132,8 +115,6 @@ const ReportDashboard = () => {
       
       if (hoursError) {
         console.error('[ReportDashboard] Error fetching hours:', hoursError);
-      } else {
-        console.log('[ReportDashboard] Hours found:', hours);
       }
       
       const totalHours = hours?.reduce((sum, h) => 
@@ -151,15 +132,13 @@ const ReportDashboard = () => {
         return c === 'MTI' || c === 'MEDICAL TREATMENT INJURY' || c === 'MEDICAL TREATMENT';
       };
       
-      const ltiCount = incidents?.filter(i => isLTI(i.classification)).length || 0;
-      const mtiCount = incidents?.filter(i => isMTI(i.classification)).length || 0;
-      const totalIncidents = incidents?.length || 0;
+      const ltiCount = incidents.filter((i: any) => isLTI(i.classification)).length;
+      const mtiCount = incidents.filter((i: any) => isMTI(i.classification)).length;
+      const totalIncidents = incidents.length;
       
       // Calculate LTIFR (per million hours) - standard formula
       // LTIFR = (Number of LTIs / Total Hours Worked) × 1,000,000
       const ltifr = totalHours > 0 ? ((ltiCount / totalHours) * 1000000) : 0;
-      
-      console.log('[ReportDashboard] Stats calculated:', { totalIncidents, ltiCount, mtiCount, totalHours, ltifr });
       
       return {
         totalIncidents,
