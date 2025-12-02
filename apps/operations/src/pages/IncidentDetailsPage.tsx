@@ -829,17 +829,40 @@ const IncidentDetailsPage = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Reported to Site</p>
-                  <p className="text-sm font-medium mt-1">{incident?.date_reported_to_site ? format(new Date(incident.date_reported_to_site), 'PPP') : 'Not specified'}</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Reported</p>
+                  <p className="text-sm font-medium mt-1">
+                    {incident?.date_reported_to_site 
+                      ? format(new Date(incident.date_reported_to_site), 'PPP p') 
+                      : incident?.created_at 
+                        ? format(new Date(incident.created_at), 'PPP p')
+                        : 'Not specified'}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notifying Person</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Reported By</p>
                   <p className="text-sm font-medium mt-1">{incident?.notifying_person_name || 'Not specified'}</p>
+                  {incident?.notifying_person_position && (
+                    <p className="text-xs text-muted-foreground">{incident.notifying_person_position}</p>
+                  )}
                 </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Position</p>
-                  <p className="text-sm font-medium mt-1">{incident?.notifying_person_position || 'Not specified'}</p>
-                </div>
+                {incident?.notifying_person_telephone && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact Number</p>
+                    <a 
+                      href={`tel:${incident.notifying_person_telephone}`}
+                      className="text-sm font-medium text-primary hover:underline flex items-center gap-1 mt-1"
+                    >
+                      <Phone className="h-3 w-3" />
+                      {incident.notifying_person_telephone}
+                    </a>
+                  </div>
+                )}
+                {incident?.witness && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Witness</p>
+                    <p className="text-sm font-medium mt-1">{incident.witness}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
