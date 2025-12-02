@@ -18,6 +18,7 @@ import {
 
 interface IncidentsChartProps {
   employerId: number | null;
+  userRoleId?: number | null;
 }
 
 interface MonthlyData {
@@ -47,9 +48,13 @@ const normalizeClassification = (classification: string | null | undefined): str
   return 'Other';
 };
 
-export function IncidentsChart({ employerId }: IncidentsChartProps) {
+export function IncidentsChart({ employerId, userRoleId }: IncidentsChartProps) {
   const [classificationFilter, setClassificationFilter] = useState<string>('all');
   const [siteFilter, setSiteFilter] = useState<string>('all');
+  
+  // Super Admin (roles 1-4) can view all incidents without specific employer
+  const isSuperAdmin = !!(userRoleId && userRoleId >= 1 && userRoleId <= 4);
+  const canFetchData = !!employerId || isSuperAdmin;
 
   // Generate last 6 months
   const months = useMemo(() => {
@@ -66,14 +71,19 @@ export function IncidentsChart({ employerId }: IncidentsChartProps) {
 
   // Fetch sites for filter dropdown
   const { data: sites = [] } = useQuery({
-    queryKey: ['sites-for-filter', employerId],
+    queryKey: ['sites-for-filter', employerId, isSuperAdmin],
     queryFn: async () => {
-      if (!employerId) return [];
-      const { data, error } = await supabase
+      // For Super Admin with no employer filter, get all sites
+      let query = supabase
         .from('sites')
         .select('site_id, site_name')
-        .eq('employer_id', employerId)
         .order('site_name');
+      
+      if (employerId) {
+        query = query.eq('employer_id', employerId);
+      }
+      
+      const { data, error } = await query;
       
       if (error) {
         console.error('Error fetching sites:', error);
@@ -81,28 +91,27 @@ export function IncidentsChart({ employerId }: IncidentsChartProps) {
       }
       return data || [];
     },
-    enabled: !!employerId,
+    enabled: canFetchData,
     staleTime: 5 * 60 * 1000,
   });
 
   // Fetch incidents for the chart using RBAC-aware RPC
   const { data: incidents = [], isLoading } = useQuery({
-    queryKey: ['incidents-chart', employerId, months[0]?.value, months[5]?.value],
+    queryKey: ['incidents-chart', employerId, isSuperAdmin, userRoleId, months[0]?.value, months[5]?.value],
     queryFn: async () => {
-      if (!employerId) return [];
-      
       const startDate = format(months[0].start, 'yyyy-MM-dd');
       const endDate = format(months[5].end, 'yyyy-MM-dd');
       
       // Use the get_dashboard_data RPC which respects RBAC
+      // For Super Admin with no employer, pass null to get all incidents
       const { data, error } = await supabase.rpc('get_dashboard_data', {
         page_size: 1000,
         page_offset: 0,
-        filter_employer_id: employerId,
+        filter_employer_id: employerId, // null for Super Admin viewing all
         filter_worker_id: null,
         filter_start_date: startDate,
         filter_end_date: endDate,
-        user_role_id: 5, // Builder Admin
+        user_role_id: userRoleId || 5, // Use actual role or default to Builder Admin
         user_employer_id: employerId,
         filter_archive_status: 'active'
       });
@@ -122,7 +131,7 @@ export function IncidentsChart({ employerId }: IncidentsChartProps) {
         site_id: incident.site_id
       }));
     },
-    enabled: !!employerId,
+    enabled: canFetchData,
     staleTime: 60 * 1000,
   });
 
