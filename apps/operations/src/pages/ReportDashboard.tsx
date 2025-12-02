@@ -48,9 +48,9 @@ const ReportDashboard = () => {
   const selectedEmployer = employers?.find(e => e.employer_id === effectiveEmployerId);
   const employerName = selectedEmployer?.employer_name || userData?.employer_name || 'Your Company';
 
-  // Get last 12 months for selection
+  // Get last 12 COMPLETED months for selection (exclude current incomplete month)
   const months = Array.from({ length: 12 }, (_, i) => {
-    const date = subMonths(new Date(), i);
+    const date = subMonths(new Date(), i + 1); // Start from last month (i+1), not current month
     return {
       value: format(date, "yyyy-MM"),
       label: format(date, "MMMM yyyy"),
@@ -108,11 +108,24 @@ const ReportDashboard = () => {
       const totalHours = hours?.reduce((sum, h) => 
         sum + Number(h.employer_hours || 0) + Number(h.subcontractor_hours || 0), 0) || 0;
       
-      const ltiCount = incidents?.filter(i => i.classification === 'LTI').length || 0;
-      const mtiCount = incidents?.filter(i => i.classification === 'MTI').length || 0;
+      // Handle classification variations (LTI, Lost Time Injury, etc.)
+      const isLTI = (classification: string | null) => {
+        if (!classification) return false;
+        const c = classification.toUpperCase();
+        return c === 'LTI' || c === 'LOST TIME INJURY' || c === 'LOST TIME';
+      };
+      const isMTI = (classification: string | null) => {
+        if (!classification) return false;
+        const c = classification.toUpperCase();
+        return c === 'MTI' || c === 'MEDICAL TREATMENT INJURY' || c === 'MEDICAL TREATMENT';
+      };
+      
+      const ltiCount = incidents?.filter(i => isLTI(i.classification)).length || 0;
+      const mtiCount = incidents?.filter(i => isMTI(i.classification)).length || 0;
       const totalIncidents = incidents?.length || 0;
       
-      // Calculate LTIFR (per million hours)
+      // Calculate LTIFR (per million hours) - standard formula
+      // LTIFR = (Number of LTIs / Total Hours Worked) × 1,000,000
       const ltifr = totalHours > 0 ? ((ltiCount / totalHours) * 1000000) : 0;
       
       return {
@@ -138,9 +151,10 @@ const ReportDashboard = () => {
         return format(date, 'yyyy-MM') + '-01';
       });
       
+      // Fetch hours with actual values (employer_hours > 0 OR subcontractor_hours > 0)
       const { data: hours, error } = await supabase
         .from('hours_worked')
-        .select('site_id, month')
+        .select('site_id, month, employer_hours, subcontractor_hours')
         .eq('employer_id', effectiveEmployerId)
         .in('month', completedMonths);
       
@@ -149,14 +163,33 @@ const ReportDashboard = () => {
         return { complete: false, missing: 0, total: 0 };
       }
       
-      // Count how many site-months have data
+      // Only count entries that have actual hours > 0
+      const validEntries = hours?.filter(h => 
+        (Number(h.employer_hours) > 0 || Number(h.subcontractor_hours) > 0)
+      ) || [];
+      
+      // Create a Set of "siteId-month" to check coverage
+      const coveredSiteMonths = new Set(
+        validEntries.map(h => `${h.site_id}-${h.month}`)
+      );
+      
+      // Count how many site-months have valid data
+      const siteIds = sites.map(s => s.site_id);
+      let missingCount = 0;
+      
+      for (const month of completedMonths) {
+        for (const siteId of siteIds) {
+          if (!coveredSiteMonths.has(`${siteId}-${month}`)) {
+            missingCount++;
+          }
+        }
+      }
+      
       const expectedEntries = sites.length * 3; // 3 months × sites
-      const actualEntries = hours?.length || 0;
-      const missing = expectedEntries - actualEntries;
       
       return {
-        complete: missing === 0,
-        missing,
+        complete: missingCount === 0,
+        missing: missingCount,
         total: expectedEntries
       };
     },
