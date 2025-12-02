@@ -96,6 +96,17 @@ const ReportDashboard = () => {
         effectiveEmployerIdType: typeof effectiveEmployerId
       });
       
+      // DEBUG: First check what incidents exist for this month without employer filter
+      const { data: allMonthIncidents } = await supabase
+        .from('incidents')
+        .select('incident_id, classification, date_of_injury, employer_id, site_id')
+        .gte('date_of_injury', monthStart)
+        .lte('date_of_injury', monthEndStr)
+        .is('archived_at', null)
+        .is('deleted_at', null);
+      
+      console.log('[ReportDashboard] ALL incidents in month (any employer):', allMonthIncidents);
+      
       // Fetch incidents for the month (excluding archived/deleted)
       const { data: incidents, error: incError } = await supabase
         .from('incidents')
@@ -109,7 +120,7 @@ const ReportDashboard = () => {
       if (incError) {
         console.error('[ReportDashboard] Error fetching incidents:', incError);
       } else {
-        console.log('[ReportDashboard] Incidents found:', incidents?.length, incidents);
+        console.log('[ReportDashboard] Incidents for employer', effectiveEmployerId, ':', incidents?.length, incidents);
       }
       
       // Fetch hours worked for the month
