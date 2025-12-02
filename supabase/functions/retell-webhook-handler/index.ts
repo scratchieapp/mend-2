@@ -776,24 +776,30 @@ async function processBookingWorkflowCall(
       });
 
       // Second call to patient - confirm preferred time
-      if (callSuccessful && customData.patient_confirmed_time) {
+      // Retell may send the confirmed time under different field names
+      const patientConfirmedTime = customData.patient_confirmed_time 
+        || customData.patient_selected_time 
+        || customData.confirmed_datetime
+        || (customData.patient_confirmed && customData.available_time_1);
+      
+      if (callSuccessful && patientConfirmedTime) {
         // Update workflow with patient's choice
         await supabase.rpc('update_booking_workflow_v2', {
           p_workflow_id: workflowId,
           p_status: 'patient_confirmed',
-          p_patient_preferred_time: customData.patient_confirmed_time,
-          p_patient_preferred_doctor: customData.patient_preferred_doctor || null,
+          p_patient_preferred_time: patientConfirmedTime,
+          p_patient_preferred_doctor: customData.patient_preferred_doctor || customData.confirmed_doctor || null,
         });
 
         await supabase.from('incident_activity_log').insert({
           incident_id: workflow.incident_id,
           action_type: 'voice_agent',
           summary: 'Patient confirmed appointment time',
-          details: `${workerName} confirmed availability for ${customData.patient_confirmed_time}`,
+          details: `${workerName} confirmed availability for ${patientConfirmedTime}`,
           actor_name: 'AI Booking Agent',
           metadata: {
             workflow_id: workflowId,
-            confirmed_time: customData.patient_confirmed_time,
+            confirmed_time: patientConfirmedTime,
             call_id: call.call_id,
           },
         });
@@ -808,8 +814,8 @@ async function processBookingWorkflowCall(
           incident,
           medicalCenter,
           workflow.available_times,
-          customData.patient_confirmed_time,
-          customData.patient_preferred_doctor
+          patientConfirmedTime,
+          customData.patient_preferred_doctor || customData.confirmed_doctor
         );
       } else if (customData.patient_needs_reschedule) {
         // Patient can't make any offered times - need to call clinic again
@@ -1420,20 +1426,31 @@ serve(async (req: Request) => {
           .eq('id', call.metadata.task_id);
         
         // Record call start for booking workflow calls
+        // But first check if we already have a call_history entry for this call_id (avoid duplicates)
         if (call.metadata?.workflow_id && call.metadata?.task_type) {
-          const callTarget = call.metadata.task_type === 'booking_patient_confirm' ? 'patient' : 'medical_center';
+          const { data: existingCallHistory } = await supabase
+            .from('booking_call_history')
+            .select('id')
+            .eq('retell_call_id', call.call_id)
+            .single();
           
-          await supabase.rpc('record_booking_call_start', {
-            p_workflow_id: call.metadata.workflow_id,
-            p_retell_call_id: call.call_id,
-            p_call_target: callTarget,
-            p_target_phone: call.to_number || null,
-            p_target_name: null, // Will be filled from task context if needed
-            p_task_type: call.metadata.task_type,
-            p_voice_task_id: call.metadata.task_id,
-          });
-          
-          console.log(`Booking call start recorded: ${call.call_id} (${callTarget})`);
+          if (!existingCallHistory) {
+            const callTarget = call.metadata.task_type === 'booking_patient_confirm' ? 'patient' : 'medical_center';
+            
+            await supabase.rpc('record_booking_call_start', {
+              p_workflow_id: call.metadata.workflow_id,
+              p_retell_call_id: call.call_id,
+              p_call_target: callTarget,
+              p_target_phone: call.to_number || null,
+              p_target_name: null, // Will be filled from task context if needed
+              p_task_type: call.metadata.task_type,
+              p_voice_task_id: call.metadata.task_id,
+            });
+            
+            console.log(`Booking call start recorded: ${call.call_id} (${callTarget})`);
+          } else {
+            console.log(`Call history already exists for ${call.call_id}, skipping duplicate creation`);
+          }
         }
       }
     }
@@ -1661,8 +1678,10 @@ serve(async (req: Request) => {
           .eq('id', voiceTask.id);
 
         // Process booking workflow calls (multi-step booking process)
+        // IMPORTANT: Only process on call_analyzed event when we have the actual success/failure status
+        // Processing on call_ended would incorrectly mark calls as failed before analysis is available
         const bookingTaskTypes = ['booking_get_times', 'booking_patient_confirm', 'booking_final_confirm'];
-        if (bookingTaskTypes.includes(voiceTask.task_type)) {
+        if (bookingTaskTypes.includes(voiceTask.task_type) && event === 'call_analyzed') {
           try {
             await processBookingWorkflowCall(supabase, supabaseUrl, supabaseServiceKey!, call, voiceTask);
           } catch (bookingError) {

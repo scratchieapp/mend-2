@@ -77,7 +77,7 @@ const WORKFLOW_STEPS = [
     label: 'Started',
     description: 'Booking initiated',
     icon: Bot,
-    statuses: ['initiated', 'calling_medical_center'],
+    statuses: ['initiated'],
   },
   {
     id: 'getting_times',
@@ -91,14 +91,14 @@ const WORKFLOW_STEPS = [
     label: 'Patient Confirmation',
     description: 'Confirming with patient',
     icon: UserCheck,
-    statuses: ['times_collected', 'calling_patient', 'awaiting_patient_confirmation', 'awaiting_patient_retry'],
+    statuses: ['calling_patient', 'awaiting_patient_confirmation', 'awaiting_patient_retry', 'patient_confirmed'],
   },
   {
     id: 'finalizing',
     label: 'Finalizing',
     description: 'Confirming booking',
     icon: CalendarCheck,
-    statuses: ['patient_confirmed', 'calling_to_confirm', 'confirming_booking'],
+    statuses: ['confirming_booking', 'calling_to_confirm'],
   },
   {
     id: 'completed',
@@ -108,6 +108,15 @@ const WORKFLOW_STEPS = [
     statuses: ['completed', 'confirmed'],
   },
 ];
+
+// Helper to determine effective step for awaiting_medical_center_retry status
+// If patient_preferred_time is set, we're in finalizing stage; otherwise getting_times stage
+function getEffectiveStatusForRetry(workflow: BookingWorkflow): string {
+  if (workflow.status === 'awaiting_medical_center_retry') {
+    return workflow.patient_preferred_time ? 'confirming_booking' : 'calling_medical_center';
+  }
+  return workflow.status;
+}
 
 // Helper to get call outcome icon and color
 function getCallOutcomeDisplay(outcome: string | null): { icon: React.ComponentType<any>; color: string; label: string } {
@@ -130,16 +139,17 @@ function getCallOutcomeDisplay(outcome: string | null): { icon: React.ComponentT
 }
 
 function getStepStatus(workflow: BookingWorkflow, stepStatuses: string[]) {
-  const workflowStatus = workflow.status.toLowerCase();
+  // Use effective status for retry states (determines if we're in early or late stage)
+  const effectiveStatus = getEffectiveStatusForRetry(workflow).toLowerCase();
   
   // Check if this step is the current one
-  if (stepStatuses.some(s => workflowStatus.includes(s.toLowerCase()))) {
+  if (stepStatuses.some(s => effectiveStatus.includes(s.toLowerCase()))) {
     return 'current';
   }
   
   // Get the index of the current workflow status in our steps
   const currentStepIndex = WORKFLOW_STEPS.findIndex(step => 
-    step.statuses.some(s => workflowStatus.includes(s.toLowerCase()))
+    step.statuses.some(s => effectiveStatus.includes(s.toLowerCase()))
   );
   
   // Get index of this step
@@ -291,7 +301,8 @@ export function BookingWorkflowTimeline({ incidentId }: BookingWorkflowTimelineP
   // Get current step index for highlighting
   const getCurrentStepIndex = () => {
     if (!workflow) return -1;
-    const status = workflow.status.toLowerCase();
+    // Use effective status for retry states to show correct stage
+    const status = getEffectiveStatusForRetry(workflow).toLowerCase();
     
     for (let i = WORKFLOW_STEPS.length - 1; i >= 0; i--) {
       if (WORKFLOW_STEPS[i].statuses.some(s => status.includes(s.toLowerCase()))) {
