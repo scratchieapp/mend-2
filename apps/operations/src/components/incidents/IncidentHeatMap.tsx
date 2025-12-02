@@ -227,14 +227,24 @@ export function IncidentHeatMap({
     enabled: isMendStaff || !!employerId,
   });
 
-  // Summary statistics
+  // Summary statistics - total incidents by type across all sites
   const stats = useMemo(() => {
-    const sitesWithLTI = siteData.filter(s => s.lti_count > 0).length;
-    const sitesWithMTI = siteData.filter(s => s.mti_count > 0 && s.lti_count === 0).length;
-    const sitesWithFAI = siteData.filter(s => s.fai_count > 0 && s.lti_count === 0 && s.mti_count === 0).length;
+    const totalLTI = siteData.reduce((sum, s) => sum + s.lti_count, 0);
+    const totalMTI = siteData.reduce((sum, s) => sum + s.mti_count, 0);
+    const totalFAI = siteData.reduce((sum, s) => sum + s.fai_count, 0);
+    const totalIncidents = siteData.reduce((sum, s) => sum + s.total_incidents, 0);
+    const sitesWithIncidents = siteData.filter(s => s.total_incidents > 0).length;
     const sitesNoIncidents = siteData.filter(s => s.total_incidents === 0).length;
     
-    return { sitesWithLTI, sitesWithMTI, sitesWithFAI, sitesNoIncidents, total: siteData.length };
+    return { 
+      totalLTI, 
+      totalMTI, 
+      totalFAI, 
+      totalIncidents,
+      sitesWithIncidents,
+      sitesNoIncidents, 
+      totalSites: siteData.length 
+    };
   }, [siteData]);
 
   const initializeMap = useCallback(async () => {
@@ -418,24 +428,23 @@ export function IncidentHeatMap({
       
       {/* Legend */}
       <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-2.5 text-xs z-10">
-        <div className="font-medium mb-1.5 text-gray-700">Site Incidents</div>
+        <div className="font-medium mb-1.5 text-gray-700">Incidents ({stats.totalIncidents})</div>
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <div className="w-3.5 h-3.5 rounded-full bg-red-600 border-2 border-white shadow-sm"></div>
-            <span className="text-gray-600">LTI ({stats.sitesWithLTI})</span>
+            <span className="text-gray-600">LTI ({stats.totalLTI})</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3.5 h-3.5 rounded-full bg-orange-500 border-2 border-white shadow-sm"></div>
-            <span className="text-gray-600">MTI ({stats.sitesWithMTI})</span>
+            <span className="text-gray-600">MTI ({stats.totalMTI})</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3.5 h-3.5 rounded-full bg-yellow-500 border-2 border-white shadow-sm"></div>
-            <span className="text-gray-600">First Aid ({stats.sitesWithFAI})</span>
+            <span className="text-gray-600">First Aid ({stats.totalFAI})</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-white shadow-sm"></div>
-            <span className="text-gray-600">No Incidents ({stats.sitesNoIncidents})</span>
-          </div>
+        </div>
+        <div className="border-t mt-1.5 pt-1.5 text-gray-500">
+          {stats.sitesWithIncidents} sites with incidents
         </div>
       </div>
       
