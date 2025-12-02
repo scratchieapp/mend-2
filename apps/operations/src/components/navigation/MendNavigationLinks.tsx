@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Database, Users, FileText, BarChart3 } from "lucide-react";
+import { Database, Users, FileText, BarChart3, Clock } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { isSuperAdmin, isBuilderAdmin, isMendDataEntry, isSiteAdmin, isMendStaff } from "@/lib/auth/roles";
 
@@ -41,6 +41,14 @@ export function MendNavigationLinks() {
           <Button variant="ghost">
             <BarChart3 className="h-4 w-4 mr-2" />
             Reports
+          </Button>
+        </Link>
+      )}
+      {isMendStaff(userData) && (
+        <Link to="/hours-compliance">
+          <Button variant="ghost">
+            <Clock className="h-4 w-4 mr-2" />
+            Hours
           </Button>
         </Link>
       )}

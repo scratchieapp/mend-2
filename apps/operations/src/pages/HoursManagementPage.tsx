@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { ChevronLeft, ChevronRight, Calendar, Building2, ArrowLeft } from "lucide-react";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { SiteHoursList } from "@/components/builder/hours-management/SiteHoursList";
 import { SiteHoursSearch } from "@/components/builder/hours-management/SiteHoursSearch";
 import { useQuery } from "@tanstack/react-query";
@@ -10,9 +10,12 @@ import { format, subMonths, startOfMonth, addMonths } from "date-fns";
 import { Site, MonthlyHours } from "@/components/builder/hours-management/types";
 import { useEmployerContext } from "@/hooks/useEmployerContext";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
+import { Badge } from "@/components/ui/badge";
 
 const HoursManagementPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [hoursData, setHoursData] = useState<MonthlyHours>({});
   // Track the "end month" for pagination - start at last completed month (1 month ago)
@@ -22,9 +25,60 @@ const HoursManagementPage = () => {
   const { userData, isLoading: isAuthLoading } = useAuth();
   const { selectedEmployerId: contextEmployerId } = useEmployerContext();
   
+  // Check if user is Mend staff (roles 1-4)
+  const userRoleId = userData?.role_id ? parseInt(userData.role_id) : null;
+  const isMendUser = !!(userRoleId && userRoleId >= 1 && userRoleId <= 4);
+  
+  // For Mend staff: get employer from URL query param, or allow selection
+  const urlEmployerId = searchParams.get('employer');
+  const [localSelectedEmployerId, setLocalSelectedEmployerId] = useState<string>(urlEmployerId || "");
+  
+  // Fetch all employers for Mend staff dropdown
+  const { data: allEmployers = [], isLoading: isLoadingEmployers } = useQuery({
+    queryKey: ['all-employers-for-hours'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('employers')
+        .select('employer_id, employer_name')
+        .order('employer_name');
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: isMendUser,
+  });
+
+  // Convert employers to searchable options
+  const employerOptions: SearchableSelectOption[] = useMemo(() => {
+    return allEmployers.map(emp => ({
+      value: emp.employer_id.toString(),
+      label: emp.employer_name,
+    }));
+  }, [allEmployers]);
+
+  // Handle employer change for Mend staff
+  const handleEmployerChange = (value: string) => {
+    setLocalSelectedEmployerId(value);
+    // Update URL param
+    if (value) {
+      setSearchParams({ employer: value });
+    } else {
+      setSearchParams({});
+    }
+    // Reset hours data when employer changes
+    setHoursData({});
+  };
+  
   // Ensure employer_id is parsed as a number
   const userEmployerId = userData?.employer_id ? Number(userData.employer_id) : null;
-  const selectedEmployerId = contextEmployerId || userEmployerId;
+  
+  // Effective employer ID: Mend staff uses local selection, others use context/userData
+  const selectedEmployerId = isMendUser 
+    ? (localSelectedEmployerId ? parseInt(localSelectedEmployerId) : null)
+    : (contextEmployerId || userEmployerId);
+  
+  // Get employer name for display
+  const selectedEmployer = allEmployers.find(e => e.employer_id === selectedEmployerId);
 
   // Get 3 completed months based on offset (excludes current incomplete month)
   // monthOffset=1 means: last month, 2 months ago, 3 months ago
@@ -110,7 +164,47 @@ const HoursManagementPage = () => {
     );
   }
 
-  // Show message if no employer context available
+  // Show employer selection for Mend staff if no employer selected
+  if (isMendUser && !selectedEmployerId) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center gap-4 mb-6">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(-1)}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-2xl font-bold">Hours Worked Management</h1>
+        </div>
+        
+        <div className="max-w-md mx-auto space-y-4">
+          <p className="text-muted-foreground text-center">
+            Select an employer to manage their hours worked data.
+          </p>
+          
+          <SearchableSelect
+            options={employerOptions}
+            value={localSelectedEmployerId}
+            onValueChange={handleEmployerChange}
+            placeholder="Search for a company..."
+            searchPlaceholder="Type to search companies..."
+            emptyMessage="No company found."
+            icon={<Building2 className="h-4 w-4 text-muted-foreground" />}
+          />
+          
+          <div className="text-center pt-4">
+            <Link to="/hours-compliance" className="text-sm text-muted-foreground hover:text-primary">
+              ← Back to Hours Compliance Dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show message if no employer context available (non-Mend staff)
   if (!selectedEmployerId) {
     return (
       <div className="container mx-auto p-6 space-y-6">
@@ -145,15 +239,45 @@ const HoursManagementPage = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate(-1)}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <h1 className="text-2xl font-bold">Hours Worked Management</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(-1)}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">Hours Worked Management</h1>
+            {isMendUser && selectedEmployer && (
+              <div className="flex items-center gap-2 mt-1">
+                <Badge variant="outline" className="text-xs">
+                  <Building2 className="h-3 w-3 mr-1" />
+                  {selectedEmployer.employer_name}
+                </Badge>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="text-xs p-0 h-auto"
+                  onClick={() => {
+                    setLocalSelectedEmployerId("");
+                    setSearchParams({});
+                    setHoursData({});
+                  }}
+                >
+                  Change
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+        {isMendUser && (
+          <Link to="/hours-compliance" className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1">
+            <ArrowLeft className="h-3 w-3" />
+            Compliance Dashboard
+          </Link>
+        )}
       </div>
 
       {/* Month Navigation */}

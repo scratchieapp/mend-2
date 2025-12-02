@@ -72,6 +72,7 @@ import ClerkDebug from "./pages/ClerkDebug";
 import ReportDashboard from "./pages/ReportDashboard";
 import SiteReport from "./pages/SiteReport";
 import EmployerReport from "./pages/EmployerReport";
+import HoursComplianceDashboard from "./pages/HoursComplianceDashboard";
 
 function App() {
   return (
@@ -144,6 +145,7 @@ function App() {
             
             {/* Hours management */}
             <Route path="hours-management" element={<HoursManagementPage />} />
+            <Route path="hours-compliance" element={<HoursComplianceDashboard />} />
             
             {/* User Profile route for Clerk */}
             <Route
