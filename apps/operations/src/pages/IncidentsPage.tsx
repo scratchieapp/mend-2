@@ -6,9 +6,12 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { IncidentsList } from "@/components/dashboard/IncidentsList";
 import { IncidentsChart } from "@/components/incidents/IncidentsChart";
+import { IncidentHeatMap } from "@/components/incidents/IncidentHeatMap";
 import { useEmployerContext } from "@/hooks/useEmployerContext";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MapPin, BarChart3 } from "lucide-react";
 
 export default function IncidentsPage() {
   const navigate = useNavigate();
@@ -97,16 +100,55 @@ export default function IncidentsPage() {
         </div>
       </div>
 
-      {/* Incidents Chart */}
-      <IncidentsChart 
-        employerId={effectiveEmployerId} 
-        userRoleId={userRoleId}
-      />
+      {/* Map and Chart - side by side for Mend staff */}
+      {isMendStaff ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Incident Heat Map */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-medium flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-muted-foreground" />
+                Site Incident Map
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <IncidentHeatMap
+                employerId={effectiveEmployerId}
+                userRoleId={userRoleId}
+                height="320px"
+              />
+            </CardContent>
+          </Card>
+
+          {/* Incidents Chart */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-medium flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                Incidents Over Time
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <IncidentsChart 
+                employerId={effectiveEmployerId} 
+                userRoleId={userRoleId}
+                height={320}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        /* Non-Mend staff just see the chart */
+        <IncidentsChart 
+          employerId={effectiveEmployerId} 
+          userRoleId={userRoleId}
+        />
+      )}
 
       {/* Incidents List */}
       <IncidentsList 
         selectedEmployerId={effectiveEmployerId}
-        maxHeight="calc(100vh - 550px)"
+        maxHeight={isMendStaff ? "calc(100vh - 620px)" : "calc(100vh - 550px)"}
       />
     </div>
   );

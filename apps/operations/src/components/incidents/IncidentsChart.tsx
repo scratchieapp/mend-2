@@ -19,6 +19,8 @@ import {
 interface IncidentsChartProps {
   employerId: number | null;
   userRoleId?: number | null;
+  height?: number;
+  hideCard?: boolean;
 }
 
 interface MonthlyData {
@@ -48,7 +50,7 @@ const normalizeClassification = (classification: string | null | undefined): str
   return 'Other';
 };
 
-export function IncidentsChart({ employerId, userRoleId }: IncidentsChartProps) {
+export function IncidentsChart({ employerId, userRoleId, height = 300, hideCard = false }: IncidentsChartProps) {
   const [classificationFilter, setClassificationFilter] = useState<string>('all');
   const [siteFilter, setSiteFilter] = useState<string>('all');
   
@@ -215,6 +217,85 @@ export function IncidentsChart({ employerId, userRoleId }: IncidentsChartProps) 
     return null;
   };
 
+  // Chart content rendering - extracted to reuse with/without card
+  const renderChartContent = () => {
+    if (isLoading) {
+      return (
+        <div style={{ height: `${height}px` }} className="flex items-center justify-center">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+        </div>
+      );
+    }
+    
+    return (
+      <div style={{ height: `${height}px` }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={chartData}
+            margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+            <XAxis 
+              dataKey="monthLabel" 
+              tick={{ fontSize: 12 }}
+              tickLine={false}
+            />
+            <YAxis 
+              tick={{ fontSize: 12 }}
+              tickLine={false}
+              allowDecimals={false}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Legend 
+              formatter={(value) => {
+                const labels: Record<string, string> = {
+                  LTI: 'Lost Time Injury',
+                  MTI: 'Medical Treatment',
+                  FAI: 'First Aid',
+                  Other: 'Unclassified'
+                };
+                return labels[value] || value;
+              }}
+            />
+            <Bar 
+              dataKey="LTI" 
+              stackId="a" 
+              fill="#ef4444" 
+              name="LTI"
+              radius={[0, 0, 0, 0]}
+            />
+            <Bar 
+              dataKey="MTI" 
+              stackId="a" 
+              fill="#f97316" 
+              name="MTI"
+              radius={[0, 0, 0, 0]}
+            />
+            <Bar 
+              dataKey="FAI" 
+              stackId="a" 
+              fill="#eab308" 
+              name="FAI"
+              radius={[0, 0, 0, 0]}
+            />
+            <Bar 
+              dataKey="Other" 
+              stackId="a" 
+              fill="#9ca3af" 
+              name="Other"
+              radius={[4, 4, 0, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  };
+
+  // If hideCard is true, just return the chart content
+  if (hideCard) {
+    return renderChartContent();
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -280,72 +361,7 @@ export function IncidentsChart({ employerId, userRoleId }: IncidentsChartProps) 
         </div>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <div className="h-[300px] flex items-center justify-center">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-          </div>
-        ) : (
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={chartData}
-                margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis 
-                  dataKey="monthLabel" 
-                  tick={{ fontSize: 12 }}
-                  tickLine={false}
-                />
-                <YAxis 
-                  tick={{ fontSize: 12 }}
-                  tickLine={false}
-                  allowDecimals={false}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend 
-                  formatter={(value) => {
-                    const labels: Record<string, string> = {
-                      LTI: 'Lost Time Injury',
-                      MTI: 'Medical Treatment',
-                      FAI: 'First Aid',
-                      Other: 'Unclassified'
-                    };
-                    return labels[value] || value;
-                  }}
-                />
-                <Bar 
-                  dataKey="LTI" 
-                  stackId="a" 
-                  fill="#ef4444" 
-                  name="LTI"
-                  radius={[0, 0, 0, 0]}
-                />
-                <Bar 
-                  dataKey="MTI" 
-                  stackId="a" 
-                  fill="#f97316" 
-                  name="MTI"
-                  radius={[0, 0, 0, 0]}
-                />
-                <Bar 
-                  dataKey="FAI" 
-                  stackId="a" 
-                  fill="#eab308" 
-                  name="FAI"
-                  radius={[0, 0, 0, 0]}
-                />
-                <Bar 
-                  dataKey="Other" 
-                  stackId="a" 
-                  fill="#9ca3af" 
-                  name="Other"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
+        {renderChartContent()}
       </CardContent>
     </Card>
   );
