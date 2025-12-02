@@ -147,7 +147,8 @@ export function IncidentActivityLog({ activities }: IncidentActivityLogProps) {
               )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </ScrollArea>
   );
