@@ -125,6 +125,38 @@ Major UX improvements focused on the Builder Admin (role 5) experience, with cha
 - Added "R ← → L" labels for clarity
 - File: `BodyInjuryViewer.tsx`
 
+### ✅ Admin Dashboard Overhaul (2025-12-02)
+
+**Problem:** Builder Admin (role 5) saw Mend-internal admin functions they shouldn't access.
+
+**Solution:** Added `isMendAdmin()` helper and reorganized admin sections:
+
+| Section | Who Can See | Contains |
+|---------|-------------|----------|
+| User & Company Management | Varies | Employer Mgmt (super), Super User Mgmt (super), User Mgmt (builder+) |
+| Site & Worker Management | builder+ | All Sites (super), My Sites, Workers, Hours |
+| Data & Configuration | mend only | Data Mgmt, Reference Tables, Medical Professionals, Cost Config |
+| System Administration | super only | Storage Setup, System Logs |
+
+**Role Categories:**
+- `'super'` = Role 1 only
+- `'mend'` = Roles 1-4 (Mend staff)
+- `'builder'` = Roles 1-5 (includes Builder Admin)
+
+**Fixed Broken Pages:**
+- `HoursWorkedAdmin` → Redirects to `/hours-management`
+- `DataImportAdmin` → Proper "Coming Soon" placeholder
+- `SearchVerifyAdmin` → Now functional search across workers/incidents/sites
+
+**Files Modified:**
+- `lib/auth/roles.ts` - Added `isMendAdmin()` helper
+- `pages/AdminDashboard.tsx` - Complete rewrite with sections
+- `pages/HoursWorkedAdmin.tsx` - Redirect to working page
+- `pages/DataImportAdmin.tsx` - Placeholder with guidelines
+- `pages/SearchVerifyAdmin.tsx` - Functional search
+
+---
+
 ### Key Files Modified
 
 | File | Changes |
@@ -144,6 +176,11 @@ Major UX improvements focused on the Builder Admin (role 5) experience, with cha
 | `vercel.json` | Route rewrites |
 | `generate-safety-report/index.ts` | CORS headers fix |
 | `retell-webhook-handler/index.ts` | Save call_summary |
+| `lib/auth/roles.ts` | Added `isMendAdmin()` helper |
+| `AdminDashboard.tsx` | Reorganized with role-based sections |
+| `HoursWorkedAdmin.tsx` | Redirects to `/hours-management` |
+| `DataImportAdmin.tsx` | Proper placeholder |
+| `SearchVerifyAdmin.tsx` | Functional search |
 
 ### Database Migrations Created
 
