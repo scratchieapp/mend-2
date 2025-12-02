@@ -290,8 +290,40 @@ export default function PublicDashboard() {
         return [];
       }
       
-      // get_dashboard_data returns { incidents: [...], totalCount: N }
-      return data?.incidents || [];
+      const incidents = data?.incidents || [];
+      
+      // Fetch call summaries from voice_logs for these incidents
+      // The call_summary from the voice agent provides the best incident summary
+      if (incidents.length > 0) {
+        const incidentIds = incidents.map((i: any) => i.incident_id);
+        
+        const { data: voiceLogs, error: voiceError } = await supabase
+          .from('voice_logs')
+          .select('incident_id, call_summary')
+          .in('incident_id', incidentIds)
+          .not('call_summary', 'is', null)
+          .order('created_at', { ascending: false });
+        
+        if (!voiceError && voiceLogs) {
+          // Create a map of incident_id -> call_summary (use first/most recent summary)
+          const summaryMap = new Map<number, string>();
+          voiceLogs.forEach((log: any) => {
+            if (!summaryMap.has(log.incident_id) && log.call_summary) {
+              summaryMap.set(log.incident_id, log.call_summary);
+            }
+          });
+          
+          // Enrich incidents with call summaries
+          incidents.forEach((incident: any) => {
+            const summary = summaryMap.get(incident.incident_id);
+            if (summary) {
+              incident.call_summary = summary;
+            }
+          });
+        }
+      }
+      
+      return incidents;
     },
     staleTime: 60 * 1000, // 1 minute
     enabled: canViewIncidents && employerId !== null
@@ -417,16 +449,17 @@ export default function PublicDashboard() {
                               </span>
                             </div>
                             
-                            {/* Summary description */}
-                            <p className="text-sm text-slate-700 mb-2 line-clamp-2">
-                              {incident.injury_description || 
+                            {/* Summary description - prefer call_summary from voice agent */}
+                            <p className="text-sm text-slate-600 leading-relaxed mb-3">
+                              {incident.call_summary || 
+                                incident.injury_description || 
                                 (incident.injury_type && incident.injury_type !== 'Not specified' 
                                   ? `${incident.injury_type} injury reported`
                                   : 'No description available')}
                             </p>
                             
                             {/* Footer: worker and site info */}
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t border-slate-100">
                               <span className="flex items-center gap-1.5">
                                 <User className="h-3.5 w-3.5" />
                                 <span className="font-medium">{incident.worker_name || 'Unknown Worker'}</span>
