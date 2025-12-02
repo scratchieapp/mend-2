@@ -27,38 +27,49 @@ interface CreateWebCallRequest {
   };
 }
 
+// CORS headers for all responses
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Content-Type': 'application/json',
+};
+
 serve(async (req: Request) => {
+  const startTime = Date.now();
+  
   try {
     // CORS preflight
     if (req.method === 'OPTIONS') {
-      return new Response(null, {
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        },
-      });
+      return new Response(null, { status: 204, headers: corsHeaders });
     }
 
     if (req.method !== 'POST') {
-      return new Response('Method not allowed', { status: 405 });
+      return new Response(JSON.stringify({ error: 'Method not allowed' }), { 
+        status: 405, 
+        headers: corsHeaders 
+      });
     }
 
     // Get environment variables
     const retellApiKey = Deno.env.get('RETELL_API_KEY');
     const defaultAgentId = Deno.env.get('RETELL_INCIDENT_REPORTER_AGENT_ID');
 
+    // Log configuration status (without exposing secrets)
+    console.log('[create-web-call] Configuration check:', {
+      hasRetellApiKey: !!retellApiKey,
+      retellApiKeyPrefix: retellApiKey ? retellApiKey.substring(0, 10) + '...' : 'NOT SET',
+      defaultAgentId: defaultAgentId || 'NOT SET',
+    });
+
     if (!retellApiKey) {
-      console.error('RETELL_API_KEY not configured');
+      console.error('[create-web-call] RETELL_API_KEY not configured');
       return new Response(
-        JSON.stringify({ error: 'Voice calling is not configured' }),
-        { 
-          status: 500, 
-          headers: { 
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          } 
-        }
+        JSON.stringify({ 
+          error: 'Voice calling is not configured',
+          diagnostics: { issue: 'RETELL_API_KEY not set in environment' }
+        }),
+        { status: 500, headers: corsHeaders }
       );
     }
 
@@ -66,20 +77,28 @@ serve(async (req: Request) => {
     const requestData: CreateWebCallRequest = await req.json().catch(() => ({}));
     const agentId = requestData.agent_id || defaultAgentId;
 
+    console.log('[create-web-call] Request:', {
+      providedAgentId: requestData.agent_id || 'none (using default)',
+      resolvedAgentId: agentId,
+      hasUserContext: !!requestData.user_context,
+      userContext: requestData.user_context ? {
+        employer_name: requestData.user_context.employer_name,
+        caller_name: requestData.user_context.caller_name,
+      } : null,
+    });
+
     if (!agentId) {
+      console.error('[create-web-call] No agent ID available');
       return new Response(
-        JSON.stringify({ error: 'No agent configured for web calls' }),
-        { 
-          status: 400, 
-          headers: { 
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          } 
-        }
+        JSON.stringify({ 
+          error: 'No agent configured for web calls',
+          diagnostics: { issue: 'Neither agent_id provided nor RETELL_INCIDENT_REPORTER_AGENT_ID set' }
+        }),
+        { status: 400, headers: corsHeaders }
       );
     }
 
-    console.log('Creating web call for agent:', agentId);
+    console.log('[create-web-call] Creating web call for agent:', agentId);
 
     // Build dynamic variables from user context if provided
     const dynamicVariables: Record<string, string> = {};
@@ -100,70 +119,112 @@ serve(async (req: Request) => {
     console.log('Dynamic variables for call:', dynamicVariables);
 
     // Create web call via Retell API
+    const retellRequestBody = {
+      agent_id: agentId,
+      metadata: {
+        ...requestData.metadata,
+        source: 'web_portal',
+        created_at: new Date().toISOString(),
+      },
+      // Pass user context as dynamic variables - agent can use these to skip questions
+      retell_llm_dynamic_variables: Object.keys(dynamicVariables).length > 0 
+        ? dynamicVariables 
+        : undefined,
+    };
+    
+    console.log('[create-web-call] Calling Retell API...');
+    const retellStartTime = Date.now();
+    
     const response = await fetch('https://api.retellai.com/v2/create-web-call', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${retellApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        agent_id: agentId,
-        metadata: {
-          ...requestData.metadata,
-          source: 'web_portal',
-          created_at: new Date().toISOString(),
-        },
-        // Pass user context as dynamic variables - agent can use these to skip questions
-        retell_llm_dynamic_variables: Object.keys(dynamicVariables).length > 0 
-          ? dynamicVariables 
-          : undefined,
-      }),
+      body: JSON.stringify(retellRequestBody),
     });
+
+    const retellElapsed = Date.now() - retellStartTime;
+    console.log(`[create-web-call] Retell API response: ${response.status} (${retellElapsed}ms)`);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Retell API error:', response.status, errorText);
+      let errorJson;
+      try {
+        errorJson = JSON.parse(errorText);
+      } catch {
+        errorJson = { raw: errorText };
+      }
+      
+      console.error('[create-web-call] Retell API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorJson,
+        agentId,
+      });
+      
+      // Provide specific error messages based on Retell error
+      let errorMessage = 'Failed to create web call';
+      if (response.status === 401) {
+        errorMessage = 'Retell API authentication failed - check API key';
+      } else if (response.status === 404) {
+        errorMessage = `Agent not found: ${agentId}`;
+      } else if (response.status === 400) {
+        errorMessage = errorJson.message || errorJson.error || 'Invalid request to Retell';
+      } else if (response.status === 429) {
+        errorMessage = 'Rate limited - too many calls';
+      }
+      
       return new Response(
-        JSON.stringify({ error: 'Failed to create web call' }),
-        { 
-          status: response.status, 
-          headers: { 
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          } 
-        }
+        JSON.stringify({ 
+          error: errorMessage,
+          diagnostics: {
+            retellStatus: response.status,
+            retellError: errorJson,
+            agentId,
+          }
+        }),
+        { status: response.status, headers: corsHeaders }
       );
     }
 
     const data = await response.json();
-    console.log('Web call created successfully:', data.call_id);
+    const totalElapsed = Date.now() - startTime;
+    
+    console.log('[create-web-call] Success:', {
+      call_id: data.call_id,
+      hasAccessToken: !!data.access_token,
+      totalTime: `${totalElapsed}ms`,
+    });
 
     return new Response(
       JSON.stringify({
         access_token: data.access_token,
         call_id: data.call_id,
+        diagnostics: {
+          agentId,
+          responseTime: `${totalElapsed}ms`,
+        }
       }),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
+      { status: 200, headers: corsHeaders }
     );
   } catch (error) {
-    console.error('Create web call error:', error);
+    const totalElapsed = Date.now() - startTime;
+    console.error('[create-web-call] Unexpected error:', {
+      error: error instanceof Error ? error.message : 'Unknown',
+      stack: error instanceof Error ? error.stack : undefined,
+      totalTime: `${totalElapsed}ms`,
+    });
+    
     return new Response(
       JSON.stringify({
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        diagnostics: {
+          type: 'unexpected_error',
+          responseTime: `${totalElapsed}ms`,
+        }
       }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
+      { status: 500, headers: corsHeaders }
     );
   }
 });

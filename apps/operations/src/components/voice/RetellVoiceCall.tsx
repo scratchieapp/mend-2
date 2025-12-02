@@ -83,6 +83,7 @@ export function RetellVoiceCall({
   const startCall = async () => {
     if (!retellClientRef.current) {
       setError('Voice system not ready. Please try again.');
+      console.error('[VoiceCall] Retell SDK not loaded');
       return;
     }
 
@@ -94,28 +95,65 @@ export function RetellVoiceCall({
       // Get Supabase URL from environment
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       
+      console.log('[VoiceCall] Starting call...', {
+        supabaseUrl: supabaseUrl ? 'configured' : 'MISSING',
+        agentId: agentId || 'using default',
+        hasUserContext: !!userContext,
+        userContext: userContext ? {
+          employer_name: userContext.employer_name,
+          caller_name: userContext.caller_name,
+          is_authenticated: userContext.is_authenticated,
+        } : null,
+      });
+      
       if (!supabaseUrl) {
-        throw new Error('Supabase not configured');
+        throw new Error('Supabase not configured - VITE_SUPABASE_URL missing');
       }
 
       // Get access token from Supabase Edge Function
+      const requestBody = { 
+        agent_id: agentId,
+        user_context: userContext 
+      };
+      
+      console.log('[VoiceCall] Calling create-web-call edge function...');
+      const startTime = Date.now();
+      
       const response = await fetch(`${supabaseUrl}/functions/v1/create-web-call`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          agent_id: agentId,
-          user_context: userContext 
-        })
+        body: JSON.stringify(requestBody)
       });
 
+      const elapsed = Date.now() - startTime;
+      console.log(`[VoiceCall] Edge function response: ${response.status} (${elapsed}ms)`);
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to create web call');
+        const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText || `HTTP ${response.status}` };
+        }
+        console.error('[VoiceCall] Edge function error:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+        });
+        throw new Error(errorData.error || errorData.message || `Failed to create web call (HTTP ${response.status})`);
       }
 
-      const { access_token } = await response.json();
+      const responseData = await response.json();
+      const { access_token, call_id, diagnostics } = responseData;
+      
+      console.log('[VoiceCall] Web call created:', {
+        call_id,
+        hasAccessToken: !!access_token,
+        diagnostics,
+      });
 
       // Set up event listeners
       const client = retellClientRef.current;
@@ -161,8 +199,27 @@ export function RetellVoiceCall({
       });
 
     } catch (err) {
-      console.error('Failed to start call:', err);
-      setError('Unable to connect. Please try calling us directly.');
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error('[VoiceCall] Failed to start call:', {
+        error: errorMessage,
+        stack: err instanceof Error ? err.stack : undefined,
+      });
+      
+      // Provide helpful error messages based on the error type
+      let userMessage = 'Unable to connect. Please try calling us directly.';
+      if (errorMessage.includes('RETELL_API_KEY')) {
+        userMessage = 'Voice service configuration issue. Please contact support.';
+      } else if (errorMessage.includes('agent')) {
+        userMessage = 'Voice agent not available. Please try calling us directly.';
+      } else if (errorMessage.includes('HTTP 4')) {
+        userMessage = 'Request error. Please refresh and try again.';
+      } else if (errorMessage.includes('HTTP 5')) {
+        userMessage = 'Server error. Please try again in a moment.';
+      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        userMessage = 'Network error. Please check your connection.';
+      }
+      
+      setError(userMessage);
       setCallStatus('idle');
     }
   };
