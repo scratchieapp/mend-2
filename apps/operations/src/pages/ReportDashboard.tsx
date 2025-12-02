@@ -21,7 +21,9 @@ import {
   Loader2,
   Clock,
   Lightbulb,
-  GraduationCap
+  GraduationCap,
+  CheckCircle2,
+  AlertCircle
 } from "lucide-react";
 
 interface Site {
@@ -34,7 +36,8 @@ const ReportDashboard = () => {
   const navigate = useNavigate();
   const { userData } = useAuth();
   const { selectedEmployerId, employers, statistics } = useEmployerContext();
-  const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), "yyyy-MM"));
+  // Default to last completed month (not current month since it's incomplete)
+  const [selectedMonth, setSelectedMonth] = useState<string>(format(subMonths(new Date(), 1), "yyyy-MM"));
   const [selectedSiteId, setSelectedSiteId] = useState<string>("");
 
   // Get the employer name - for roles 5,6,7 it comes from userData, for Mend staff from selection
@@ -121,6 +124,43 @@ const ReportDashboard = () => {
       };
     },
     enabled: !!effectiveEmployerId,
+  });
+
+  // Check hours completion status for last 3 completed months
+  const { data: hoursStatus } = useQuery({
+    queryKey: ['hours-status', effectiveEmployerId, sites],
+    queryFn: async () => {
+      if (!effectiveEmployerId || sites.length === 0) return { complete: false, missing: 0, total: 0 };
+      
+      // Last 3 completed months (not including current)
+      const completedMonths = Array.from({ length: 3 }, (_, i) => {
+        const date = subMonths(new Date(), i + 1);
+        return format(date, 'yyyy-MM') + '-01';
+      });
+      
+      const { data: hours, error } = await supabase
+        .from('hours_worked')
+        .select('site_id, month')
+        .eq('employer_id', effectiveEmployerId)
+        .in('month', completedMonths);
+      
+      if (error) {
+        console.error('Error checking hours status:', error);
+        return { complete: false, missing: 0, total: 0 };
+      }
+      
+      // Count how many site-months have data
+      const expectedEntries = sites.length * 3; // 3 months × sites
+      const actualEntries = hours?.length || 0;
+      const missing = expectedEntries - actualEntries;
+      
+      return {
+        complete: missing === 0,
+        missing,
+        total: expectedEntries
+      };
+    },
+    enabled: !!effectiveEmployerId && sites.length > 0,
   });
 
   // Check user permissions
@@ -312,34 +352,58 @@ const ReportDashboard = () => {
         )}
       </div>
 
-      {/* Hours Entry Card */}
-      <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900">
-        <CardHeader>
+      {/* Hours Entry Card - Green if complete, Amber if missing */}
+      <Card className={hoursStatus?.complete 
+        ? "border-green-200 bg-green-50/50 dark:bg-green-950/20 dark:border-green-900"
+        : "border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900"
+      }>
+        <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-amber-600" />
+            {hoursStatus?.complete ? (
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+            ) : (
+              <AlertCircle className="h-5 w-5 text-amber-600" />
+            )}
             Hours Worked Entry
+            {hoursStatus?.complete && (
+              <span className="text-xs font-normal text-green-600 ml-2">✓ Complete</span>
+            )}
           </CardTitle>
           <CardDescription>
-            Accurate hours data is essential for meaningful frequency rate calculations
+            {hoursStatus?.complete 
+              ? "All sites have hours entered for the last 3 months"
+              : "Accurate hours data is essential for meaningful frequency rate calculations"
+            }
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">
-              Hours worked form the denominator for LTIFR, TRIFR, and MTIFR calculations. 
-              Without accurate hours, these metrics lose their meaning.
-            </p>
-            <p className="text-xs text-amber-700 dark:text-amber-400">
-              💡 Tip: Enter hours monthly for each site to keep your reports accurate.
-            </p>
+            {hoursStatus?.complete ? (
+              <p className="text-sm text-green-700 dark:text-green-400">
+                All {sites.length} sites have hours recorded for the last 3 completed months.
+              </p>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Hours worked form the denominator for LTIFR, TRIFR, and MTIFR calculations. 
+                  {hoursStatus?.missing ? ` Missing ${hoursStatus.missing} of ${hoursStatus.total} site-months.` : ''}
+                </p>
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  💡 Tip: Enter hours monthly for each site to keep your reports accurate.
+                </p>
+              </>
+            )}
           </div>
           <Button 
             variant="outline" 
-            className="shrink-0 border-amber-300 hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900/50"
-            onClick={() => navigate('/builder/hours-management')}
+            className={hoursStatus?.complete 
+              ? "shrink-0 border-green-300 hover:bg-green-100 dark:border-green-800 dark:hover:bg-green-900/50"
+              : "shrink-0 border-amber-300 hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900/50"
+            }
+            onClick={() => navigate('/hours-management')}
           >
             <Clock className="h-4 w-4 mr-2" />
-            Enter Hours
+            {hoursStatus?.complete ? 'View Hours' : 'Enter Hours'}
           </Button>
         </CardContent>
       </Card>

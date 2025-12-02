@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { SiteHoursList } from "@/components/builder/hours-management/SiteHoursList";
 import { SiteHoursSearch } from "@/components/builder/hours-management/SiteHoursSearch";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, subMonths, startOfMonth } from "date-fns";
+import { format, subMonths, startOfMonth, addMonths } from "date-fns";
 import { Site, MonthlyHours } from "@/components/builder/hours-management/types";
 import { useEmployerContext } from "@/hooks/useEmployerContext";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -15,6 +15,8 @@ const HoursManagementPage = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [hoursData, setHoursData] = useState<MonthlyHours>({});
+  // Track the "end month" for pagination - start at last completed month (1 month ago)
+  const [monthOffset, setMonthOffset] = useState(1);
   
   // Get employer ID from context (handles roles 5,6,7 correctly)
   const { userData, isLoading: isAuthLoading } = useAuth();
@@ -24,11 +26,26 @@ const HoursManagementPage = () => {
   const userEmployerId = userData?.employer_id ? Number(userData.employer_id) : null;
   const selectedEmployerId = contextEmployerId || userEmployerId;
 
-  // Get the last 3 months
+  // Get 3 completed months based on offset (excludes current incomplete month)
+  // monthOffset=1 means: last month, 2 months ago, 3 months ago
+  // monthOffset=4 means: 4 months ago, 5 months ago, 6 months ago
   const months = Array.from({ length: 3 }, (_, i) => {
-    const date = subMonths(new Date(), i);
+    const date = subMonths(new Date(), monthOffset + i);
     return format(startOfMonth(date), 'yyyy-MM');
   }).reverse();
+  
+  // Check if we can go to more recent months (but not current month)
+  const canGoNewer = monthOffset > 1;
+  // Allow going back up to 24 months
+  const canGoOlder = monthOffset < 22;
+  
+  const handleGoNewer = () => {
+    if (canGoNewer) setMonthOffset(monthOffset - 3);
+  };
+  
+  const handleGoOlder = () => {
+    if (canGoOlder) setMonthOffset(monthOffset + 3);
+  };
 
   const { data: sites = [], isLoading: isLoadingSites } = useQuery({
     queryKey: ['sites', selectedEmployerId],
@@ -123,6 +140,9 @@ const HoursManagementPage = () => {
     );
   }
 
+  // Format month range for display
+  const monthRangeDisplay = `${format(new Date(months[0] + '-01'), 'MMM yyyy')} - ${format(new Date(months[2] + '-01'), 'MMM yyyy')}`;
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center gap-4 mb-6">
@@ -136,7 +156,41 @@ const HoursManagementPage = () => {
         <h1 className="text-2xl font-bold">Hours Worked Management</h1>
       </div>
 
-      <div className="mt-8 space-y-4">
+      {/* Month Navigation */}
+      <div className="flex items-center justify-between bg-slate-50 rounded-lg p-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleGoOlder}
+          disabled={!canGoOlder}
+          className="gap-2"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Older Months
+        </Button>
+        
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span>{monthRangeDisplay}</span>
+        </div>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleGoNewer}
+          disabled={!canGoNewer}
+          className="gap-2"
+        >
+          Newer Months
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <p className="text-sm text-muted-foreground text-center">
+        Note: You can only enter hours for completed months. The current month ({format(new Date(), 'MMMM yyyy')}) is not available until it ends.
+      </p>
+
+      <div className="mt-4 space-y-4">
         <SiteHoursSearch
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}

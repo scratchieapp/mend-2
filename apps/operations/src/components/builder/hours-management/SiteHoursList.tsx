@@ -2,11 +2,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Loader2, Phone } from "lucide-react";
+import { Loader2, Phone, Check, AlertCircle, HelpCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MonthlyHoursInputs } from "./MonthlyHoursInputs";
 import { Site, MonthlyHours, HoursEntry } from "./types";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
 
 interface SiteHoursListProps {
   sites: Site[];
@@ -81,34 +83,114 @@ export const SiteHoursList = ({
   // Take only the last 3 months
   const lastThreeMonths = months.slice(-3);
 
+  // Helper to get status for a month/site
+  const getMonthStatus = (month: string, siteId: number) => {
+    const hours = hoursData[month]?.[siteId];
+    if (!hours) return 'missing';
+    const hasHours = (hours.employer_hours && Number(hours.employer_hours) > 0) || 
+                     (hours.subcontractor_hours && Number(hours.subcontractor_hours) > 0);
+    if (!hasHours) return 'missing';
+    return hours.is_estimated ? 'estimated' : 'actual';
+  };
+
+  // Status icon component
+  const MonthStatusIcon = ({ status, month }: { status: string; month: string }) => {
+    const monthLabel = format(new Date(month + '-01'), 'MMM');
+    
+    if (status === 'actual') {
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
+              <Check className="h-3 w-3" />
+              {monthLabel}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{monthLabel}: Actual hours entered</p>
+          </TooltipContent>
+        </Tooltip>
+      );
+    }
+    
+    if (status === 'estimated') {
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-700 rounded text-xs font-medium">
+              <HelpCircle className="h-3 w-3" />
+              {monthLabel}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{monthLabel}: Estimated hours (needs verification)</p>
+          </TooltipContent>
+        </Tooltip>
+      );
+    }
+    
+    // Missing
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium">
+            <AlertCircle className="h-3 w-3" />
+            {monthLabel}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{monthLabel}: No hours entered</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  };
+
   return (
-    <div className="space-y-4">
-      {filteredSites.map((site) => (
-        <Card key={site.site_id} className="p-4">
-          <Accordion
-            type="single"
-            collapsible
-            value={expandedSites.includes(site.site_id.toString()) ? site.site_id.toString() : ""}
-            onValueChange={(value) => {
-              if (value) {
-                setExpandedSites([...expandedSites, value]);
-              } else {
-                setExpandedSites(expandedSites.filter(id => id !== site.site_id.toString()));
-              }
-            }}
-          >
-            <AccordionItem value={site.site_id.toString()} className="border-none">
-              <AccordionTrigger className="hover:no-underline">
-                <div className="flex flex-col items-start w-full text-left">
-                  <h3 className="text-lg font-semibold">{site.site_name}</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {site.city}
-                    {site.state && site.city && `, `}
-                    {site.state}
-                    {site.project_type && ` • ${site.project_type}`}
-                  </p>
-                </div>
-              </AccordionTrigger>
+    <TooltipProvider>
+      <div className="space-y-4">
+        {filteredSites.map((site) => {
+          const isExpanded = expandedSites.includes(site.site_id.toString());
+          
+          return (
+            <Card key={site.site_id} className="p-4">
+              <Accordion
+                type="single"
+                collapsible
+                value={isExpanded ? site.site_id.toString() : ""}
+                onValueChange={(value) => {
+                  if (value) {
+                    setExpandedSites([...expandedSites, value]);
+                  } else {
+                    setExpandedSites(expandedSites.filter(id => id !== site.site_id.toString()));
+                  }
+                }}
+              >
+                <AccordionItem value={site.site_id.toString()} className="border-none">
+                  <AccordionTrigger className="hover:no-underline">
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex flex-col items-start text-left">
+                        <h3 className="text-lg font-semibold">{site.site_name}</h3>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {site.city}
+                          {site.state && site.city && `, `}
+                          {site.state}
+                          {site.project_type && ` • ${site.project_type}`}
+                        </p>
+                      </div>
+                      {/* Month status icons - only show when collapsed */}
+                      {!isExpanded && (
+                        <div className="flex items-center gap-2 mr-4">
+                          {lastThreeMonths.map(month => (
+                            <MonthStatusIcon 
+                              key={month} 
+                              status={getMonthStatus(month, site.site_id)} 
+                              month={month}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </AccordionTrigger>
               <AccordionContent>
                 <div className="mt-4">
                   <div className="grid grid-cols-4 gap-4">
@@ -151,10 +233,12 @@ export const SiteHoursList = ({
                   </div>
                 </div>
               </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        </Card>
-      ))}
-    </div>
+              </AccordionItem>
+            </Accordion>
+          </Card>
+          );
+        })}
+      </div>
+    </TooltipProvider>
   );
 };
