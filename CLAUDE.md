@@ -280,7 +280,7 @@ AI-augmented incident management to achieve 5x revenue growth without proportion
 - Auto-selects when: only one match, score ≥70, or best match 20+ points better than second
 - Only asks for clarification when genuinely ambiguous
 
-### ✅ Medical Booking Agent "Emma" (2025-11-30)
+### ✅ Medical Booking Agent "Emma" (2025-11-30, Enhanced 2025-12-03)
 **Automated 3-call workflow to book medical appointments for injured workers**
 
 **Workflow:**
@@ -288,34 +288,79 @@ AI-augmented incident management to achieve 5x revenue growth without proportion
 2. **Call 2 → Patient**: Confirm which time works for them
 3. **Call 3 → Medical Center**: Confirm the final booking
 
-**Database Tables Created:**
-- `booking_workflows` - Tracks multi-call state machine (pending_times → pending_patient → pending_confirmation → completed/failed)
+**Database Tables & Columns (Enhanced 2025-12-03):**
+- `booking_workflows` - Tracks multi-call state machine with detailed tracking:
+  - `current_call_started_at`, `current_call_ended_at` - Real-time call status
+  - `patient_call_attempts`, `patient_next_retry_at` - Patient retry tracking
+  - `retry_attempt`, `retry_scheduled_at` - Medical center retry tracking
+  - `last_call_outcome` - Most recent call result
+  - Status values: `initiated`, `calling_medical_center`, `times_collected`, `calling_patient`, `patient_confirmed`, `confirming_booking`, `completed`, `failed`, `awaiting_patient_retry`, `awaiting_medical_center_retry`
+- `booking_call_history` - Detailed log of every call in the workflow:
+  - `call_sequence`, `call_target` (medical_center/patient), `started_at`, `ended_at`
+  - `outcome` (completed/voicemail/no_answer/failed/in_progress)
+  - `duration_seconds`, `extracted_data`, `retell_call_id`
 - New task types: `booking_get_times`, `booking_patient_confirm`, `booking_final_confirm`
-- `booking_workflow_id` columns added to `voice_tasks` and `voice_logs`
 
-**Edge Functions Deployed (all with --no-verify-jwt):**
+**Retry Logic (2025-12-03):**
+- **Medical Center Calls**: 5 attempts, 5 minutes apart (voicemail/no answer)
+- **Patient Calls**: 3 attempts, 30 minutes apart (voicemail/no answer)
+- **Calling Hours**: 7:00 AM - 9:30 PM AEST only
+- **Cron Job**: `process-booking-retries` runs every 5 minutes via pg_cron
+
+**Edge Functions Deployed (all webhook functions with --no-verify-jwt):**
 | Function | Purpose |
 |----------|---------|
-| `initiate-booking-workflow` | Creates workflow, initiates first call |
+| `initiate-booking-workflow` | Creates workflow, initiates first call (requires JWT) |
+| `retell-webhook-handler` | Processes call events, orchestrates workflow |
 | `booking-submit-times` | Receives available times from clinic call |
 | `booking-patient-confirm` | Records patient's selected time |
 | `booking-patient-reschedule` | Patient needs different times |
 | `booking-confirm-final` | Confirms final booking with clinic |
 | `booking-failed` | Marks workflow as failed |
+| `process-booking-retries` | Cron-triggered retry processor (NEW) |
+| `continue-booking-workflow` | Manual trigger for next call (NEW) |
 
-**Retell Agent Configuration:**
-- Agent Name: "Emma" (Medical Booking Agent)
-- 5 custom functions configured with dedicated endpoints
-- Post-Call Data Extraction fields for all 3 call types (16 fields total)
-- Simplified JSON schemas (flat, no nested objects)
+**Webhook Handler Improvements (2025-12-03):**
+- Only processes booking workflows on `call_analyzed` event (not `call_ended`)
+- Prevents duplicate call history entries
+- Handles multiple Retell field name variations:
+  - `patient_confirmed_time` / `patient_selected_time` / `confirmed_datetime`
+  - `time_slot_1/2/3` / `available_time_1/2/3`
+- Robust Australian phone number formatting (handles spaces, dashes, parentheses)
 
-**UI Components Created:**
-- `BookMedicalAppointmentDialog.tsx` - Initiate booking from incident page
-- `UpcomingAppointments.tsx` - Display appointments prominently in case file
-- Quick action button on `IncidentDetailsPage.tsx`
+**UI Components (Enhanced 2025-12-03):**
+- `BookMedicalAppointmentDialog.tsx` - Initiate booking, auto-refreshes timeline
+- `BookingWorkflowTimeline.tsx` - Visual progress with:
+  - 5-step progress indicator (Started → Getting Times → Patient Confirmation → Finalizing → Confirmed)
+  - Real-time call status with pulsing indicator
+  - Retry countdown and attempt tracking
+  - Detailed call history with outcomes (Connected/Voicemail/No Answer)
+- `UpcomingAppointments.tsx` - Display confirmed appointments
+- `IncidentActivityLog.tsx` - Milestone highlighting for successful activities
+
+**Database Functions (2025-12-03):**
+```sql
+record_booking_call_start(p_workflow_id, p_retell_call_id, p_call_target, ...)
+record_booking_call_end(p_workflow_id, p_retell_call_id, p_outcome, ...)
+schedule_patient_call_retry(p_workflow_id, p_delay_minutes, p_reason)
+is_within_calling_hours(p_timezone) -- Checks 7am-9:30pm AEST
+get_next_valid_call_time(p_base_time, p_delay_minutes, p_timezone)
+get_booking_workflow_with_history(p_workflow_id) -- Full workflow + call history
+```
+
+**Cron Job Setup (pg_cron):**
+```sql
+-- Runs every 5 minutes, 24/7 (Edge Function handles AEST hours)
+SELECT cron.schedule('process-booking-retries', '*/5 * * * *', ...);
+```
+
+**Agent Prompt Updates (2025-12-03):**
+- Added "CRITICAL: Check {{call_type}} First!" instruction at top
+- Patient call script now has warning: "You are calling the PATIENT, NOT the medical center!"
+- Prevents agent from using wrong script for call type
 
 **Key Documentation:**
-- `/docs/BOOKING_AGENT_PROMPT.md` - Complete prompt, function schemas, post-call extraction config
+- `/docs/voice-agents/BOOKING_AGENT_PROMPT.md` - Complete prompt, function schemas, post-call extraction config
 
 **Retell Function URLs:**
 ```
@@ -325,6 +370,11 @@ https://rkzcybthcszeusrohbtc.supabase.co/functions/v1/booking-patient-reschedule
 https://rkzcybthcszeusrohbtc.supabase.co/functions/v1/booking-confirm-final
 https://rkzcybthcszeusrohbtc.supabase.co/functions/v1/booking-failed
 ```
+
+**Known Limitations / Future Work:**
+- Consider using Retell Logic Flow for deterministic call_type routing
+- Final confirmation retries need same logic as get_times retries
+- Agent may still confuse scripts without Logic Flow implementation
 
 ### ✅ Enhanced Voice Agent Lookup (2025-11-29)
 **Major improvements to employer/site identification accuracy!**
@@ -1408,6 +1458,6 @@ The reporting system emphasizes learning over compliance:
 
 ---
 
-**Last Updated**: December 2, 2025
-**Version**: 4.17.0
-**Status**: ✅ PRODUCTION READY | ✅ UX Cleanup - Complete | ✅ Builder Admin Flow - Improved | ✅ Incident Submission - WORKING | ✅ Voice Agent - Fully Operational | ✅ Medical Booking Agent "Emma" - Configured | ✅ RLS + Clerk Auth - Fixed | ✅ Site Management Redesign - Complete | ✅ Sites RBAC - Fixed | ✅ Cost Estimator - Complete | ✅ Safety Reporting System - Complete
+**Last Updated**: December 3, 2025
+**Version**: 4.18.0
+**Status**: ✅ PRODUCTION READY | ✅ UX Cleanup - Complete | ✅ Builder Admin Flow - Improved | ✅ Incident Submission - WORKING | ✅ Voice Agent - Fully Operational | ✅ Medical Booking Agent "Emma" - Enhanced with Retry Logic & Timeline UI | ✅ RLS + Clerk Auth - Fixed | ✅ Site Management Redesign - Complete | ✅ Sites RBAC - Fixed | ✅ Cost Estimator - Complete | ✅ Safety Reporting System - Complete
