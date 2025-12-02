@@ -8,7 +8,7 @@ const roleIdToDashboard: Record<number, string> = {
   2: '/account-manager',        // MEND Account Manager
   3: '/data-entry',             // MEND Data Entry
   4: '/analyst',                // MEND Analyst
-  5: '/builder-senior',         // Builder Admin
+  5: '/public-dashboard',       // Builder Admin - main dashboard with incidents & sites
   6: '/site-admin',             // Site Admin
   7: '/client',                 // Client
   8: '/vendor',                 // Vendor

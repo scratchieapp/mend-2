@@ -44,10 +44,10 @@ export function MendNavigationLinks() {
           </Button>
         </Link>
       )}
-      <Link to="/incident-report?new=true">
+      <Link to="/incidents">
         <Button variant="ghost">
           <FileText className="h-4 w-4 mr-2" />
-          Incident Report
+          Incidents
         </Button>
       </Link>
       {hasAdminAccess && (

@@ -137,6 +137,15 @@ const IncidentRow = React.memo(({
     }
   };
 
+  // Check if injury_type incorrectly contains a classification value
+  const classificationValues = ['LTI', 'MTI', 'FAI', 'LOST TIME', 'MEDICAL TREATMENT', 'FIRST AID'];
+  const isInjuryTypeMisclassified = incident.injury_type && 
+    classificationValues.some(cv => incident.injury_type?.toUpperCase().includes(cv));
+  
+  const displayInjuryType = isInjuryTypeMisclassified 
+    ? 'Unknown' 
+    : (incident.injury_type || 'N/A');
+
   return (
     <TableRow 
       className={cn(
@@ -160,7 +169,12 @@ const IncidentRow = React.memo(({
         {incident.date_of_injury ? format(parseISO(incident.date_of_injury), 'MMM d, yyyy') : 'N/A'}
       </TableCell>
       <TableCell>{incident.worker_name || '—'}</TableCell>
-      <TableCell>{incident.injury_type || 'N/A'}</TableCell>
+      <TableCell className={isInjuryTypeMisclassified ? 'text-amber-600' : ''}>
+        {displayInjuryType}
+        {isInjuryTypeMisclassified && (
+          <span className="ml-1 text-xs" title="This value appears to be a classification, not an injury type">⚠</span>
+        )}
+      </TableCell>
       <TableCell>
         <Badge className={getClassificationColor(incident.classification)}>
           {incident.classification || 'N/A'}
@@ -670,8 +684,8 @@ export function IncidentsList({
                 <TableHead className="w-[120px]">Incident #</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Worker</TableHead>
-                <TableHead>Injury Type</TableHead>
-                <TableHead>Classification</TableHead>
+                <TableHead title="Type of injury (e.g., Fracture, Abrasion, Strain)">Injury Type</TableHead>
+                <TableHead title="Severity classification (LTI, MTI, FAI)">Classification</TableHead>
                 <TableHead>Site</TableHead>
                 <TableHead>Employer</TableHead>
                 <TableHead>Status</TableHead>

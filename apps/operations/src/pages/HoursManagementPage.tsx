@@ -17,9 +17,12 @@ const HoursManagementPage = () => {
   const [hoursData, setHoursData] = useState<MonthlyHours>({});
   
   // Get employer ID from context (handles roles 5,6,7 correctly)
-  const { userData } = useAuth();
+  const { userData, isLoading: isAuthLoading } = useAuth();
   const { selectedEmployerId: contextEmployerId } = useEmployerContext();
-  const selectedEmployerId = contextEmployerId || userData?.employer_id;
+  
+  // Ensure employer_id is parsed as a number
+  const userEmployerId = userData?.employer_id ? Number(userData.employer_id) : null;
+  const selectedEmployerId = contextEmployerId || userEmployerId;
 
   // Get the last 3 months
   const months = Array.from({ length: 3 }, (_, i) => {
@@ -81,11 +84,33 @@ const HoursManagementPage = () => {
     enabled: sites.length > 0,
   });
 
-  // Show loading while waiting for auth/employer context
-  if (!selectedEmployerId) {
+  // Show loading while waiting for auth
+  if (isAuthLoading) {
     return (
       <div className="container mx-auto p-6 flex items-center justify-center min-h-screen">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  // Show message if no employer context available
+  if (!selectedEmployerId) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center gap-4 mb-6">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(-1)}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-2xl font-bold">Hours Worked Management</h1>
+        </div>
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <p className="text-muted-foreground">No employer context available.</p>
+          <p className="text-sm text-muted-foreground mt-2">Please ensure you are assigned to an employer.</p>
+        </div>
       </div>
     );
   }

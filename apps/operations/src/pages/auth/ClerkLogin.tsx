@@ -12,7 +12,7 @@ const ROLE_DASHBOARDS: Record<number, string> = {
   2: '/account-manager',    // role2@scratchie.com → AccountManager
   3: '/dashboard',          // role3@scratchie.com → Dashboard
   4: '/dashboard',          // role4 → Dashboard
-  5: '/builder-senior',     // role5@scratchie.com → BuilderSeniorDashboard
+  5: '/public-dashboard',   // role5@scratchie.com → PublicDashboard (main dashboard with incidents & sites)
   6: '/site-admin',         // role6 → SiteAdmin
   7: '/worker-portal',      // role7 → WorkerPortal
   8: '/dashboard',          // role8 → Dashboard

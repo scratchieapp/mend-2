@@ -286,13 +286,8 @@ export default function PublicDashboard() {
     enabled: canViewIncidents && employerId !== null
   });
 
-  const handleLogin = () => navigate('/auth/login');
   const handleReportIncident = (siteId?: number) => {
-    if (isAuthenticated) {
-      navigate(siteId ? `/incident-report?site_id=${siteId}` : '/incident-report');
-    } else {
-      navigate(`/auth/login?redirect=/incident-report${siteId ? `&site_id=${siteId}` : ''}`);
-    }
+    navigate(siteId ? `/incident-report?site_id=${siteId}` : '/incident-report');
   };
 
   const handleSiteClick = (site: SiteLocation) => {
@@ -305,53 +300,7 @@ export default function PublicDashboard() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-slate-50">
-      {/* Header */}
-      <header className="flex-none flex justify-between items-center p-4 bg-white shadow-sm z-20 border-b">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary font-bold text-xl">
-            M
-          </div>
-          <div>
-            <h1 className="font-bold text-xl leading-none">Mend Platform</h1>
-            <p className="text-xs text-muted-foreground mt-1">
-              {userData?.employer_name || 'Safety & Injury Management'}
-            </p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-2 md:gap-4">
-          {/* Emergency Call Button */}
-          <a 
-            href={EMERGENCY_PHONE_LINK}
-            className="hidden md:flex items-center gap-2 bg-red-50 text-red-700 px-4 py-2 rounded-full text-sm font-medium hover:bg-red-100 transition-colors"
-          >
-            <Phone className="h-4 w-4" />
-            <span>{EMERGENCY_PHONE}</span>
-            <Badge variant="secondary" className="text-[10px] ml-1">24/7</Badge>
-          </a>
-          
-          {/* Mobile emergency button */}
-          <a 
-            href={EMERGENCY_PHONE_LINK}
-            className="md:hidden flex items-center justify-center h-10 w-10 bg-red-50 text-red-700 rounded-full hover:bg-red-100"
-          >
-            <Phone className="h-5 w-5" />
-          </a>
-          
-          {!isAuthenticated && (
-            <Button onClick={handleLogin}>
-              Login
-            </Button>
-          )}
-          {isAuthenticated && (
-            <Button onClick={() => navigate('/dashboard')} variant="outline">
-              Dashboard
-            </Button>
-          )}
-        </div>
-      </header>
-
+    <div className="flex flex-col min-h-[calc(100vh-60px)] bg-slate-50">
       {/* Main Content - Vertical Scrolling Layout */}
       <div className="flex-1 overflow-y-auto">
         <div className="container mx-auto p-4 md:p-6 space-y-6 max-w-7xl">
@@ -396,6 +345,16 @@ export default function PublicDashboard() {
                 </Button>
               </a>
             )}
+            
+            {/* Emergency Phone Badge - 24/7 */}
+            <a 
+              href={EMERGENCY_PHONE_LINK}
+              className="flex items-center gap-2 bg-red-50 text-red-700 px-4 py-2 rounded-full text-sm font-medium hover:bg-red-100 transition-colors"
+            >
+              <Phone className="h-4 w-4" />
+              <span className="hidden sm:inline">{EMERGENCY_PHONE}</span>
+              <Badge variant="secondary" className="text-[10px]">24/7</Badge>
+            </a>
           </div>
 
           {/* 1. RECENT INCIDENTS SECTION (only for authorized users) */}

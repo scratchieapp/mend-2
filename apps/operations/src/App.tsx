@@ -59,6 +59,7 @@ import IncidentReport from "./pages/IncidentReport";
 import IncidentReportDev from "./pages/IncidentReportDev";
 import IncidentDetailsPage from "./pages/IncidentDetailsPage";
 import IncidentEditPage from "./pages/IncidentEditPage";
+import IncidentsPage from "./pages/IncidentsPage";
 import LTIDetailsPage from "./pages/LTIDetailsPage";
 import InsuranceProviderDashboard from "./pages/InsuranceProviderDashboard";
 import GovernmentOfficialDashboard from "./pages/GovernmentOfficialDashboard";
@@ -96,7 +97,6 @@ function App() {
         <Route path="/test-role-query" element={<TestRoleQuery />} />
         <Route path="/debug-auth" element={<DebugAuth />} />
         <Route path="/clerk-debug" element={<ClerkDebug />} />
-        <Route path="/public-dashboard" element={<PublicDashboard />} />
 
         {/* Protected routes wrapped in AppLayout */}
         <Route element={<ProtectedRoute />}>
@@ -106,6 +106,7 @@ function App() {
             
             {/* Role-specific dashboard routes */}
             <Route path="dashboard" element={<Dashboard />} />
+            <Route path="public-dashboard" element={<PublicDashboard />} />
             <Route path="superadmin-dashboard" element={<SuperAdminDashboard />} />
             <Route path="admin" element={<AdminDashboard />} />
             <Route path="account-manager" element={<AccountManager />} />
@@ -115,6 +116,7 @@ function App() {
             <Route path="builder/senior/lti-details" element={<LTIDetailsPage />} />
             <Route path="builder/site-management" element={<BuilderSiteManagement />} />
             <Route path="builder/workers" element={<BuilderWorkerManagement />} />
+            <Route path="builder/hours-management" element={<HoursManagementPage />} />
             <Route path="settings" element={<CompanySettings />} />
             <Route path="site-admin" element={<SiteAdmin />} />
             <Route path="medical-dashboard" element={<MedicalDashboard />} />
@@ -128,6 +130,9 @@ function App() {
 
             {/* Administrator route */}
             <Route path="administrator" element={<Administrator />} />
+            
+            {/* Incidents routes */}
+            <Route path="incidents" element={<IncidentsPage />} />
             <Route path="incident-report" element={<IncidentReport />} />
             <Route path="incident/:id" element={<IncidentDetailsPage />} />
             <Route path="incident/:id/edit" element={<IncidentEditPage />} />
