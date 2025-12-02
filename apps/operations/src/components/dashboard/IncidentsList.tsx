@@ -124,18 +124,29 @@ const IncidentRow = React.memo(({
   // Check if this is a voice agent incident
   const isVoiceAgentIncident = incident.incident_status?.toLowerCase() === 'voice agent';
 
-  const getClassificationColor = (classification: string) => {
-    switch (classification?.toUpperCase()) {
-      case 'LTI':
-        return 'bg-red-100 text-red-800';
-      case 'MTI':
-        return 'bg-orange-100 text-orange-800';
-      case 'FAI':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  // Normalize classification display and get color
+  const normalizeClassification = (classification: string | null | undefined): { display: string; tooltip: string; color: string } => {
+    const upper = classification?.toUpperCase() || '';
+    
+    // Normalize variations to standard abbreviations
+    if (upper === 'LTI' || upper === 'LOST TIME INJURY' || upper === 'LOST TIME') {
+      return { display: 'LTI', tooltip: 'Lost Time Injury', color: 'bg-red-100 text-red-800' };
     }
+    if (upper === 'MTI' || upper === 'MEDICAL TREATMENT INJURY' || upper === 'MEDICAL TREATMENT') {
+      return { display: 'MTI', tooltip: 'Medical Treatment Injury', color: 'bg-orange-100 text-orange-800' };
+    }
+    if (upper === 'FAI' || upper === 'FIRST AID INJURY' || upper === 'FIRST AID') {
+      return { display: 'FAI', tooltip: 'First Aid Injury', color: 'bg-yellow-100 text-yellow-800' };
+    }
+    
+    return { 
+      display: classification || 'Unclassified', 
+      tooltip: classification || 'Not yet classified', 
+      color: 'bg-gray-100 text-gray-800' 
+    };
   };
+
+  const classificationInfo = normalizeClassification(incident.classification);
 
   // Check if injury_type incorrectly contains a classification value
   const classificationValues = ['LTI', 'MTI', 'FAI', 'LOST TIME', 'MEDICAL TREATMENT', 'FIRST AID'];
@@ -176,8 +187,11 @@ const IncidentRow = React.memo(({
         )}
       </TableCell>
       <TableCell>
-        <Badge className={getClassificationColor(incident.classification)}>
-          {incident.classification || 'N/A'}
+        <Badge 
+          className={`${classificationInfo.color} cursor-help`}
+          title={classificationInfo.tooltip}
+        >
+          {classificationInfo.display}
         </Badge>
       </TableCell>
       <TableCell>{incident.site_name || 'N/A'}</TableCell>

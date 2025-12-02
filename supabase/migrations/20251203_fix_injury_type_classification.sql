@@ -53,13 +53,35 @@ WHERE
   AND classification != 'Unclassified';
 
 -- =====================================================
--- Step 3: Add a comment to the columns to document their purpose
+-- Step 3: Normalize classification values to standard abbreviations
+-- (e.g., "Medical treatment injury" -> "MTI", "Lost time injury" -> "LTI")
+-- =====================================================
+UPDATE incidents
+SET 
+  classification = 'LTI',
+  updated_at = NOW()
+WHERE UPPER(classification) IN ('LOST TIME INJURY', 'LOST TIME');
+
+UPDATE incidents
+SET 
+  classification = 'MTI',
+  updated_at = NOW()
+WHERE UPPER(classification) IN ('MEDICAL TREATMENT INJURY', 'MEDICAL TREATMENT');
+
+UPDATE incidents
+SET 
+  classification = 'FAI',
+  updated_at = NOW()
+WHERE UPPER(classification) IN ('FIRST AID INJURY', 'FIRST AID');
+
+-- =====================================================
+-- Step 4: Add a comment to the columns to document their purpose
 -- =====================================================
 COMMENT ON COLUMN incidents.injury_type IS 'Type of injury sustained (e.g., Fracture, Abrasion, Strain, Laceration, Burn). NOT for classification/severity.';
 COMMENT ON COLUMN incidents.classification IS 'Severity classification of the incident: LTI (Lost Time Injury), MTI (Medical Treatment Injury), FAI (First Aid Injury), or Unclassified.';
 
 -- =====================================================
--- Step 4: Create a check constraint to prevent future incorrect data
+-- Step 5: Create a check constraint to prevent future incorrect data
 -- (Optional - uncomment if you want to enforce this at DB level)
 -- =====================================================
 -- ALTER TABLE incidents 

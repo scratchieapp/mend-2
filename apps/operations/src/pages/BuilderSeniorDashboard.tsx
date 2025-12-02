@@ -22,13 +22,13 @@ const BuilderSeniorDashboard = () => {
   });
 
   const [selectedMonth, setSelectedMonth] = useState(() => {
-    // Default to last month
-    return format(subMonths(startOfMonth(new Date()), 1), 'yyyy-MM');
+    // Default to current month
+    return format(startOfMonth(new Date()), 'yyyy-MM');
   });
   
-  // Generate last 12 months for the dropdown
+  // Generate current month + last 11 months for the dropdown (12 total)
   const monthOptions = Array.from({ length: 12 }, (_, i) => {
-    const date = subMonths(startOfMonth(new Date()), i + 1);
+    const date = subMonths(startOfMonth(new Date()), i);
     return {
       value: format(date, 'yyyy-MM'),
       label: format(date, 'MMMM yyyy')

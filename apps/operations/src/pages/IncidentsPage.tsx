@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { PlusCircle, Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { IncidentsList } from "@/components/dashboard/IncidentsList";
+import { IncidentsChart } from "@/components/incidents/IncidentsChart";
 import { useEmployerContext } from "@/hooks/useEmployerContext";
 import { useAuth } from "@/lib/auth/AuthContext";
 
@@ -38,10 +39,13 @@ export default function IncidentsPage() {
         </div>
       </div>
 
+      {/* Incidents Chart */}
+      <IncidentsChart employerId={employerId} />
+
       {/* Incidents List */}
       <IncidentsList 
         selectedEmployerId={employerId}
-        maxHeight="calc(100vh - 250px)"
+        maxHeight="calc(100vh - 550px)"
       />
     </div>
   );

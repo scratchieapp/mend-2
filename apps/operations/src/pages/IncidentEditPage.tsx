@@ -580,7 +580,7 @@ const IncidentEditPage = () => {
       toast.success('Incident updated successfully');
       setShowSuccessDialog(true);
       setTimeout(() => {
-        navigate('/dashboard', { 
+        navigate('/incidents', { 
           state: { 
             justUpdatedIncident: true, 
             incidentId: data.incidentId 
@@ -679,7 +679,7 @@ const IncidentEditPage = () => {
     },
     onSuccess: () => {
       toast.success('Incident archived successfully');
-      navigate('/dashboard');
+      navigate('/incidents');
     },
     onError: () => {
       toast.error('Failed to archive incident');
@@ -714,7 +714,7 @@ const IncidentEditPage = () => {
     },
     onSuccess: () => {
       toast.success('Incident deleted successfully');
-      navigate('/dashboard');
+      navigate('/incidents');
     },
     onError: () => {
       toast.error('Failed to delete incident');
@@ -772,9 +772,9 @@ const IncidentEditPage = () => {
         </Alert>
         <Button 
           className="mt-4" 
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate('/incidents')}
         >
-          Return to Dashboard
+          Return to Incidents
         </Button>
       </div>
     );
@@ -856,10 +856,10 @@ const IncidentEditPage = () => {
                 
                 <Button
                   variant="outline"
-                  onClick={() => navigate('/dashboard')}
+                  onClick={() => navigate('/incidents')}
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Dashboard
+                  Back to Incidents
                 </Button>
               </div>
             </div>
