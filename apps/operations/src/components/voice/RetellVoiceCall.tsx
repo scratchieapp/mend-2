@@ -190,7 +190,7 @@ export function RetellVoiceCall({
       });
 
       client.on('update', (update: any) => {
-        if (update.transcript) {
+        if (update.transcript && typeof update.transcript === 'string') {
           // Get the last few sentences
           const sentences = update.transcript.split(/[.!?]+/).filter(Boolean).slice(-3);
           setTranscript(sentences);
