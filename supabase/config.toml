@@ -6,3 +6,9 @@ project_id = "rkzcybthcszeusrohbtc"
 enabled = true
 # Your Clerk domain (without https://)
 domain = "clerk.mendplatform.au"
+
+# Edge Function configurations
+# Disable JWT verification for functions that need to be called from browsers
+# without requiring Supabase Auth (using Clerk instead)
+[functions.create-web-call]
+verify_jwt = false

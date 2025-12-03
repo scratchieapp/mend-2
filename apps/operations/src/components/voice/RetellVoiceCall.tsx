@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Phone, PhoneOff, Mic, MicOff, Volume2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
 
 // Retell Web SDK types
 interface RetellWebClient {
@@ -120,39 +119,44 @@ export function RetellVoiceCall({
       console.log('[VoiceCall] Calling create-web-call edge function...');
       const startTime = Date.now();
       
-      // Use supabase-js invoke but force Authorization header with Anon Key
-      // This ensures we bypass any potential Clerk token issues at the Gateway level
+      // Use direct fetch with proper headers
+      // The Supabase Edge Function requires Authorization header with a valid JWT
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
       
-      const { data: responseData, error: functionError } = await supabase.functions.invoke('create-web-call', {
-        body: requestBody,
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Supabase configuration missing');
+      }
+      
+      console.log('[VoiceCall] Making request to:', `${supabaseUrl}/functions/v1/create-web-call`);
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/create-web-call`, {
+        method: 'POST',
         headers: {
-          // Explicitly set the Authorization header to the Anon Key
-          Authorization: `Bearer ${supabaseAnonKey}`
-        }
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'apikey': supabaseAnonKey,
+        },
+        body: JSON.stringify(requestBody),
       });
 
       const elapsed = Date.now() - startTime;
+      console.log(`[VoiceCall] Edge function response: ${response.status} (${elapsed}ms)`);
 
-      if (functionError) {
-        console.error('[VoiceCall] Edge function error:', functionError);
-        
-        // Parse error body if available
-        let errorMessage = functionError.message;
-        if (functionError instanceof Error && 'context' in functionError) {
-             // @ts-ignore - supabase error context might have more info
-             const context = functionError.context;
-             if (context && typeof context === 'object' && 'json' in context) {
-                 try {
-                     const json = await context.json();
-                     if (json.error) errorMessage = json.error;
-                 } catch (e) { /* ignore */ }
-             }
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+          console.error('[VoiceCall] Edge function error response:', errorData);
+        } catch {
+          const errorText = await response.text().catch(() => '');
+          console.error('[VoiceCall] Edge function error text:', errorText);
+          if (errorText) errorMessage = errorText;
         }
-        
-        throw new Error(errorMessage || 'Failed to create web call');
+        throw new Error(errorMessage);
       }
 
+      const responseData = await response.json();
       console.log(`[VoiceCall] Edge function success (${elapsed}ms)`);
       const { access_token, call_id, diagnostics } = responseData;
       
