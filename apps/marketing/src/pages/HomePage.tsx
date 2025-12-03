@@ -177,13 +177,13 @@ const HomePage = () => {
             </div>
             
             <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
-              Stop Losing 25% of Your Workforce to 
+              Stop Sacrificing 25% of Your Productivity to
               <span className="text-blue-600"> Paperwork</span>
             </h1>
             
             <p className="text-xl text-gray-600 mb-8">
-              While your team drowns in compliance documentation, premiums increase 8% annually, 
-              and return-to-work rates plummet to 84%. There's a better way.
+              Your team is drowning in compliance documentation while premiums rise 8% annually. 
+              Automate the chaos, protect your margins, and get your workers back on site faster.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
