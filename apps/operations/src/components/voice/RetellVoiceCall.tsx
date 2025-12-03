@@ -122,7 +122,6 @@ export function RetellVoiceCall({
       
       // Use manual fetch with Anon Key to ensure reliable connection
       // This bypasses potential issues with the supabase-js client token handling
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
       if (!supabaseUrl || !supabaseAnonKey) {
