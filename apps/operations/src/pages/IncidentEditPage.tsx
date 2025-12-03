@@ -553,6 +553,7 @@ const IncidentEditPage = () => {
       // Log activity if there were changes
       if (changes.length > 0) {
         const userName = userData?.custom_display_name || userData?.display_name || userData?.email || 'Unknown User';
+        const userRole = userData?.role?.role_label || userData?.role?.role_name || 'User';
         const changeDescriptions = changes.map(c => {
           const label = fieldLabels[c.field] || c.field;
           return `${label}`;
@@ -569,6 +570,7 @@ const IncidentEditPage = () => {
             summary: 'Incident Updated',
             details: description,
             actor_name: userName,
+            actor_role: userRole,
             actor_id: userData?.user_id || null,
             metadata: {
               changes: changes.map(c => ({

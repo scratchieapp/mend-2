@@ -166,27 +166,27 @@ const IncidentRow = React.memo(({
       )}
       onClick={() => onView(incident.incident_id)}
     >
-      <TableCell onClick={(e) => e.stopPropagation()}>
+      <TableCell className="w-[40px]" onClick={(e) => e.stopPropagation()}>
         <Checkbox
           checked={isSelected}
           onCheckedChange={() => onToggleSelect(incident.incident_id)}
           aria-label={`Select incident ${incident.incident_number}`}
         />
       </TableCell>
-      <TableCell className="font-medium">
+      <TableCell className="w-[130px] font-medium">
         {incident.incident_number || `INC-${incident.incident_id}`}
       </TableCell>
-      <TableCell>
+      <TableCell className="w-[90px]">
         {incident.date_of_injury ? format(parseISO(incident.date_of_injury), 'MMM d, yyyy') : 'N/A'}
       </TableCell>
-      <TableCell>{incident.worker_name || '—'}</TableCell>
-      <TableCell className={isInjuryTypeMisclassified ? 'text-amber-600' : ''}>
+      <TableCell className="w-[120px] truncate">{incident.worker_name || '—'}</TableCell>
+      <TableCell className={cn("w-[110px]", isInjuryTypeMisclassified ? 'text-amber-600' : '')}>
         {displayInjuryType}
         {isInjuryTypeMisclassified && (
           <span className="ml-1 text-xs" title="This value appears to be a classification, not an injury type">⚠</span>
         )}
       </TableCell>
-      <TableCell>
+      <TableCell className="w-[110px]">
         <Badge 
           className={`${classificationInfo.color} cursor-help`}
           title={classificationInfo.tooltip}
@@ -194,9 +194,9 @@ const IncidentRow = React.memo(({
           {classificationInfo.display}
         </Badge>
       </TableCell>
-      <TableCell>{incident.site_name || 'N/A'}</TableCell>
-      <TableCell>{incident.employer_name || 'N/A'}</TableCell>
-      <TableCell>
+      <TableCell className="w-[140px] truncate">{incident.site_name || 'N/A'}</TableCell>
+      <TableCell className="w-[150px] truncate">{incident.employer_name || 'N/A'}</TableCell>
+      <TableCell className="w-[100px]">
         <Badge className={getStatusColor(incident.incident_status)}>
           {isVoiceAgentIncident && <Bot className="h-3 w-3 mr-1" />}
           {incident.incident_status || 'Open'}
@@ -695,14 +695,14 @@ export function IncidentsList({
                     aria-label="Select all"
                   />
                 </TableHead>
-                <TableHead className="w-[120px]">Incident #</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Worker</TableHead>
-                <TableHead title="Type of injury (e.g., Fracture, Abrasion, Strain)">Injury Type</TableHead>
-                <TableHead title="Severity classification (LTI, MTI, FAI)">Classification</TableHead>
-                <TableHead>Site</TableHead>
-                <TableHead>Employer</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead className="w-[130px]">Incident #</TableHead>
+                <TableHead className="w-[90px]">Date</TableHead>
+                <TableHead className="w-[120px]">Worker</TableHead>
+                <TableHead className="w-[110px]" title="Type of injury (e.g., Fracture, Abrasion, Strain)">Injury Type</TableHead>
+                <TableHead className="w-[110px]" title="Severity classification (LTI, MTI, FAI)">Classification</TableHead>
+                <TableHead className="w-[140px]">Site</TableHead>
+                <TableHead className="w-[150px]">Employer</TableHead>
+                <TableHead className="w-[100px]">Status</TableHead>
               </TableRow>
             </TableHeader>
             {isLoading ? renderSkeleton() : (

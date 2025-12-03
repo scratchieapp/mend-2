@@ -15,6 +15,7 @@ export interface ActivityLogEntry {
   description?: string;
   created_at: string;
   created_by: string;
+  created_by_role?: string;
   metadata?: Record<string, string>;
 }
 
@@ -131,7 +132,12 @@ export function IncidentActivityLog({ activities }: IncidentActivityLogProps) {
               
               <div className="flex items-center gap-1 mt-1.5 text-xs text-muted-foreground">
                 <User className="h-3 w-3" />
-                <span>{activity.created_by}</span>
+                <span>
+                  {activity.created_by_role && activity.created_by !== 'System' 
+                    ? `${activity.created_by_role} - ${activity.created_by}`
+                    : activity.created_by
+                  }
+                </span>
                 <span className="mx-1">•</span>
                 <span>{format(new Date(activity.created_at), 'MMM d, h:mm a')}</span>
               </div>

@@ -225,14 +225,36 @@ export function BodyInjuryViewer({
           
           {/* Visual indicator for orientation */}
           {isFront && (
-            <text x="100" y="20" textAnchor="middle" className="text-[8px] fill-slate-400">
-              R ←  → L
-            </text>
+            <>
+              {/* Face outline for front view */}
+              <ellipse cx="100" cy="30" rx="12" ry="14" fill="none" stroke="#94a3b8" strokeWidth="0.5" />
+              {/* Eyes */}
+              <circle cx="94" cy="28" r="2" fill="#94a3b8" />
+              <circle cx="106" cy="28" r="2" fill="#94a3b8" />
+              {/* Nose */}
+              <path d="M100 30 L98 35 L102 35 Z" fill="none" stroke="#94a3b8" strokeWidth="0.5" />
+              {/* Mouth */}
+              <path d="M95 39 Q100 42 105 39" fill="none" stroke="#94a3b8" strokeWidth="0.5" />
+              <text x="100" y="16" textAnchor="middle" className="text-[8px] fill-slate-400 font-medium">
+                FRONT
+              </text>
+              <text x="40" y="35" textAnchor="middle" className="text-[7px] fill-slate-500">R</text>
+              <text x="160" y="35" textAnchor="middle" className="text-[7px] fill-slate-500">L</text>
+            </>
           )}
           {!isFront && (
-            <text x="100" y="20" textAnchor="middle" className="text-[8px] fill-slate-400">
-              L ←  → R
-            </text>
+            <>
+              {/* Hair/back of head for back view */}
+              <ellipse cx="100" cy="30" rx="14" ry="16" fill="none" stroke="#94a3b8" strokeWidth="0.5" />
+              {/* Hair lines */}
+              <path d="M88 25 Q90 18 100 16 Q110 18 112 25" fill="none" stroke="#94a3b8" strokeWidth="0.8" />
+              <path d="M90 28 Q95 22 100 20 Q105 22 110 28" fill="none" stroke="#94a3b8" strokeWidth="0.5" />
+              <text x="100" y="14" textAnchor="middle" className="text-[8px] fill-slate-400 font-medium">
+                BACK
+              </text>
+              <text x="40" y="35" textAnchor="middle" className="text-[7px] fill-slate-500">L</text>
+              <text x="160" y="35" textAnchor="middle" className="text-[7px] fill-slate-500">R</text>
+            </>
           )}
         </g>
         

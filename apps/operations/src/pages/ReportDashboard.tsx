@@ -142,27 +142,25 @@ const ReportDashboard = () => {
   };
 
   // Fetch quick stats for the selected month using the RBAC-aware RPC (same as IncidentsChart)
+  // For Mend staff with no employer selected, show ALL incidents across the system
   const { data: quickStats, isLoading: isLoadingStats } = useQuery({
-    queryKey: ['quick-stats', effectiveEmployerId, selectedMonth],
+    queryKey: ['quick-stats', effectiveEmployerId, selectedMonth, isMendUser],
     queryFn: async () => {
-      if (!effectiveEmployerId) {
-        return null;
-      }
-      
       const monthStart = `${selectedMonth}-01`;
       const monthEnd = new Date(Number(selectedMonth.split('-')[0]), Number(selectedMonth.split('-')[1]), 0);
       const monthEndStr = format(monthEnd, 'yyyy-MM-dd');
       
       // Use get_dashboard_data RPC (same as IncidentsChart) - this bypasses RLS issues
+      // Pass null employer_id to get ALL data for Mend staff
       const { data: dashboardData, error: incError } = await supabase.rpc('get_dashboard_data', {
         page_size: 1000,
         page_offset: 0,
-        filter_employer_id: effectiveEmployerId,
+        filter_employer_id: effectiveEmployerId || null, // null = all employers for Mend staff
         filter_worker_id: null,
         filter_start_date: monthStart,
         filter_end_date: monthEndStr,
         user_role_id: userData?.role_id || 5,
-        user_employer_id: effectiveEmployerId,
+        user_employer_id: effectiveEmployerId || (isMendUser ? null : userEmployerId),
         filter_archive_status: 'active'
       });
       
@@ -173,11 +171,17 @@ const ReportDashboard = () => {
       const incidents = dashboardData?.incidents || [];
       
       // Fetch hours worked for the month
-      const { data: hours, error: hoursError } = await supabase
+      // If no employer selected (Mend staff viewing all), get all hours
+      let hoursQuery = supabase
         .from('hours_worked')
         .select('employer_hours, subcontractor_hours')
-        .eq('employer_id', effectiveEmployerId)
         .eq('month', monthStart);
+      
+      if (effectiveEmployerId) {
+        hoursQuery = hoursQuery.eq('employer_id', effectiveEmployerId);
+      }
+      
+      const { data: hours, error: hoursError } = await hoursQuery;
       
       if (hoursError) {
         console.error('[ReportDashboard] Error fetching hours:', hoursError);
@@ -214,7 +218,7 @@ const ReportDashboard = () => {
         ltifr: ltifr.toFixed(1),
       };
     },
-    enabled: !!effectiveEmployerId,
+    enabled: isMendUser || !!effectiveEmployerId, // Enable for Mend staff even without employer selected
   });
 
   // Check hours completion status for last 3 completed months
@@ -528,61 +532,26 @@ const ReportDashboard = () => {
         )}
       </div>
 
-      {/* Hours Entry Card - Green if complete, Amber if missing */}
-      <Card className={hoursStatus?.complete 
-        ? "border-green-200 bg-green-50/50 dark:bg-green-950/20 dark:border-green-900"
-        : "border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900"
-      }>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2">
-            {hoursStatus?.complete ? (
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
-            ) : (
-              <AlertCircle className="h-5 w-5 text-amber-600" />
-            )}
-            Hours Worked Entry
-            {hoursStatus?.complete && (
-              <span className="text-xs font-normal text-green-600 ml-2">✓ Complete</span>
-            )}
-          </CardTitle>
-          <CardDescription>
-            {hoursStatus?.complete 
-              ? "All sites have hours entered for the last 3 months"
-              : "Accurate hours data is essential for meaningful frequency rate calculations"
-            }
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            {hoursStatus?.complete ? (
-              <p className="text-sm text-green-700 dark:text-green-400">
-                All {sites.length} sites have hours recorded for the last 3 completed months.
-              </p>
-            ) : (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  Hours worked form the denominator for LTIFR, TRIFR, and MTIFR calculations. 
-                  {hoursStatus?.missing ? ` Missing ${hoursStatus.missing} of ${hoursStatus.total} site-months.` : ''}
-                </p>
-                <p className="text-xs text-amber-700 dark:text-amber-400">
-                  💡 Tip: Enter hours monthly for each site to keep your reports accurate.
-                </p>
-              </>
-            )}
+      {/* Hours Entry - Minimized inline prompt */}
+      {effectiveEmployerId && !hoursStatus?.complete && (
+        <div className="flex items-center justify-between p-3 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+            <p className="text-sm text-muted-foreground">
+              {hoursStatus?.missing ? `${hoursStatus.missing} site-months missing hours data.` : 'Hours data needed for accurate LTIFR calculations.'}
+            </p>
           </div>
           <Button 
-            variant="outline" 
-            className={hoursStatus?.complete 
-              ? "shrink-0 border-green-300 hover:bg-green-100 dark:border-green-800 dark:hover:bg-green-900/50"
-              : "shrink-0 border-amber-300 hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900/50"
-            }
+            variant="ghost" 
+            size="sm"
+            className="shrink-0 text-amber-700 hover:text-amber-800 hover:bg-amber-100"
             onClick={() => navigate('/hours-management')}
           >
-            <Clock className="h-4 w-4 mr-2" />
-            {hoursStatus?.complete ? 'View Hours' : 'Enter Hours'}
+            <Clock className="h-4 w-4 mr-1" />
+            Enter Hours
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      )}
 
       {/* Quick Stats Preview */}
       <Card>
@@ -592,7 +561,7 @@ const ReportDashboard = () => {
             Quick Overview
           </CardTitle>
           <CardDescription>
-            {format(new Date(selectedMonth), "MMMM yyyy")} snapshot for {employerName}
+            {format(new Date(selectedMonth), "MMMM yyyy")} snapshot for {effectiveEmployerId ? employerName : 'All Companies'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -603,27 +572,27 @@ const ReportDashboard = () => {
             </div>
             <div className="p-4 bg-secondary rounded-lg text-center">
               <p className="text-2xl font-bold">
-                {isLoadingStats ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : quickStats?.totalIncidents ?? '—'}
+                {isLoadingStats ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : quickStats?.totalIncidents ?? 0}
               </p>
               <p className="text-sm text-muted-foreground">Total Incidents</p>
             </div>
             <div className="p-4 bg-secondary rounded-lg text-center">
               <p className={`text-2xl font-bold ${quickStats?.ltifr && Number(quickStats.ltifr) > 4 ? 'text-red-600' : ''}`}>
-                {isLoadingStats ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : quickStats?.ltifr ?? '—'}
+                {isLoadingStats ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : quickStats?.ltifr ?? '0.0'}
               </p>
               <p className="text-sm text-muted-foreground">Current LTIFR</p>
             </div>
             <div className="p-4 bg-secondary rounded-lg text-center">
               <p className="text-2xl font-bold">
                 {isLoadingStats ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : 
-                  quickStats?.totalHours ? quickStats.totalHours.toLocaleString() : '—'}
+                  quickStats?.totalHours ? quickStats.totalHours.toLocaleString() : '0'}
               </p>
               <p className="text-sm text-muted-foreground">Hours Worked</p>
             </div>
           </div>
-          {quickStats?.totalHours === 0 && (
+          {quickStats?.totalHours === 0 && effectiveEmployerId && (
             <p className="text-xs text-amber-600 mt-4 text-center">
-              ⚠️ No hours recorded for this month. <Link to="/builder/hours-management" className="underline">Enter hours</Link> to enable LTIFR calculations.
+              ⚠️ No hours recorded for this month. <Link to="/hours-management" className="underline">Enter hours</Link> to enable LTIFR calculations.
             </p>
           )}
         </CardContent>

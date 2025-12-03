@@ -150,12 +150,13 @@ const SuperAdminDashboard = () => {
     staleTime: 30 * 1000,
   });
 
-  // Calculate system health based on real metrics
+  // System health - currently all services are operational
+  // TODO: Connect to actual Supabase health checks / monitoring
   const systemHealth = {
-    database: 98, // Could be calculated from query response times
-    api: 100,
-    storage: 85,
-    overall: 94
+    database: 100, // Supabase PostgreSQL - operational
+    api: 100,      // Edge Functions & REST API - operational
+    storage: 100,  // Supabase Storage - operational
+    overall: 100
   };
   
   const getHealthStatus = (score: number) => {

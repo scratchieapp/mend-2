@@ -248,6 +248,7 @@ const IncidentDetailsPage = () => {
         description: item.details || undefined,
         created_at: item.created_at,
         created_by: item.actor_name || 'System',
+        created_by_role: item.actor_role || undefined,
         metadata: item.metadata as Record<string, string> | undefined,
       }));
       
@@ -273,6 +274,7 @@ const IncidentDetailsPage = () => {
   const addActivityMutation = useMutation({
     mutationFn: async (activity: typeof newActivity) => {
       const userName = userData?.custom_display_name || userData?.display_name || userData?.email || 'Unknown User';
+      const userRole = userData?.role?.role_label || userData?.role?.role_name || 'User';
       
       const { error } = await supabase
         .from('incident_activity_log')
@@ -282,6 +284,7 @@ const IncidentDetailsPage = () => {
           summary: activity.title,
           details: activity.description || null,
           actor_name: userName,
+          actor_role: userRole,
           actor_id: userData?.user_id || null,
           metadata: Object.keys(activity.metadata).length > 0 ? activity.metadata : null,
         });
@@ -829,7 +832,7 @@ const IncidentDetailsPage = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div>
+                <div className="text-center">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Reported</p>
                   <p className="text-sm font-medium mt-1">
                     {incident?.date_reported_to_site 
@@ -839,7 +842,7 @@ const IncidentDetailsPage = () => {
                         : 'Not specified'}
                   </p>
                 </div>
-                <div>
+                <div className="text-center">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Reported By</p>
                   <p className="text-sm font-medium mt-1">{incident?.notifying_person_name || 'Not specified'}</p>
                   {incident?.notifying_person_position && (
@@ -847,11 +850,11 @@ const IncidentDetailsPage = () => {
                   )}
                 </div>
                 {incident?.notifying_person_telephone && (
-                  <div>
+                  <div className="text-center">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact Number</p>
                     <a 
                       href={`tel:${incident.notifying_person_telephone}`}
-                      className="text-sm font-medium text-primary hover:underline flex items-center gap-1 mt-1"
+                      className="text-sm font-medium text-primary hover:underline inline-flex items-center gap-1 mt-1"
                     >
                       <Phone className="h-3 w-3" />
                       {incident.notifying_person_telephone}
@@ -859,7 +862,7 @@ const IncidentDetailsPage = () => {
                   </div>
                 )}
                 {incident?.witness && (
-                  <div>
+                  <div className="text-center">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Witness</p>
                     <p className="text-sm font-medium mt-1">{incident.witness}</p>
                   </div>
