@@ -378,34 +378,6 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Final CTA Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-blue-700 py-16">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Ready to Transform Your Safety Management?
-          </h2>
-          <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-            Join 47 construction companies that have already reduced incidents by 35% and saved millions in workers' comp costs.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button 
-              onClick={handleBookDemo}
-              className="px-8 py-4 bg-white text-blue-600 rounded-lg text-lg font-medium hover:bg-gray-100 transition-colors"
-            >
-              Book Your Free Demo
-            </button>
-            <button 
-              onClick={() => handleLoginClick('final-cta')}
-              className="px-8 py-4 bg-blue-800 text-white rounded-lg text-lg font-medium hover:bg-blue-900 transition-colors"
-            >
-              Access Platform Now
-            </button>
-          </div>
-          <p className="text-sm text-blue-200 mt-6">
-            No credit card required • 14-day free trial • Cancel anytime
-          </p>
-        </div>
-      </section>
 
       {/* Footer */}
       <footer className="bg-gray-900 text-gray-300 py-12">
