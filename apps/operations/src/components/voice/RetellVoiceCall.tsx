@@ -120,32 +120,45 @@ export function RetellVoiceCall({
       console.log('[VoiceCall] Calling create-web-call edge function...');
       const startTime = Date.now();
       
-      const { data: responseData, error: functionError } = await supabase.functions.invoke('create-web-call', {
-        body: requestBody
+      // Use manual fetch with Anon Key to ensure reliable connection
+      // This bypasses potential issues with the supabase-js client token handling
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Supabase configuration missing');
+      }
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/create-web-call`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'apikey': supabaseAnonKey
+        },
+        body: JSON.stringify(requestBody)
       });
 
       const elapsed = Date.now() - startTime;
+      console.log(`[VoiceCall] Edge function response: ${response.status} (${elapsed}ms)`);
 
-      if (functionError) {
-        console.error('[VoiceCall] Edge function error:', functionError);
-        
-        // Parse error body if available
-        let errorMessage = functionError.message;
-        if (functionError instanceof Error && 'context' in functionError) {
-             // @ts-ignore - supabase error context might have more info
-             const context = functionError.context;
-             if (context && typeof context === 'object' && 'json' in context) {
-                 try {
-                     const json = await context.json();
-                     if (json.error) errorMessage = json.error;
-                 } catch (e) { /* ignore */ }
-             }
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText || `HTTP ${response.status}` };
         }
-        
-        throw new Error(errorMessage || 'Failed to create web call');
+        console.error('[VoiceCall] Edge function error:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+        });
+        throw new Error(errorData.error || errorData.message || `Failed to create web call (HTTP ${response.status})`);
       }
 
-      console.log(`[VoiceCall] Edge function success (${elapsed}ms)`);
+      const responseData = await response.json();
       const { access_token, call_id, diagnostics } = responseData;
       
       console.log('[VoiceCall] Web call created:', {
