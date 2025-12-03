@@ -204,18 +204,27 @@ const HomePage = () => {
             </div>
 
             {/* Trust Signals */}
-            <div className="flex justify-center items-center gap-8 text-gray-500 text-sm">
-              <div className="flex items-center gap-2">
-                <Building className="w-5 h-5" />
-                <span>47 Construction Companies</span>
+            <div className="mt-12 pt-8 border-t border-gray-200 grid grid-cols-1 sm:grid-cols-3 gap-8">
+              <div className="flex flex-col items-center justify-center text-center">
+                <span className="text-3xl font-bold text-gray-900 mb-1">47</span>
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Building className="w-4 h-4" />
+                  <span>Construction Companies</span>
+                </div>
               </div>
-              <div className="hidden sm:flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                <span>12,000+ Workers Protected</span>
+              <div className="flex flex-col items-center justify-center text-center">
+                <span className="text-3xl font-bold text-gray-900 mb-1">12,000+</span>
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Users className="w-4 h-4" />
+                  <span>Workers Protected</span>
+                </div>
               </div>
-              <div className="hidden md:flex items-center gap-2">
-                <DollarSign className="w-5 h-5" />
-                <span>$8.3M Premiums Saved</span>
+              <div className="flex flex-col items-center justify-center text-center">
+                <span className="text-3xl font-bold text-gray-900 mb-1">$8.3M</span>
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <DollarSign className="w-4 h-4" />
+                  <span>Premiums Saved</span>
+                </div>
               </div>
             </div>
           </div>
@@ -235,7 +244,7 @@ const HomePage = () => {
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-red-50 rounded-xl p-8 border border-red-200">
+            <div className="bg-red-50 rounded-xl p-8 border border-red-200 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
               <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mb-4">
                 <Clock className="w-6 h-6 text-red-600" />
               </div>
@@ -259,7 +268,7 @@ const HomePage = () => {
               </ul>
             </div>
 
-            <div className="bg-amber-50 rounded-xl p-8 border border-amber-200">
+            <div className="bg-amber-50 rounded-xl p-8 border border-amber-200 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
               <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center mb-4">
                 <TrendingDown className="w-6 h-6 text-amber-600" />
               </div>
@@ -283,7 +292,7 @@ const HomePage = () => {
               </ul>
             </div>
 
-            <div className="bg-purple-50 rounded-xl p-8 border border-purple-200">
+            <div className="bg-purple-50 rounded-xl p-8 border border-purple-200 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
               <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
                 <DollarSign className="w-6 h-6 text-purple-600" />
               </div>

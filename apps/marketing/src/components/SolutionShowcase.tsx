@@ -292,7 +292,7 @@ const SolutionShowcase = () => {
         </div>
 
         {/* Key Benefits Summary */}
-        <div className="mt-16 grid md:grid-cols-4 gap-8">
+        <div className="mt-16 grid md:grid-cols-4 gap-8 bg-white p-8 rounded-xl shadow-sm border border-gray-100">
           <div className="text-center">
             <div className="w-16 h-16 bg-green-100 rounded-xl flex items-center justify-center mx-auto mb-4">
               <Clock className="w-8 h-8 text-green-600" />
